@@ -31,37 +31,35 @@ RUN apt-get update && apt-get install -y \
 # Composerのインストール
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# アプリケーションファイルのコピー
 WORKDIR /var/www/html
+
+# プロジェクトファイルのコピー
 COPY . .
 
-# Composerの依存関係インストール
-RUN composer install --no-dev --optimize-autoloader
+# 依存関係のインストール
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
 
 # キャッシュクリアとルート最適化
 RUN php artisan config:cache \
     && php artisan view:cache
 
-# route:cacheは一時的に無効化
-# && php artisan route:cache \
+# Nginxの設定
+RUN rm -f /etc/nginx/sites-enabled/default \
+    && rm -f /etc/nginx/sites-available/default
 
 # Nginxの設定ファイルをコピー
 COPY docker/nginx/nginx.conf /etc/nginx/sites-available/default
 RUN ln -s /etc/nginx/sites-available/default /etc/nginx/sites-enabled/
-RUN chown -R www-data:www-data /var/www/html/storage
 
-# ストレージディレクトリの作成と権限設定
-RUN mkdir -p /var/www/html/storage/logs \
-    && mkdir -p /var/www/html/storage/framework/sessions \
-    && mkdir -p /var/www/html/storage/framework/views \
-    && mkdir -p /var/www/html/storage/framework/cache \
-    && chown -R www-data:www-data /var/www/html/storage \
-    && chmod -R 775 /var/www/html/storage
+# 権限の設定
+RUN chown -R www-data:www-data /var/www/html/storage \
+    && chown -R www-data:www-data /var/www/html/bootstrap/cache
 
 # ポート設定
 EXPOSE 8080
 
-# 起動スクリプト
+# 起動スクリプトのコピーと実行
 COPY docker/start.sh /usr/local/bin/start.sh
 RUN chmod +x /usr/local/bin/start.sh
+
 CMD ["/usr/local/bin/start.sh"]

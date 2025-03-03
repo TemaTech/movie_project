@@ -10,15 +10,15 @@ RUN export NODE_OPTIONS=--openssl-legacy-provider && \
 # PHP 8.2に更新
 FROM php:8.2-apache
 
-# 必要なパッケージのインストール
+# 必要なパッケージのインストール（PostgreSQL関連を追加）
 RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     git \
     libpq-dev
 
-# PHP拡張のインストール
-RUN docker-php-ext-install pdo pdo_mysql pdo_pgsql opcache
+# PHP拡張のインストール（pdo_pgsqlを追加）
+RUN docker-php-ext-install pdo pdo_pgsql opcache
 
 # Apacheの設定変更
 RUN sed -i 's/80/8080/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
@@ -31,9 +31,11 @@ COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
 # アプリケーションのセットアップ
 WORKDIR /var/www/html
 COPY . ./
+COPY .env.example ./.env
 COPY --from=node-builder /app/public/build ./public/build
 
 RUN composer install --no-dev --optimize-autoloader
+RUN php artisan key:generate
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
 # Apacheのmod_rewriteを有効化

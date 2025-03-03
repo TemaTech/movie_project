@@ -40,8 +40,10 @@ RUN composer install --no-dev --optimize-autoloader
 
 # キャッシュクリアとルート最適化
 RUN php artisan config:cache \
-    && php artisan route:cache \
     && php artisan view:cache
+
+# route:cacheは一時的に無効化
+# && php artisan route:cache \
 
 # Nginxの設定ファイルをコピー
 COPY docker/nginx/nginx.conf /etc/nginx/sites-available/default

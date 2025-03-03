@@ -13,34 +13,26 @@ class MovieController extends Controller
     {
         try {
             $api_key = config('services.tmdb.api_key');
-            Log::info('APIキーを使用: ' . $api_key);
+            
+            // APIキーの確認
+            dd('API Key:', $api_key);  // ここで処理が止まり、値が表示されます
 
-            // 世界の映画を取得
             $response = Http::get('https://api.themoviedb.org/3/discover/movie', [
                 'api_key' => $api_key,
                 'sort_by' => 'revenue.desc',
                 'language' => 'ja',
-                'page' => 1  // テスト用に1ページだけ
+                'page' => 1
             ]);
 
             if ($response->successful()) {
                 $movies = $response->json()['results'];
-                Log::info('映画データを取得: ' . count($movies) . '件');
-
+                
                 foreach ($movies as $movie) {
                     try {
                         $movieDetails = Http::get("https://api.themoviedb.org/3/movie/{$movie['id']}", [
                             'api_key' => $api_key,
                             'language' => 'ja'
                         ])->json();
-
-                        Log::info('映画詳細: ' . json_encode([
-                            'movie_id' => $movie['id'],
-                            'title' => $movie['title'],
-                            'box_office' => $movieDetails['revenue'] ?? 0,
-                            'budget' => $movieDetails['budget'] ?? 0,
-                            'release_date' => $movie['release_date'] ?? null,
-                        ]));
 
                         $result = Movie::updateOrCreate(
                             ['movie_id' => (string)$movie['id']],
@@ -54,12 +46,8 @@ class MovieController extends Controller
                             ]
                         );
 
-                        Log::info('保存結果: ' . json_encode($result));
-
                     } catch (\Exception $e) {
-                        Log::error('個別の映画保存でエラー: ' . $e->getMessage());
-                        Log::error('Stack trace: ' . $e->getTraceAsString());
-                        continue;  // 次の映画の処理へ
+                        continue;
                     }
                 }
             }
@@ -67,8 +55,6 @@ class MovieController extends Controller
             return redirect()->route('movies.index')->with('success', '映画データを更新しました');
 
         } catch (\Exception $e) {
-            Log::error('エラー発生: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
             return redirect()->route('movies.index')->with('error', 'エラーが発生しました');
         }
     }

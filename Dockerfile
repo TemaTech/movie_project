@@ -1,7 +1,9 @@
 FROM node:16-slim as node-builder
 
 COPY . ./app
-RUN cd /app && npm ci && npm run prod
+WORKDIR /app
+# Viteのビルドコマンドに変更
+RUN npm install && npm run build
 
 FROM php:8.1-apache
 
@@ -26,7 +28,11 @@ COPY --from=composer:2.0 /usr/bin/composer /usr/bin/composer
 # アプリケーションのセットアップ
 WORKDIR /var/www/html
 COPY . ./
-COPY --from=node-builder /app/public ./public
+# Viteのビルド結果をコピー
+COPY --from=node-builder /app/public/build ./public/build
 
 RUN composer install --no-dev --optimize-autoloader
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache 
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Apacheのmod_rewriteを有効化
+RUN a2enmod rewrite 

@@ -8,35 +8,48 @@ RUN export NODE_OPTIONS=--openssl-legacy-provider && \
     npm run build
 
 # PHP 8.2に更新
-FROM php:8.2-apache
+FROM php:8.2-fpm
 
-# 必要なパッケージのインストール（PostgreSQL関連を追加）
+# プロダクション用の最適化
+ENV PHP_OPCACHE_ENABLE=1
+ENV PHP_OPCACHE_ENABLE_CLI=1
+ENV PHP_OPCACHE_VALIDATE_TIMESTAMPS=0
+ENV PHP_OPCACHE_REVALIDATE_FREQ=0
+ENV COMPOSER_ALLOW_SUPERUSER=1
+
+# 必要なパッケージのインストール
 RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    nginx \
+    git \
     zip \
     unzip \
-    git \
-    libpq-dev
+    libzip-dev \
+    && docker-php-ext-install pdo pdo_pgsql opcache zip
 
-# PHP拡張のインストール（pdo_pgsqlを追加）
-RUN docker-php-ext-install pdo pdo_pgsql opcache
+# Composerのインストール
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Apacheの設定変更
-RUN sed -i 's/80/8080/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
-RUN sed -i 's#/var/www/html#/var/www/html/public#g' /etc/apache2/sites-available/000-default.conf
-RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
-
-# Composerのバージョンを2.6に更新
-COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
-
-# アプリケーションのセットアップ
+# アプリケーションファイルのコピー
 WORKDIR /var/www/html
-COPY . ./
-COPY .env.example ./.env
-COPY --from=node-builder /app/public/build ./public/build
+COPY . .
 
+# Composerの依存関係インストール
 RUN composer install --no-dev --optimize-autoloader
-RUN php artisan key:generate
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Apacheのmod_rewriteを有効化
-RUN a2enmod rewrite 
+# キャッシュクリアとルート最適化
+RUN php artisan config:cache \
+    && php artisan route:cache \
+    && php artisan view:cache
+
+# Nginxの設定
+COPY docker/nginx.conf /etc/nginx/sites-available/default
+RUN chown -R www-data:www-data /var/www/html/storage
+
+# ポート設定
+EXPOSE 8080
+
+# 起動スクリプト
+COPY docker/start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
+CMD ["/usr/local/bin/start.sh"]

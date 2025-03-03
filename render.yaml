@@ -9,10 +9,31 @@ services:
       - key: APP_DEBUG
         value: false
       - key: APP_KEY
-        generateValue: true
+        value: base64:mKFOpLqGR6djsYIlFQYEYG/2nC6Gwg9cY2Cd3NaKLcg=
+      - key: APP_URL
+        value: https://movie-ranking-app.onrender.com
       - key: DB_CONNECTION
         value: pgsql
-      - fromGroup: movie-db-settings
+      - key: DB_HOST
+        value: dpg-cv2tmslumphs739v5f30-a
+      - key: DB_PORT
+        value: 5432
+      - key: DB_DATABASE
+        value: movie_db_deap
+      - key: DB_USERNAME
+        value: movie_user
+      - key: DB_PASSWORD
+        value: Pi4oEHiyrAvJ8VCUXi2xANqbczXzqoRC
+      - key: TMDB_API_KEY
+        value: 26e7b323fa7ad8630e7c661e3c1def29
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_LIFETIME
+        value: 120
+      - key: SESSION_SECURE_COOKIE
+        value: true
+      - key: SANCTUM_STATEFUL_DOMAINS
+        value: movie-ranking-app.onrender.com
     healthCheckPath: /
     buildCommand: docker build -t movie-ranking-app .
     startCommand: docker run -p $PORT:8080 movie-ranking-app 

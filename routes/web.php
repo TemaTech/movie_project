@@ -7,5 +7,6 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/movies/fetch', [MovieController::class, 'fetchMovies']);
-Route::get('/movies', [MovieController::class, 'index']);
+// 映画関連のルート
+Route::get('/movies', [MovieController::class, 'index'])->name('movies.index');
+Route::get('/movies/fetch', [MovieController::class, 'fetchMovies'])->name('movies.fetch');

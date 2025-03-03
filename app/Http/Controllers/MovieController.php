@@ -13,48 +13,57 @@ class MovieController extends Controller
     {
         try {
             $api_key = config('services.tmdb.api_key');
-            
-            // APIキーの確認
-            dd('API Key:', $api_key);  // ここで処理が止まり、値が表示されます
+            Log::info('APIキーを使用: ' . $api_key);
 
-            $response = Http::get('https://api.themoviedb.org/3/discover/movie', [
-                'api_key' => $api_key,
-                'sort_by' => 'revenue.desc',
-                'language' => 'ja',
-                'page' => 1
-            ]);
+            // 複数ページを取得するように修正
+            for ($page = 1; $page <= 5; $page++) {  // 5ページ分（100件）取得
+                $response = Http::get('https://api.themoviedb.org/3/discover/movie', [
+                    'api_key' => $api_key,
+                    'sort_by' => 'revenue.desc',
+                    'language' => 'ja',
+                    'page' => $page
+                ]);
 
-            if ($response->successful()) {
-                $movies = $response->json()['results'];
-                
-                foreach ($movies as $movie) {
-                    try {
-                        $movieDetails = Http::get("https://api.themoviedb.org/3/movie/{$movie['id']}", [
-                            'api_key' => $api_key,
-                            'language' => 'ja'
-                        ])->json();
+                if ($response->successful()) {
+                    $movies = $response->json()['results'];
+                    Log::info('映画データを取得: ' . count($movies) . '件 (ページ' . $page . ')');
 
-                        $result = Movie::updateOrCreate(
-                            ['movie_id' => (string)$movie['id']],
-                            [
-                                'title' => $movie['title'],
-                                'box_office' => $movieDetails['revenue'] ?? 0,
-                                'budget' => $movieDetails['budget'] ?? 0,
-                                'release_date' => $movie['release_date'] ?? null,
-                                'region' => 'global',
-                                'genres' => isset($movieDetails['genres']) ? collect($movieDetails['genres'])->pluck('name')->toArray() : []
-                            ]
-                        );
+                    foreach ($movies as $movie) {
+                        try {
+                            $movieDetails = Http::get("https://api.themoviedb.org/3/movie/{$movie['id']}", [
+                                'api_key' => $api_key,
+                                'language' => 'ja'
+                            ])->json();
 
-                    } catch (\Exception $e) {
-                        continue;
+                            Log::info('映画詳細を保存: ' . $movie['title']);
+
+                            $result = Movie::updateOrCreate(
+                                ['movie_id' => (string)$movie['id']],
+                                [
+                                    'title' => $movie['title'],
+                                    'box_office' => $movieDetails['revenue'] ?? 0,
+                                    'budget' => $movieDetails['budget'] ?? 0,
+                                    'release_date' => $movie['release_date'] ?? null,
+                                    'region' => 'global',
+                                    'genres' => isset($movieDetails['genres']) ? collect($movieDetails['genres'])->pluck('name')->toArray() : []
+                                ]
+                            );
+
+                        } catch (\Exception $e) {
+                            Log::error('個別の映画保存でエラー: ' . $e->getMessage());
+                            continue;
+                        }
                     }
                 }
+                
+                // APIレート制限を考慮して少し待機
+                sleep(1);
             }
 
             return redirect()->route('movies.index')->with('success', '映画データを更新しました');
 
         } catch (\Exception $e) {
+            Log::error('エラー発生: ' . $e->getMessage());
             return redirect()->route('movies.index')->with('error', 'エラーが発生しました');
         }
     }
@@ -73,10 +82,10 @@ class MovieController extends Controller
         $globalMovies = Movie::where('region', 'global');
         if ($selectedGenre) {
             $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
-            $globalMovies = $globalMovies->whereRaw("genres::jsonb ? ?", [$searchGenre]);
+            $globalMovies = $globalMovies->whereRaw("genres::jsonb @> ?::jsonb", [json_encode([$searchGenre])]);
         }
         $globalMovies = $globalMovies->orderBy('box_office', 'desc')
-                                    ->paginate(20, ['*'], 'global_page');
+                                    ->paginate(100, ['*'], 'global_page');
 
         // rankを設定し、その他の変換も行う
         $rank = ($globalMovies->currentPage() - 1) * $globalMovies->perPage() + 1;
@@ -96,10 +105,10 @@ class MovieController extends Controller
         $japanMovies = Movie::where('region', 'japan');
         if ($selectedGenre) {
             $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
-            $japanMovies = $japanMovies->whereRaw("genres::jsonb ? ?", [$searchGenre]);
+            $japanMovies = $japanMovies->whereRaw("genres::jsonb @> ?::jsonb", [json_encode([$searchGenre])]);
         }
         $japanMovies = $japanMovies->orderBy('box_office', 'desc')
-                                   ->paginate(20, ['*'], 'japan_page');
+                                   ->paginate(100, ['*'], 'japan_page');
 
         // rankを設定し、その他の変換も行う
         $rank = ($japanMovies->currentPage() - 1) * $japanMovies->perPage() + 1;

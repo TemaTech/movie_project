@@ -1,15 +1,19 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-    <!-- 既存のhead要素 -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>映画データベース</title>
+    
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </head>
 <body>
-    <!-- 既存のコンテンツ -->
-    @yield('content')
-
-    <!-- 以下のスクリプトを</body>タグの直前に追加 -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <div id="app">
+        @yield('content')
+    </div>
 </body>
 </html>

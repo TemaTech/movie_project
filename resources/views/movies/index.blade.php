@@ -288,7 +288,7 @@
 <div class="gradient-bg py-5">
     <div class="container">
         <h1 class="mb-5 text-center fw-bold display-4 animate__animated animate__fadeIn">
-            🎬 映画興行収入ランキング
+            🎬 映画興行収入ランキング_test
         </h1>
 
         <!-- タブナビゲーションの直前に移動 -->

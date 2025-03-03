@@ -46,6 +46,14 @@ RUN php artisan config:cache \
 COPY docker/nginx.conf /etc/nginx/sites-available/default
 RUN chown -R www-data:www-data /var/www/html/storage
 
+# ストレージディレクトリの作成と権限設定
+RUN mkdir -p /var/www/html/storage/logs \
+    && mkdir -p /var/www/html/storage/framework/sessions \
+    && mkdir -p /var/www/html/storage/framework/views \
+    && mkdir -p /var/www/html/storage/framework/cache \
+    && chown -R www-data:www-data /var/www/html/storage \
+    && chmod -R 775 /var/www/html/storage
+
 # ポート設定
 EXPOSE 8080
 

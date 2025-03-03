@@ -3,6 +3,8 @@ set -e
 
 echo "Setting up permissions..."
 chmod -R 777 /var/www/html/storage
+chmod -R 777 /var/www/html/storage/logs
+chmod -R 777 /var/www/html/bootstrap/cache
 
 echo "Configuring PHP-FPM..."
 sed -i 's/listen = \/var\/run\/php-fpm.sock/listen = 127.0.0.1:9000/g' /usr/local/etc/php-fpm.d/www.conf
@@ -14,6 +16,11 @@ echo "Configuring Nginx port..."
 # RenderのPORT環境変数を使用
 export PORT=${PORT:-8080}
 sed -i "s/listen 8080/listen ${PORT}/g" /etc/nginx/sites-available/default
+
+echo "Clearing Laravel cache..."
+php artisan config:clear
+php artisan cache:clear
+php artisan view:clear
 
 echo "Verifying Nginx configuration..."
 nginx -t

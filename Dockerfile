@@ -43,8 +43,9 @@ RUN php artisan config:cache \
     && php artisan route:cache \
     && php artisan view:cache
 
-# Nginxの設定
-COPY docker/nginx.conf /etc/nginx/sites-available/default
+# Nginxの設定ファイルをコピー
+COPY docker/nginx/nginx.conf /etc/nginx/sites-available/default
+RUN ln -s /etc/nginx/sites-available/default /etc/nginx/sites-enabled/
 RUN chown -R www-data:www-data /var/www/html/storage
 
 # ストレージディレクトリの作成と権限設定

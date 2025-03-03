@@ -25,8 +25,8 @@ RUN sed -i 's/80/8080/g' /etc/apache2/sites-available/000-default.conf /etc/apac
 RUN sed -i 's#/var/www/html#/var/www/html/public#g' /etc/apache2/sites-available/000-default.conf
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
-# Composerのインストール
-COPY --from=composer:2.0 /usr/bin/composer /usr/bin/composer
+# Composerのバージョンを2.6に更新
+COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
 
 # アプリケーションのセットアップ
 WORKDIR /var/www/html

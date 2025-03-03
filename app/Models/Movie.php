@@ -23,8 +23,9 @@ class Movie extends Model
         'genres'
     ];
 
-    // ジャンルをJSON形式で保存・取得するための設定
+    // PostgreSQL用にJSON型を明示的に指定
     protected $casts = [
-        'genres' => 'array'
+        'genres' => 'array',
+        'release_date' => 'date'
     ];
 }

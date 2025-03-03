@@ -12,11 +12,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('movies', function (Blueprint $table) {
-            $table->id(); // 自動的に 'id' カラムが主キーとして追加される
-            $table->unsignedBigInteger('movie_id')->unique(); // 映画APIからの映画IDは一意
+            $table->id();
+            $table->string('movie_id')->unique();
             $table->string('title');
-            $table->bigInteger('box_office')->nullable(); // 興行収入はbigIntegerに変更
+            $table->bigInteger('box_office')->default(0);
+            $table->bigInteger('budget')->default(0);
             $table->date('release_date')->nullable();
+            $table->string('region');
+            $table->jsonb('genres')->nullable();
             $table->timestamps();
         });
     }

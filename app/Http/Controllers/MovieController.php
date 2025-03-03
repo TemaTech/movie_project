@@ -12,19 +12,23 @@ class MovieController extends Controller
     public function fetchMovies()
     {
         try {
-            $api_key = config('services.tmdb.api_key'); // APIキーはconfig/services.phpに設定
-    
-            // 世界の映画を取得（5ページ分 = 100件）
+            $api_key = config('services.tmdb.api_key'); // APIキーは.envに設定
+            
+            // APIキーをクエリパラメータとして使用
+            $params = [
+                'api_key' => $api_key,
+                'sort_by' => 'revenue.desc',
+                'language' => 'ja',
+                'include_adult' => false,
+                'include_video' => false,
+                'page' => 1
+            ];
+
+            // 世界の映画を取得
             for ($page = 1; $page <= 5; $page++) {
-                $globalResponse = Http::get("https://api.themoviedb.org/3/discover/movie", [
-                    'api_key' => $api_key,
-                    'sort_by' => 'revenue.desc',
-                    'language' => 'ja',
-                    'include_adult' => false,
-                    'include_video' => false,
-                    'page' => $page
-                ]);
-    
+                $params['page'] = $page;
+                $globalResponse = Http::get('https://api.themoviedb.org/3/discover/movie', $params);
+
                 if ($globalResponse->successful()) {
                     $movies = $globalResponse->json()['results'];
                     
@@ -75,21 +79,18 @@ class MovieController extends Controller
                             'genres' => $genres
                         ]);
                     }
+                } else {
+                    Log::error('API Error: ' . $globalResponse->body());
                 }
             }
     
-            // 日本の映画を取得（5ページ分 = 100件）
+            // 日本の映画を取得（同様に修正）
+            $params['with_original_language'] = 'ja';
+            $params['region'] = 'JP';
+            
             for ($page = 1; $page <= 5; $page++) {
-                $japanResponse = Http::get("https://api.themoviedb.org/3/discover/movie", [
-                    'api_key' => $api_key,
-                    'sort_by' => 'revenue.desc',
-                    'language' => 'ja',
-                    'with_original_language' => 'ja',
-                    'region' => 'japan',
-                    'include_adult' => false,
-                    'include_video' => false,
-                    'page' => $page
-                ]);
+                $params['page'] = $page;
+                $japanResponse = Http::get('https://api.themoviedb.org/3/discover/movie', $params);
     
                 if ($japanResponse->successful()) {
                     $japanMovies = $japanResponse->json()['results'];
@@ -137,11 +138,11 @@ class MovieController extends Controller
                 }
             }
     
-            return redirect('/movies')->with('success', '映画データを更新しました');
+            return true; // リダイレクトではなく、成功を返す
     
         } catch (\Exception $e) {
             Log::error('エラー発生: ' . $e->getMessage());
-            return redirect('/movies')->with('error', 'データの取得に失敗しました: ' . $e->getMessage());
+            throw $e; // エラーを投げて、呼び出し元で処理できるようにする
         }
     }
 
@@ -159,8 +160,7 @@ class MovieController extends Controller
         $globalMovies = Movie::where('region', 'global');
         if ($selectedGenre) {
             $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
-            $escapedGenre = json_encode($searchGenre);
-            $globalMovies = $globalMovies->whereRaw('JSON_CONTAINS(genres, ?)', [$escapedGenre]);
+            $globalMovies = $globalMovies->whereRaw("genres::jsonb ? ?", [$searchGenre]);
         }
         $globalMovies = $globalMovies->orderBy('box_office', 'desc')
                                     ->paginate(20, ['*'], 'global_page');
@@ -183,8 +183,7 @@ class MovieController extends Controller
         $japanMovies = Movie::where('region', 'japan');
         if ($selectedGenre) {
             $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
-            $escapedGenre = json_encode($searchGenre);
-            $japanMovies = $japanMovies->whereRaw('JSON_CONTAINS(genres, ?)', [$escapedGenre]);
+            $japanMovies = $japanMovies->whereRaw("genres::jsonb ? ?", [$searchGenre]);
         }
         $japanMovies = $japanMovies->orderBy('box_office', 'desc')
                                    ->paginate(20, ['*'], 'japan_page');

@@ -25,7 +25,8 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     libzip-dev \
-    && docker-php-ext-install pdo pdo_pgsql opcache zip
+    && docker-php-ext-configure pgsql -with-pgsql=/usr/local/pgsql \
+    && docker-php-ext-install pdo pdo_pgsql pgsql zip opcache
 
 # Composerのインストール
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer

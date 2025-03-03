@@ -4,6 +4,7 @@ set -e
 echo "Setting up permissions..."
 chmod -R 777 /var/www/html/storage
 chmod -R 777 /var/www/html/storage/logs
+chmod -R 777 /var/www/html/storage/framework/sessions
 chmod -R 777 /var/www/html/bootstrap/cache
 
 echo "Configuring PHP-FPM..."

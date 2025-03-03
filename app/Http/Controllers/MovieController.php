@@ -15,57 +15,61 @@ class MovieController extends Controller
             $api_key = config('services.tmdb.api_key');
             Log::info('APIキーを使用: ' . $api_key);
 
-            // まず1件だけAPIをテスト
-            $testResponse = Http::get('https://api.themoviedb.org/3/discover/movie', [
+            // 世界の映画を取得
+            $response = Http::get('https://api.themoviedb.org/3/discover/movie', [
                 'api_key' => $api_key,
                 'sort_by' => 'revenue.desc',
                 'language' => 'ja',
-                'page' => 1
+                'page' => 1  // テスト用に1ページだけ
             ]);
 
-            // APIレスポンスをログに出力
-            Log::info('API Response: ' . $testResponse->body());
+            if ($response->successful()) {
+                $movies = $response->json()['results'];
+                Log::info('映画データを取得: ' . count($movies) . '件');
 
-            if (!$testResponse->successful()) {
-                Log::error('API Error: ' . $testResponse->body());
-                throw new \Exception('APIエラー: ' . $testResponse->body());
+                foreach ($movies as $movie) {
+                    try {
+                        $movieDetails = Http::get("https://api.themoviedb.org/3/movie/{$movie['id']}", [
+                            'api_key' => $api_key,
+                            'language' => 'ja'
+                        ])->json();
+
+                        Log::info('映画詳細: ' . json_encode([
+                            'movie_id' => $movie['id'],
+                            'title' => $movie['title'],
+                            'box_office' => $movieDetails['revenue'] ?? 0,
+                            'budget' => $movieDetails['budget'] ?? 0,
+                            'release_date' => $movie['release_date'] ?? null,
+                        ]));
+
+                        $result = Movie::updateOrCreate(
+                            ['movie_id' => (string)$movie['id']],
+                            [
+                                'title' => $movie['title'],
+                                'box_office' => $movieDetails['revenue'] ?? 0,
+                                'budget' => $movieDetails['budget'] ?? 0,
+                                'release_date' => $movie['release_date'] ?? null,
+                                'region' => 'global',
+                                'genres' => isset($movieDetails['genres']) ? collect($movieDetails['genres'])->pluck('name')->toArray() : []
+                            ]
+                        );
+
+                        Log::info('保存結果: ' . json_encode($result));
+
+                    } catch (\Exception $e) {
+                        Log::error('個別の映画保存でエラー: ' . $e->getMessage());
+                        Log::error('Stack trace: ' . $e->getTraceAsString());
+                        continue;  // 次の映画の処理へ
+                    }
+                }
             }
 
-            $testMovies = $testResponse->json()['results'] ?? [];
-            if (empty($testMovies)) {
-                Log::error('No movies found in API response');
-                throw new \Exception('映画データが見つかりません');
-            }
-
-            // テストデータを1件保存
-            $movie = $testMovies[0];
-            $movieDetails = Http::get("https://api.themoviedb.org/3/movie/{$movie['id']}", [
-                'api_key' => $api_key,
-                'language' => 'ja'
-            ])->json();
-
-            Log::info('Movie details: ' . json_encode($movieDetails));
-
-            $result = Movie::updateOrCreate(
-                ['movie_id' => (string)$movie['id']],
-                [
-                    'title' => $movie['title'],
-                    'box_office' => $movieDetails['revenue'] ?? 0,
-                    'budget' => $movieDetails['budget'] ?? 0,
-                    'release_date' => $movie['release_date'] ?? null,
-                    'region' => 'global',
-                    'genres' => isset($movieDetails['genres']) ? collect($movieDetails['genres'])->pluck('name')->toArray() : []
-                ]
-            );
-
-            Log::info('Movie saved: ' . json_encode($result));
-            
-            return true;
+            return redirect()->route('movies.index')->with('success', '映画データを更新しました');
 
         } catch (\Exception $e) {
             Log::error('エラー発生: ' . $e->getMessage());
             Log::error('Stack trace: ' . $e->getTraceAsString());
-            throw $e;
+            return redirect()->route('movies.index')->with('error', 'エラーが発生しました');
         }
     }
 

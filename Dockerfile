@@ -1,9 +1,11 @@
-FROM node:16-slim as node-builder
+FROM node:18-slim as node-builder
 
 COPY . ./app
 WORKDIR /app
-# Viteのビルドコマンドに変更
-RUN npm install && npm run build
+# NODE_OPTIONSを追加してcryptoの問題を解決
+RUN export NODE_OPTIONS=--openssl-legacy-provider && \
+    npm install && \
+    npm run build
 
 FROM php:8.1-apache
 
@@ -28,7 +30,6 @@ COPY --from=composer:2.0 /usr/bin/composer /usr/bin/composer
 # アプリケーションのセットアップ
 WORKDIR /var/www/html
 COPY . ./
-# Viteのビルド結果をコピー
 COPY --from=node-builder /app/public/build ./public/build
 
 RUN composer install --no-dev --optimize-autoloader

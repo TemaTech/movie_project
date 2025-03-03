@@ -7,6 +7,10 @@ chmod -R 777 /var/www/html/storage/logs
 chmod -R 777 /var/www/html/storage/framework/sessions
 chmod -R 777 /var/www/html/bootstrap/cache
 
+# セッションファイルをクリーンアップ
+echo "Cleaning up session files..."
+rm -rf /var/www/html/storage/framework/sessions/*
+
 echo "Configuring PHP-FPM..."
 sed -i 's/listen = \/var\/run\/php-fpm.sock/listen = 127.0.0.1:9000/g' /usr/local/etc/php-fpm.d/www.conf
 
@@ -24,6 +28,11 @@ php artisan cache:clear
 php artisan view:clear
 php artisan route:clear
 php artisan clear-compiled
+
+# セッションディレクトリの権限を再確認
+echo "Verifying session directory permissions..."
+chown -R www-data:www-data /var/www/html/storage/framework/sessions
+chmod -R 775 /var/www/html/storage/framework/sessions
 
 echo "Verifying Nginx configuration..."
 nginx -t

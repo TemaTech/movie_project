@@ -18,7 +18,7 @@ return new class extends Migration
             $table->bigInteger('box_office')->default(0);
             $table->bigInteger('budget')->default(0);
             $table->date('release_date')->nullable();
-            $table->string('region');
+            $table->string('region')->default('global');
             $table->jsonb('genres')->nullable();
             $table->timestamps();
         });

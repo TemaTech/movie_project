@@ -7,7 +7,8 @@ RUN export NODE_OPTIONS=--openssl-legacy-provider && \
     npm install && \
     npm run build
 
-FROM php:8.1-apache
+# PHP 8.2に更新
+FROM php:8.2-apache
 
 # 必要なパッケージのインストール
 RUN apt-get update && apt-get install -y \

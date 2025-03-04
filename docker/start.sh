@@ -14,6 +14,12 @@ rm -rf /var/www/html/storage/framework/sessions/*
 echo "Configuring PHP-FPM..."
 sed -i 's/listen = \/var\/run\/php-fpm.sock/listen = 127.0.0.1:9000/g' /usr/local/etc/php-fpm.d/www.conf
 
+# Nginxのログディレクトリの権限を確認
+echo "Setting up Nginx logs..."
+mkdir -p /var/log/nginx
+chown -R www-data:www-data /var/log/nginx
+
+# PHP-FPMの起動
 echo "Starting PHP-FPM..."
 php-fpm -D
 
@@ -37,6 +43,7 @@ chmod -R 775 /var/www/html/storage/framework/sessions
 echo "Verifying Nginx configuration..."
 nginx -t
 
+# Nginxの起動
 echo "Starting Nginx..."
 nginx -g "daemon off;"
 

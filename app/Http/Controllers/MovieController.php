@@ -159,18 +159,28 @@ class MovieController extends Controller
 
     public function index()
     {
-        // 接続情報のデバッグ
-        \Log::info('Database Connection Debug:', [
-            'default' => config('database.default'),
-            'host' => config('database.connections.pgsql.host'),
-            'port' => config('database.connections.pgsql.port'),
-            'database' => config('database.connections.pgsql.database'),
-            'current_connection' => DB::connection()->getName(),
-            'PDO' => get_class(DB::connection()->getPdo()),
-            'config' => DB::connection()->getConfig(),
-        ]);
-
         try {
+            // 接続情報のデバッグ
+            \Log::debug('Database Connection Debug:', [
+                'default' => config('database.default'),
+                'host' => config('database.connections.pgsql.host'),
+                'port' => config('database.connections.pgsql.port'),
+                'database' => config('database.connections.pgsql.database'),
+                'driver' => config('database.connections.pgsql.driver'),
+                'available_drivers' => \PDO::getAvailableDrivers(),
+            ]);
+
+            // データベース接続テスト
+            try {
+                DB::connection()->getPdo();
+                \Log::debug('Database connection successful');
+            } catch (\Exception $e) {
+                \Log::error('Database connection failed:', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+            }
+
             $selectedGenre = request()->get('genre');
 
             // ジャンル名の変換マップを定義
@@ -271,8 +281,10 @@ class MovieController extends Controller
 
             return view('movies.index', compact('globalMovies', 'japanMovies', 'availableGenres', 'selectedGenre', 'genreColors'));
         } catch (\Exception $e) {
-            \Log::error('Database Error:', [
+            \Log::error('Controller Error:', [
                 'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString()
             ]);
             throw $e;

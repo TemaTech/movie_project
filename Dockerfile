@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     libzip-dev \
+    procps \
     && docker-php-ext-configure pgsql -with-pgsql=/usr/local/pgsql \
     && docker-php-ext-install pdo pdo_pgsql pgsql zip opcache
 
@@ -57,6 +58,10 @@ RUN ln -s /etc/nginx/sites-available/default /etc/nginx/sites-enabled/
 # 権限の設定
 RUN chown -R www-data:www-data /var/www/html/storage \
     && chown -R www-data:www-data /var/www/html/bootstrap/cache
+
+# Nginxのログディレクトリを作成
+RUN mkdir -p /var/log/nginx && \
+    chown -R www-data:www-data /var/log/nginx
 
 # ポート設定
 EXPOSE 8080

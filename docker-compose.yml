@@ -14,6 +14,8 @@ services:
       DB_DATABASE: movie_db
       DB_USERNAME: movie_user
       DB_PASSWORD: movie_password
+    networks:
+      - app-network
 
   db:
     image: postgres:15
@@ -25,6 +27,12 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
 
 volumes:
-  postgres_data: 
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge 

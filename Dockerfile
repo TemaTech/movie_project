@@ -65,4 +65,12 @@ EXPOSE 8080
 COPY docker/start.sh /usr/local/bin/start.sh
 RUN chmod +x /usr/local/bin/start.sh
 
+# 環境変数の設定を追加
+ENV DB_CONNECTION=pgsql
+ENV DB_HOST=db
+ENV DB_PORT=5432
+ENV DB_DATABASE=movie_db
+ENV DB_USERNAME=movie_user
+ENV DB_PASSWORD=movie_password
+
 CMD ["/usr/local/bin/start.sh"]

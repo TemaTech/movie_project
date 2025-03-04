@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use App\Models\Movie;
+use Illuminate\Support\Facades\DB;
 
 class MovieController extends Controller
 {
@@ -158,104 +159,123 @@ class MovieController extends Controller
 
     public function index()
     {
-        $selectedGenre = request()->get('genre');
-
-        // ジャンル名の変換マップを定義
-        $genreMap = [
-            'アニメーション' => 'アニメ',
-            'サイエンスフィクション' => 'SF'
-        ];
-
-        // 世界の興行収入データ
-        $globalMovies = Movie::query()  // query()を明示的に呼び出す
-            ->where('region', 'global')  // クォートを取り除く
-            ->when($selectedGenre, function($query) use ($selectedGenre, $genreMap) {
-                $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
-                return $query->whereRaw("genres::jsonb @> ?::jsonb", [json_encode([$searchGenre])]);
-            })
-            ->orderBy('box_office', 'desc')
-            ->paginate(100, ['*'], 'global_page');
-
-        // rankを設定し、その他の変換も行う
-        $rank = ($globalMovies->currentPage() - 1) * $globalMovies->perPage() + 1;
-        $globalMovies->through(function ($movie) use ($genreMap, &$rank) {
-            $movie->rank = $rank++;
-            $movie->box_office_billion = number_format(($movie->box_office * 150) / 10000000000, 3);
-            $movie->budget_billion = number_format(($movie->budget * 150) / 10000000000, 3);
-            if ($movie->genres) {
-                $movie->genres = array_map(function($genre) use ($genreMap) {
-                    return $genreMap[$genre] ?? $genre;
-                }, $movie->genres);
-            }
-            return $movie;
-        });
-        
-        // 日本の興行収入データ
-        $japanMovies = Movie::query()  // query()を明示的に呼び出す
-            ->where('region', 'japan')  // クォートを取り除く
-            ->when($selectedGenre, function($query) use ($selectedGenre, $genreMap) {
-                $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
-                return $query->whereRaw("genres::jsonb @> ?::jsonb", [json_encode([$searchGenre])]);
-            })
-            ->orderBy('box_office', 'desc')
-            ->paginate(100, ['*'], 'japan_page');
-
-        // rankを設定し、その他の変換も行う
-        $rank = ($japanMovies->currentPage() - 1) * $japanMovies->perPage() + 1;
-        $japanMovies->through(function ($movie) use ($genreMap, &$rank) {
-            $movie->rank = $rank++;
-            $movie->box_office_billion = number_format($movie->box_office / 100000000, 3);
-            $movie->budget_billion = number_format($movie->budget / 100000000, 3);
-            if ($movie->genres) {
-                $movie->genres = array_map(function($genre) use ($genreMap) {
-                    return $genreMap[$genre] ?? $genre;
-                }, $movie->genres);
-            }
-            return $movie;
-        });
-
-        // 利用可能なジャンルの一覧を取得し、変換
-        $availableGenres = Movie::select('genres')
-            ->get()
-            ->pluck('genres')
-            ->flatten()
-            ->unique()
-            ->map(function($genre) use ($genreMap) {
-                return $genreMap[$genre] ?? $genre;
-            })
-            ->values()
-            ->sort()
-            ->all();
-
-        // ページネーションのURLにジャンルパラメータを追加
-        $globalMovies->appends([
-            'japan_page' => request()->japan_page,
-            'tab' => request()->tab,
-            'genre' => $selectedGenre
+        // 接続情報のデバッグ
+        \Log::info('Database Connection Debug:', [
+            'default' => config('database.default'),
+            'host' => config('database.connections.pgsql.host'),
+            'port' => config('database.connections.pgsql.port'),
+            'database' => config('database.connections.pgsql.database'),
+            'current_connection' => DB::connection()->getName(),
+            'PDO' => get_class(DB::connection()->getPdo()),
+            'config' => DB::connection()->getConfig(),
         ]);
 
-        $japanMovies->appends([
-            'global_page' => request()->global_page,
-            'tab' => request()->tab,
-            'genre' => $selectedGenre
-        ]);
+        try {
+            $selectedGenre = request()->get('genre');
 
-        // ジャンルごとの色を薄いトーンに変更
-        $genreColors = [
-            'アクション' => '#ffcccc',      // 薄い赤
-            'アドベンチャー' => '#ffe4b5',  // 薄いサーモン
-            'アニメ' => '#e0ffe0',          // 薄いグリーン
-            'コメディ' => '#f0e68c',        // 薄いプラム
-            'ドラマ' => '#add8e6',          // 薄いスカイブルー
-            'ファンタジー' => '#f5deb3',    // 薄いバーリーウッド
-            'ホラー' => '#d3d3d3',          // 薄いグレー
-            'ミステリー' => '#d8bfd8',      // 薄いミディアムパープル
-            'ロマンス' => '#ffb3d1',        // 薄いライトピンク
-            'SF' => '#b2e0e0',              // 薄いライトシーグリーン
-            'スリラー' => '#f08080',        // 薄いダークレッド
-            'ファミリー' => '#fffacd',      // 薄いゴールド
-        ];
+            // ジャンル名の変換マップを定義
+            $genreMap = [
+                'アニメーション' => 'アニメ',
+                'サイエンスフィクション' => 'SF'
+            ];
 
-        return view('movies.index', compact('globalMovies', 'japanMovies', 'availableGenres', 'selectedGenre', 'genreColors'));
+            // 世界の興行収入データ
+            $globalMovies = Movie::query()  // query()を明示的に呼び出す
+                ->where('region', 'global')  // クォートを取り除く
+                ->when($selectedGenre, function($query) use ($selectedGenre, $genreMap) {
+                    $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
+                    return $query->whereRaw("genres::jsonb @> ?::jsonb", [json_encode([$searchGenre])]);
+                })
+                ->orderBy('box_office', 'desc')
+                ->paginate(100, ['*'], 'global_page');
+
+            // rankを設定し、その他の変換も行う
+            $rank = ($globalMovies->currentPage() - 1) * $globalMovies->perPage() + 1;
+            $globalMovies->through(function ($movie) use ($genreMap, &$rank) {
+                $movie->rank = $rank++;
+                $movie->box_office_billion = number_format(($movie->box_office * 150) / 10000000000, 3);
+                $movie->budget_billion = number_format(($movie->budget * 150) / 10000000000, 3);
+                if ($movie->genres) {
+                    $movie->genres = array_map(function($genre) use ($genreMap) {
+                        return $genreMap[$genre] ?? $genre;
+                    }, $movie->genres);
+                }
+                return $movie;
+            });
+            
+            // 日本の興行収入データ
+            $japanMovies = Movie::query()  // query()を明示的に呼び出す
+                ->where('region', 'japan')  // クォートを取り除く
+                ->when($selectedGenre, function($query) use ($selectedGenre, $genreMap) {
+                    $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
+                    return $query->whereRaw("genres::jsonb @> ?::jsonb", [json_encode([$searchGenre])]);
+                })
+                ->orderBy('box_office', 'desc')
+                ->paginate(100, ['*'], 'japan_page');
+
+            // rankを設定し、その他の変換も行う
+            $rank = ($japanMovies->currentPage() - 1) * $japanMovies->perPage() + 1;
+            $japanMovies->through(function ($movie) use ($genreMap, &$rank) {
+                $movie->rank = $rank++;
+                $movie->box_office_billion = number_format($movie->box_office / 100000000, 3);
+                $movie->budget_billion = number_format($movie->budget / 100000000, 3);
+                if ($movie->genres) {
+                    $movie->genres = array_map(function($genre) use ($genreMap) {
+                        return $genreMap[$genre] ?? $genre;
+                    }, $movie->genres);
+                }
+                return $movie;
+            });
+
+            // 利用可能なジャンルの一覧を取得し、変換
+            $availableGenres = Movie::select('genres')
+                ->get()
+                ->pluck('genres')
+                ->flatten()
+                ->unique()
+                ->map(function($genre) use ($genreMap) {
+                    return $genreMap[$genre] ?? $genre;
+                })
+                ->values()
+                ->sort()
+                ->all();
+
+            // ページネーションのURLにジャンルパラメータを追加
+            $globalMovies->appends([
+                'japan_page' => request()->japan_page,
+                'tab' => request()->tab,
+                'genre' => $selectedGenre
+            ]);
+
+            $japanMovies->appends([
+                'global_page' => request()->global_page,
+                'tab' => request()->tab,
+                'genre' => $selectedGenre
+            ]);
+
+            // ジャンルごとの色を薄いトーンに変更
+            $genreColors = [
+                'アクション' => '#ffcccc',      // 薄い赤
+                'アドベンチャー' => '#ffe4b5',  // 薄いサーモン
+                'アニメ' => '#e0ffe0',          // 薄いグリーン
+                'コメディ' => '#f0e68c',        // 薄いプラム
+                'ドラマ' => '#add8e6',          // 薄いスカイブルー
+                'ファンタジー' => '#f5deb3',    // 薄いバーリーウッド
+                'ホラー' => '#d3d3d3',          // 薄いグレー
+                'ミステリー' => '#d8bfd8',      // 薄いミディアムパープル
+                'ロマンス' => '#ffb3d1',        // 薄いライトピンク
+                'SF' => '#b2e0e0',              // 薄いライトシーグリーン
+                'スリラー' => '#f08080',        // 薄いダークレッド
+                'ファミリー' => '#fffacd',      // 薄いゴールド
+            ];
+
+            return view('movies.index', compact('globalMovies', 'japanMovies', 'availableGenres', 'selectedGenre', 'genreColors'));
+        } catch (\Exception $e) {
+            \Log::error('Database Error:', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
     }
 }

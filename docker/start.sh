@@ -40,6 +40,13 @@ nginx -t
 echo "Starting Nginx..."
 nginx -g "daemon off;"
 
+# データベース接続を待機
+echo "Waiting for database connection..."
+until php artisan db:monitor; do
+    echo "Database is unavailable - sleeping"
+    sleep 2
+done
+
 # データベース接続テスト
 echo "Testing database connection..."
 php artisan db:monitor 

@@ -9,12 +9,12 @@ class Movie extends Model
 {
     use HasFactory;
 
+    // 明示的に接続を指定
+    protected $connection = 'pgsql';
+    
     // テーブル名
     protected $table = 'movies';
     
-    // コネクション名を環境変数から取得
-    protected $connection = 'pgsql';
-
     // プライマリーキー設定
     protected $primaryKey = 'movie_id';
     protected $keyType = 'string';
@@ -41,4 +41,14 @@ class Movie extends Model
         'box_office' => 'integer',
         'budget' => 'integer'
     ];
+
+    // コンストラクタでも接続を確認
+    public function __construct(array $attributes = [])
+    {
+        parent::__construct($attributes);
+        \Log::debug('Movie Model Connection:', [
+            'connection' => $this->connection,
+            'database' => config("database.connections.{$this->connection}")
+        ]);
+    }
 }

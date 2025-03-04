@@ -12,6 +12,12 @@ class Movie extends Model
     // テーブル名
     protected $table = 'movies';
 
+    // プライマリーキーの型を明示的に指定（PostgreSQL対応）
+    protected $keyType = 'string';
+
+    // タイムスタンプを無効化（必要な場合は削除）
+    public $timestamps = false;
+
     // 更新可能なカラムの定義
     protected $fillable = [
         'movie_id',
@@ -26,6 +32,8 @@ class Movie extends Model
     // PostgreSQL用にJSON型を明示的に指定
     protected $casts = [
         'genres' => 'array',
-        'release_date' => 'date'
+        'release_date' => 'date',
+        'box_office' => 'integer',
+        'budget' => 'integer'
     ];
 }

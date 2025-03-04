@@ -9,6 +9,94 @@ use App\Models\Movie;
 
 class MovieController extends Controller
 {
+    private $apiKey;
+    private $baseUrl;
+
+    public function __construct()
+    {
+        $this->apiKey = env('TMDB_API_KEY');
+        $this->baseUrl = 'https://api.themoviedb.org/3';
+    }
+
+    public function index()
+    {
+        try {
+            $response = Http::get("{$this->baseUrl}/movie/popular", [
+                'api_key' => $this->apiKey,
+                'language' => 'ja-JP'
+            ]);
+
+            if ($response->successful()) {
+                $movies = $response->json()['results'];
+                return view('movies.index', compact('movies'));
+            }
+
+            return view('movies.index', ['movies' => [], 'error' => '映画データの取得に失敗しました']);
+
+        } catch (\Exception $e) {
+            return view('movies.index', ['movies' => [], 'error' => $e->getMessage()]);
+        }
+    }
+
+    public function show($id)
+    {
+        try {
+            $response = Http::get("{$this->baseUrl}/movie/{$id}", [
+                'api_key' => $this->apiKey,
+                'language' => 'ja-JP',
+                'append_to_response' => 'credits,videos'
+            ]);
+
+            if ($response->successful()) {
+                $movie = $response->json();
+                return view('movies.show', compact('movie'));
+            }
+
+            return redirect()->route('movies.index')->with('error', '映画の詳細情報の取得に失敗しました');
+
+        } catch (\Exception $e) {
+            return redirect()->route('movies.index')->with('error', $e->getMessage());
+        }
+    }
+
+    public function search(Request $request)
+    {
+        try {
+            $query = $request->input('query');
+            
+            if (empty($query)) {
+                return redirect()->route('movies.index');
+            }
+
+            $response = Http::get("{$this->baseUrl}/search/movie", [
+                'api_key' => $this->apiKey,
+                'language' => 'ja-JP',
+                'query' => $query
+            ]);
+
+            if ($response->successful()) {
+                $searchResults = $response->json()['results'];
+                return view('movies.search', [
+                    'movies' => $searchResults,
+                    'query' => $query
+                ]);
+            }
+
+            return view('movies.search', [
+                'movies' => [],
+                'query' => $query,
+                'error' => '検索結果の取得に失敗しました'
+            ]);
+
+        } catch (\Exception $e) {
+            return view('movies.search', [
+                'movies' => [],
+                'query' => $query ?? '',
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
     public function fetchMovies()
     {
         try {

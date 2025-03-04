@@ -11,10 +11,14 @@ class Movie extends Model
 
     // テーブル名
     protected $table = 'movies';
-    protected $connection = 'pgsql';  // 明示的に接続を指定
+    
+    // コネクション名を環境変数から取得
+    protected $connection = 'pgsql';
 
-    // プライマリーキーの型を明示的に指定（PostgreSQL対応）
+    // プライマリーキー設定
+    protected $primaryKey = 'movie_id';
     protected $keyType = 'string';
+    public $incrementing = false;
 
     // タイムスタンプを無効化（必要な場合は削除）
     public $timestamps = false;

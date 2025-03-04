@@ -38,4 +38,8 @@ echo "Verifying Nginx configuration..."
 nginx -t
 
 echo "Starting Nginx..."
-nginx -g "daemon off;" 
+nginx -g "daemon off;"
+
+# データベース接続テスト
+echo "Testing database connection..."
+php artisan db:monitor 

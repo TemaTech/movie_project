@@ -11,6 +11,7 @@ class Movie extends Model
 
     // テーブル名
     protected $table = 'movies';
+    protected $connection = 'pgsql';  // 明示的に接続を指定
 
     // プライマリーキーの型を明示的に指定（PostgreSQL対応）
     protected $keyType = 'string';

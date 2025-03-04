@@ -18,7 +18,7 @@ class MovieController extends Controller
         $this->baseUrl = 'https://api.themoviedb.org/3';
     }
 
-    public function index()
+    public function getPopularMovies()
     {
         try {
             $response = Http::get("{$this->baseUrl}/movie/popular", [

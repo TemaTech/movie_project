@@ -14,6 +14,6 @@ Route::get('/search', [MovieController::class, 'search'])->name('movies.search')
 
 // API関連のルート
 Route::prefix('api')->group(function () {
-    Route::get('/movies/popular', [MovieController::class, 'getPopular'])->name('api.movies.popular');
-    Route::get('/movies/search', [MovieController::class, 'searchApi'])->name('api.movies.search');
+    Route::get('/movies/popular', [MovieController::class, 'getPopularMovies'])->name('api.movies.popular');
+    Route::get('/movies/search', [MovieController::class, 'search'])->name('api.movies.search');
 });

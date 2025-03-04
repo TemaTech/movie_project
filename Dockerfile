@@ -40,8 +40,11 @@ COPY . .
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
 
 # キャッシュクリアとルート最適化
-RUN php artisan config:cache \
-    && php artisan view:cache
+RUN php artisan config:clear \
+    && php artisan cache:clear \
+    && php artisan view:clear \
+    && php artisan route:clear \
+    && php artisan clear-compiled
 
 # Nginxの設定
 RUN rm -f /etc/nginx/sites-enabled/default \

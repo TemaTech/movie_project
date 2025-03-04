@@ -167,13 +167,14 @@ class MovieController extends Controller
         ];
 
         // 世界の興行収入データ
-        $globalMovies = Movie::where('region', '=', "'global'");  // シングルクォートで囲む
-        if ($selectedGenre) {
-            $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
-            $globalMovies = $globalMovies->whereRaw("genres::jsonb @> ?::jsonb", [json_encode([$searchGenre])]);
-        }
-        $globalMovies = $globalMovies->orderBy('box_office', 'desc')
-                                    ->paginate(100, ['*'], 'global_page');
+        $globalMovies = Movie::query()  // query()を明示的に呼び出す
+            ->where('region', 'global')  // クォートを取り除く
+            ->when($selectedGenre, function($query) use ($selectedGenre, $genreMap) {
+                $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
+                return $query->whereRaw("genres::jsonb @> ?::jsonb", [json_encode([$searchGenre])]);
+            })
+            ->orderBy('box_office', 'desc')
+            ->paginate(100, ['*'], 'global_page');
 
         // rankを設定し、その他の変換も行う
         $rank = ($globalMovies->currentPage() - 1) * $globalMovies->perPage() + 1;
@@ -190,13 +191,14 @@ class MovieController extends Controller
         });
         
         // 日本の興行収入データ
-        $japanMovies = Movie::where('region', '=', "'japan'");  // シングルクォートで囲む
-        if ($selectedGenre) {
-            $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
-            $japanMovies = $japanMovies->whereRaw("genres::jsonb @> ?::jsonb", [json_encode([$searchGenre])]);
-        }
-        $japanMovies = $japanMovies->orderBy('box_office', 'desc')
-                                   ->paginate(100, ['*'], 'japan_page');
+        $japanMovies = Movie::query()  // query()を明示的に呼び出す
+            ->where('region', 'japan')  // クォートを取り除く
+            ->when($selectedGenre, function($query) use ($selectedGenre, $genreMap) {
+                $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
+                return $query->whereRaw("genres::jsonb @> ?::jsonb", [json_encode([$searchGenre])]);
+            })
+            ->orderBy('box_office', 'desc')
+            ->paginate(100, ['*'], 'japan_page');
 
         // rankを設定し、その他の変換も行う
         $rank = ($japanMovies->currentPage() - 1) * $japanMovies->perPage() + 1;

@@ -79,7 +79,7 @@ class MovieController extends Controller
         ];
 
         // 世界の興行収入データ
-        $globalMovies = Movie::where('region', 'global');
+        $globalMovies = Movie::where('region', '=', 'global');
         if ($selectedGenre) {
             $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
             $globalMovies = $globalMovies->whereRaw("genres::jsonb @> ?::jsonb", [json_encode([$searchGenre])]);
@@ -102,7 +102,7 @@ class MovieController extends Controller
         });
         
         // 日本の興行収入データ
-        $japanMovies = Movie::where('region', 'japan');
+        $japanMovies = Movie::where('region', '=', 'japan');
         if ($selectedGenre) {
             $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
             $japanMovies = $japanMovies->whereRaw("genres::jsonb @> ?::jsonb", [json_encode([$searchGenre])]);

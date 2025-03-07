@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\MovieController;
+use App\Http\Controllers\SitemapController;
 
 // メインページ（映画一覧）
 Route::get('/', [MovieController::class, 'index'])->name('movies.index');
@@ -21,3 +22,5 @@ Route::prefix('api')->group(function () {
     Route::get('/movies/popular', [MovieController::class, 'getPopularMovies'])->name('api.movies.popular');
     Route::get('/movies/search', [MovieController::class, 'search'])->name('api.movies.search');
 });
+
+Route::get('/sitemap.xml', [SitemapController::class, 'index']);

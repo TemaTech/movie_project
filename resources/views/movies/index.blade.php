@@ -504,4 +504,14 @@
         });
     });
 </script>
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "映画興行収入ランキング",
+    "description": "世界と日本の映画興行収入ランキングデータベース",
+    "url": "{{ url('/') }}"
+}
+</script>
 @endsection

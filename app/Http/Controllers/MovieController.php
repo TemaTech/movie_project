@@ -160,25 +160,31 @@ class MovieController extends Controller
     public function index()
     {
         try {
-            // 接続情報のデバッグ
-            \Log::debug('Database Connection Debug:', [
-                'default' => config('database.default'),
+            // データベース接続情報のデバッグを追加
+            \Log::debug('Database Connection Settings:', [
                 'host' => config('database.connections.pgsql.host'),
                 'port' => config('database.connections.pgsql.port'),
                 'database' => config('database.connections.pgsql.database'),
-                'driver' => config('database.connections.pgsql.driver'),
-                'available_drivers' => \PDO::getAvailableDrivers(),
+                'username' => config('database.connections.pgsql.username')
             ]);
 
-            // データベース接続テスト
+            // 接続テスト
             try {
                 DB::connection()->getPdo();
                 \Log::debug('Database connection successful');
             } catch (\Exception $e) {
-                \Log::error('Database connection failed:', [
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
+                \Log::error('Database connection failed: ' . $e->getMessage());
+                throw $e;
+            }
+
+            // データベースの映画数を確認
+            $movieCount = Movie::count();
+            \Log::debug("Total movies in database: {$movieCount}");
+
+            // もしデータベースが空なら、APIからデータを取得
+            if ($movieCount === 0) {
+                \Log::debug('Database is empty, fetching movies from API');
+                $this->fetchMovies();
             }
 
             $selectedGenre = request()->get('genre');
@@ -279,14 +285,13 @@ class MovieController extends Controller
                 'ファミリー' => '#fffacd',      // 薄いゴールド
             ];
 
+            // 取得したデータをログ出力
+            \Log::debug('Global movies count: ' . $globalMovies->count());
+            \Log::debug('Japan movies count: ' . $japanMovies->count());
+
             return view('movies.index', compact('globalMovies', 'japanMovies', 'availableGenres', 'selectedGenre', 'genreColors'));
         } catch (\Exception $e) {
-            \Log::error('Controller Error:', [
-                'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
-            ]);
+            \Log::error('Error in index method: ' . $e->getMessage());
             throw $e;
         }
     }

@@ -17,7 +17,7 @@ services:
       - key: DB_HOST
         value: dpg-cv2tmslumphs739v5f30-a
       - key: DB_PORT
-        value: 5432
+        value: "5432"
       - key: DB_DATABASE
         value: movie_db_deap
       - key: DB_USERNAME

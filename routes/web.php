@@ -12,6 +12,9 @@ Route::get('/movies/{id}', [MovieController::class, 'show'])->name('movies.show'
 // 検索結果ページ
 Route::get('/search', [MovieController::class, 'search'])->name('movies.search');
 
+// 映画データ取得用のルートを追加
+Route::get('/fetch-movies', [MovieController::class, 'fetchMovies'])->name('movies.fetch');
+
 // API関連のルート
 Route::prefix('api')->group(function () {
     Route::get('/movies/popular', [MovieController::class, 'getPopularMovies'])->name('api.movies.popular');

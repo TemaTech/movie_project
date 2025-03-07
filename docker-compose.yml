@@ -9,11 +9,11 @@ services:
       - db
     environment:
       DB_CONNECTION: pgsql
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_DATABASE: movie_db
-      DB_USERNAME: movie_user
-      DB_PASSWORD: movie_password
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_DATABASE: ${DB_DATABASE:-movie_db}
+      DB_USERNAME: ${DB_USERNAME:-movie_user}
+      DB_PASSWORD: ${DB_PASSWORD:-movie_password}
     networks:
       - app-network
 

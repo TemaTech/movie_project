@@ -283,6 +283,108 @@
         background-color: rgba(0, 0, 0, 0.2);
         border-radius: 4px;
     }
+
+    /* テーブルのスクロール対応改善 */
+    .table-responsive {
+        margin: 0 -15px;
+        padding: 0 15px;
+        width: calc(100% + 30px);
+    }
+
+    @media (max-width: 768px) {
+        .table-responsive {
+            margin: 0 -10px;
+            padding: 0 10px;
+            width: calc(100% + 20px);
+        }
+
+        /* スクロールバーのスタイリング（モバイル用） */
+        .table-responsive::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .table-responsive::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 2px;
+        }
+    }
+
+    /* スマートフォン対応のスタイル */
+    @media (max-width: 768px) {
+        .container {
+            padding: 0 10px;
+        }
+
+        h1 {
+            font-size: 1.8rem !important;
+            margin-bottom: 1rem !important;
+        }
+
+        .nav-tabs .nav-link {
+            padding: 8px 12px;
+            font-size: 0.9rem;
+        }
+
+        .custom-card {
+            padding: 10px !important;
+        }
+
+        .table thead th {
+            padding: 10px 5px;
+            font-size: 0.8rem;
+        }
+
+        .table td {
+            padding: 10px 5px;
+            font-size: 0.8rem;
+        }
+
+        .badge {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+        }
+
+        /* テーブルのレスポンシブ調整 */
+        .table td:nth-child(2),
+        .table td:nth-child(3) {
+            min-width: 120px;
+            max-width: 200px;
+        }
+
+        .table th:nth-child(4),
+        .table th:nth-child(5),
+        .table th:nth-child(6) {
+            min-width: auto;
+        }
+
+        /* フィルターフォームの調整 */
+        #filterForm {
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #filterForm select {
+            max-width: 100% !important;
+            width: 100%;
+        }
+
+        #filterForm button {
+            width: 100%;
+        }
+
+        /* ページネーションの調整 */
+        .pagination {
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .page-link {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+            min-width: 35px;
+        }
+    }
 </style>
 
 <div class="gradient-bg py-5">

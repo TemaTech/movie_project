@@ -160,8 +160,9 @@ class MovieController extends Controller
     public function index()
     {
         try {
-            // データベース接続情報のデバッグを追加
+            // データベース接続情報のデバッグ
             \Log::debug('Database Connection Settings:', [
+                'connection' => config('database.default'),
                 'host' => config('database.connections.pgsql.host'),
                 'port' => config('database.connections.pgsql.port'),
                 'database' => config('database.connections.pgsql.database'),

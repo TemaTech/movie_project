@@ -43,10 +43,6 @@ chmod -R 775 /var/www/html/storage/framework/sessions
 echo "Verifying Nginx configuration..."
 nginx -t
 
-# Nginxの起動
-echo "Starting Nginx..."
-nginx -g "daemon off;"
-
 # データベース接続を待機
 echo "Waiting for database connection..."
 until php artisan db:monitor; do
@@ -54,6 +50,10 @@ until php artisan db:monitor; do
     sleep 2
 done
 
-# データベース接続テスト
-echo "Testing database connection..."
-php artisan db:monitor 
+# マイグレーションを実行
+echo "Running database migrations..."
+php artisan migrate --force
+
+# Nginxの起動
+echo "Starting Nginx..."
+nginx -g "daemon off;" 

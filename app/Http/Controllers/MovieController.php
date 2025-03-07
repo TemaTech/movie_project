@@ -104,50 +104,44 @@ class MovieController extends Controller
             $api_key = config('services.tmdb.api_key');
             Log::info('APIキーを使用: ' . $api_key);
 
-            // 複数ページを取得するように修正
-            for ($page = 1; $page <= 5; $page++) {  // 5ページ分（100件）取得
-                $response = Http::get('https://api.themoviedb.org/3/discover/movie', [
-                    'api_key' => $api_key,
-                    'sort_by' => 'revenue.desc',
-                    'language' => 'ja',
-                    'page' => $page
-                ]);
+            // 日本の映画データを取得
+            $response = Http::get('https://api.themoviedb.org/3/discover/movie', [
+                'api_key' => $api_key,
+                'with_original_language' => 'ja',
+                'sort_by' => 'revenue.desc',
+                'language' => 'ja',
+                'region' => 'JP'
+            ]);
 
-                if ($response->successful()) {
-                    $movies = $response->json()['results'];
-                    Log::info('映画データを取得: ' . count($movies) . '件 (ページ' . $page . ')');
+            if ($response->successful()) {
+                $movies = $response->json()['results'];
+                foreach ($movies as $movie) {
+                    try {
+                        $movieDetails = Http::get("https://api.themoviedb.org/3/movie/{$movie['id']}", [
+                            'api_key' => $api_key,
+                            'language' => 'ja'
+                        ])->json();
 
-                    foreach ($movies as $movie) {
-                        try {
-                            $movieDetails = Http::get("https://api.themoviedb.org/3/movie/{$movie['id']}", [
-                                'api_key' => $api_key,
-                                'language' => 'ja'
-                            ])->json();
-
-                            Log::info('映画詳細を保存: ' . $movie['title']);
-
-                            $result = Movie::updateOrCreate(
-                                ['movie_id' => (string)$movie['id']],
-                                [
-                                    'title' => $movie['title'],
-                                    'box_office' => $movieDetails['revenue'] ?? 0,
-                                    'budget' => $movieDetails['budget'] ?? 0,
-                                    'release_date' => $movie['release_date'] ?? null,
-                                    'region' => 'global',
-                                    'genres' => isset($movieDetails['genres']) ? collect($movieDetails['genres'])->pluck('name')->toArray() : []
-                                ]
-                            );
-
-                        } catch (\Exception $e) {
-                            Log::error('個別の映画保存でエラー: ' . $e->getMessage());
-                            continue;
-                        }
+                        Movie::updateOrCreate(
+                            ['movie_id' => (string)$movie['id']],
+                            [
+                                'title' => $movie['title'],
+                                'box_office' => $movieDetails['revenue'] ?? 0,
+                                'budget' => $movieDetails['budget'] ?? 0,
+                                'release_date' => $movie['release_date'] ?? null,
+                                'region' => 'japan',
+                                'genres' => isset($movieDetails['genres']) ? collect($movieDetails['genres'])->pluck('name')->toArray() : []
+                            ]
+                        );
+                    } catch (\Exception $e) {
+                        Log::error('個別の映画保存でエラー: ' . $e->getMessage());
+                        continue;
                     }
                 }
-                
-                // APIレート制限を考慮して少し待機
-                sleep(1);
             }
+
+            // グローバルの映画データも取得（既存のコード）
+            // ...
 
             return redirect()->route('movies.index')->with('success', '映画データを更新しました');
 
@@ -193,7 +187,9 @@ class MovieController extends Controller
             // ジャンル名の変換マップを定義
             $genreMap = [
                 'アニメーション' => 'アニメ',
-                'サイエンスフィクション' => 'SF'
+                'サイエンスフィクション' => 'SF',
+                'アニメ' => 'アニメーション',
+                'SF' => 'サイエンスフィクション'
             ];
 
             // 世界の興行収入データ

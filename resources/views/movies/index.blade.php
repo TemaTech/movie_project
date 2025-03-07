@@ -352,7 +352,7 @@
                                         <td>
                                             @if($movie->genres && is_array($movie->genres) && count($movie->genres) > 0)
                                                 @foreach($movie->genres as $genre)
-                                                    <a href="{{ url('/movies') }}?tab={{ request()->get('tab', 'global') }}&genre={{ $genre }}" 
+                                                    <a href="{{ route('movies.list', ['tab' => request()->get('tab', 'global'), 'genre' => $genre]) }}" 
                                                        class="badge text-decoration-none me-1" 
                                                        style="cursor: pointer; background-color: {{ $genreColors[$genre] ?? '#f8f9fa' }}; color: {{ in_array($genre, ['スリラー', 'ホラー']) ? '#ffffff' : '#2c3e50' }};">
                                                         {{ $genre }}
@@ -411,7 +411,7 @@
                                         <td>
                                             @if($movie->genres && is_array($movie->genres) && count($movie->genres) > 0)
                                                 @foreach($movie->genres as $genre)
-                                                    <a href="{{ url('/movies') }}?tab={{ request()->get('tab', 'global') }}&genre={{ $genre }}" 
+                                                    <a href="{{ route('movies.list', ['tab' => request()->get('tab', 'global'), 'genre' => $genre]) }}" 
                                                        class="badge text-decoration-none me-1" 
                                                        style="cursor: pointer; background-color: {{ $genreColors[$genre] ?? '#f8f9fa' }}; color: {{ in_array($genre, ['スリラー', 'ホラー']) ? '#ffffff' : '#2c3e50' }};">
                                                         {{ $genre }}

@@ -493,6 +493,12 @@
             <div class="tab-pane fade" id="japan" role="tabpanel">
                 <div class="custom-card shadow-lg">
                     <div class="card-body p-4">
+                        <div class="alert alert-info" role="alert">
+                            <i class="fas fa-info-circle"></i>
+                            日本国内の興行収入データは<a href="https://ja.wikipedia.org/wiki/日本歴代興行成績上位の映画一覧" target="_blank" rel="noopener noreferrer">Wikipedia</a>から取得しています（CC BY-SA 3.0）
+                            <br>
+                            最終更新: {{ $lastUpdated }}
+                        </div>
                         <div class="table-responsive">
                             <table class="table table-hover">
                                 <thead class="table-dark">
@@ -523,7 +529,14 @@
                                                 <span class="text-muted">-</span>
                                             @endif
                                         </td>
-                                        <td class="text-end">{{ $movie->box_office_billion }}億円</td>
+                                        <td class="text-end">
+                                            {{ $movie->box_office_billion }}億円
+                                            @if($movie->data_source)
+                                                <small class="text-muted">
+                                                    ({{ $movie->data_source }})
+                                                </small>
+                                            @endif
+                                        </td>
                                         <td class="text-end">{{ $movie->budget_billion }}億円</td>
                                         <td class="text-center">{{ \Carbon\Carbon::parse($movie->release_date)->format('Y/m/d') }}</td>
                                     </tr>
@@ -616,4 +629,13 @@
     "url": "{{ url('/') }}"
 }
 </script>
+
+<div class="attribution d-flex align-items-center justify-content-end gap-2 mt-3 mb-4">
+    <small class="text-muted">映画データ提供:</small>
+    <a href="https://www.themoviedb.org/" target="_blank" rel="noopener" class="text-decoration-none">
+        <img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_short-8e7b30f73a4020692ccca9c88bafe5dcb6f8a62a4c6bc55cd9ba82bb2cd95f6c.svg" 
+             alt="TMDb" 
+             style="height: 1.2rem; width: auto;">
+    </a>
+</div>
 @endsection

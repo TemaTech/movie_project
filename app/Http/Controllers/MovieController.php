@@ -286,7 +286,11 @@ class MovieController extends Controller
             \Log::debug('Global movies count: ' . $globalMovies->count());
             \Log::debug('Japan movies count: ' . $japanMovies->count());
 
-            return view('movies.index', compact('globalMovies', 'japanMovies', 'availableGenres', 'selectedGenre', 'genreColors'));
+            $lastUpdated = Movie::where('region', 'japan')
+                               ->whereNotNull('last_updated')
+                               ->max('last_updated');
+
+            return view('movies.index', compact('globalMovies', 'japanMovies', 'availableGenres', 'selectedGenre', 'genreColors', 'lastUpdated'));
         } catch (\Exception $e) {
             \Log::error('Error in index method: ' . $e->getMessage());
             throw $e;

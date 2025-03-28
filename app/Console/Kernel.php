@@ -20,6 +20,11 @@ class Kernel extends ConsoleKernel
         $schedule->command('movies:fetch-japanese-boxoffice')
                 ->dailyAt('03:00')
                 ->withoutOverlapping();
+
+        // グローバル映画データの取得を追加
+        $schedule->command('movies:fetch-global-boxoffice')
+                ->dailyAt('03:00')
+                ->withoutOverlapping();
     }
 
     /**

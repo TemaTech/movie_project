@@ -531,11 +531,6 @@
                                         </td>
                                         <td class="text-end">
                                             {{ $movie->box_office_billion }}億円
-                                            @if($movie->data_source)
-                                                <small class="text-muted">
-                                                    ({{ $movie->data_source }})
-                                                </small>
-                                            @endif
                                         </td>
                                         <td class="text-end">{{ $movie->budget_billion }}億円</td>
                                         <td class="text-center">{{ \Carbon\Carbon::parse($movie->release_date)->format('Y/m/d') }}</td>

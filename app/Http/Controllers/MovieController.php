@@ -5,7 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use App\Models\Movie;
+use App\Models\GlobalMovie;
+use App\Models\JapaneseMovie;
 use Illuminate\Support\Facades\DB;
 
 class MovieController extends Controller
@@ -104,33 +105,26 @@ class MovieController extends Controller
             $api_key = config('services.tmdb.api_key');
             Log::info('APIキーを使用: ' . $api_key);
 
-            // 日本の映画データを取得
+            // グローバルの映画データのみを取得
             $response = Http::get('https://api.themoviedb.org/3/discover/movie', [
                 'api_key' => $api_key,
-                'with_original_language' => 'ja',
                 'sort_by' => 'revenue.desc',
-                'language' => 'ja',
-                'region' => 'JP'
+                'language' => 'ja'
             ]);
 
             if ($response->successful()) {
                 $movies = $response->json()['results'];
                 foreach ($movies as $movie) {
                     try {
-                        $movieDetails = Http::get("https://api.themoviedb.org/3/movie/{$movie['id']}", [
-                            'api_key' => $api_key,
-                            'language' => 'ja'
-                        ])->json();
-
-                        Movie::updateOrCreate(
-                            ['movie_id' => (string)$movie['id']],
+                        GlobalMovie::updateOrCreate(
+                            ['movie_id' => 'global_' . $movie['id']],
                             [
                                 'title' => $movie['title'],
-                                'box_office' => $movieDetails['revenue'] ?? 0,
-                                'budget' => $movieDetails['budget'] ?? 0,
+                                'box_office' => $movie['revenue'] ?? 0,
+                                'budget' => $movie['budget'] ?? 0,
                                 'release_date' => $movie['release_date'] ?? null,
-                                'region' => 'japan',
-                                'genres' => isset($movieDetails['genres']) ? collect($movieDetails['genres'])->pluck('name')->toArray() : []
+                                'region' => 'global',
+                                'genres' => isset($movie['genres']) ? collect($movie['genres'])->pluck('name')->toArray() : []
                             ]
                         );
                     } catch (\Exception $e) {
@@ -139,9 +133,6 @@ class MovieController extends Controller
                     }
                 }
             }
-
-            // グローバルの映画データも取得（既存のコード）
-            // ...
 
             return redirect()->route('movies.index')->with('success', '映画データを更新しました');
 
@@ -173,12 +164,12 @@ class MovieController extends Controller
             }
 
             // データベースの映画数を確認
-            $movieCount = Movie::count();
-            \Log::debug("Total movies in database: {$movieCount}");
+            $movieCount = GlobalMovie::count();
+            \Log::debug("Total global movies in database: {$movieCount}");
 
             // もしデータベースが空なら、APIからデータを取得
             if ($movieCount === 0) {
-                \Log::debug('Database is empty, fetching movies from API');
+                \Log::debug('Global movies database is empty, fetching movies from API');
                 $this->fetchMovies();
             }
 
@@ -193,8 +184,7 @@ class MovieController extends Controller
             ];
 
             // 世界の興行収入データ
-            $globalMovies = Movie::query()  // query()を明示的に呼び出す
-                ->where('region', 'global')  // クォートを取り除く
+            $globalMovies = GlobalMovie::query()
                 ->when($selectedGenre, function($query) use ($selectedGenre, $genreMap) {
                     $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
                     return $query->whereRaw("genres::jsonb @> ?::jsonb", [json_encode([$searchGenre])]);
@@ -217,8 +207,7 @@ class MovieController extends Controller
             });
             
             // 日本の興行収入データ
-            $japanMovies = Movie::query()  // query()を明示的に呼び出す
-                ->where('region', 'japan')  // クォートを取り除く
+            $japanMovies = JapaneseMovie::query()  // Movie から JapaneseMovie に変更
                 ->when($selectedGenre, function($query) use ($selectedGenre, $genreMap) {
                     $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
                     return $query->whereRaw("genres::jsonb @> ?::jsonb", [json_encode([$searchGenre])]);
@@ -232,18 +221,34 @@ class MovieController extends Controller
                 $movie->rank = $rank++;
                 $movie->box_office_billion = number_format($movie->box_office / 100000000, 3);
                 $movie->budget_billion = number_format($movie->budget / 100000000, 3);
-                if ($movie->genres) {
-                    $movie->genres = array_map(function($genre) use ($genreMap) {
-                        return $genreMap[$genre] ?? $genre;
-                    }, $movie->genres);
+                
+                // genres のデバッグ出力
+                \Log::debug("Movie {$movie->title} genres:", [
+                    'raw' => $movie->genres,
+                    'type' => gettype($movie->genres)
+                ]);
+                
+                // genres が配列でない場合の処理
+                if (!is_array($movie->genres)) {
+                    if (is_string($movie->genres)) {
+                        $movie->genres = json_decode($movie->genres, true) ?? [];
+                    } else {
+                        $movie->genres = [];
+                    }
                 }
+                
+                // ジャンルの変換
+                $movie->genres = array_map(function($genre) use ($genreMap) {
+                    return $genreMap[$genre] ?? $genre;
+                }, $movie->genres);
+                
                 return $movie;
             });
 
-            // 利用可能なジャンルの一覧を取得し、変換
-            $availableGenres = Movie::select('genres')
-                ->get()
-                ->pluck('genres')
+            // 利用可能なジャンルの取得を両方のテーブルから行うように修正
+            $availableGenres = collect()
+                ->concat(GlobalMovie::select('genres')->get()->pluck('genres'))
+                ->concat(JapaneseMovie::select('genres')->get()->pluck('genres'))
                 ->flatten()
                 ->unique()
                 ->map(function($genre) use ($genreMap) {
@@ -286,9 +291,9 @@ class MovieController extends Controller
             \Log::debug('Global movies count: ' . $globalMovies->count());
             \Log::debug('Japan movies count: ' . $japanMovies->count());
 
-            $lastUpdated = Movie::where('region', 'japan')
-                               ->whereNotNull('last_updated')
-                               ->max('last_updated');
+            // 最終更新日時の取得を修正
+            $lastUpdated = JapaneseMovie::whereNotNull('last_updated')
+                                      ->max('last_updated');
 
             return view('movies.index', compact('globalMovies', 'japanMovies', 'availableGenres', 'selectedGenre', 'genreColors', 'lastUpdated'));
         } catch (\Exception $e) {

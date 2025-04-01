@@ -181,6 +181,9 @@ class FetchJapaneseBoxOffice extends Command
                         // タイトルを抽出（最初のカラム）
                         if (!$titleFound && $lineIndex > 0 && preg_match('/^\|(.+)$/', $line, $matches)) {
                             $titleText = $matches[1];
+                            // HTMLタグを除去
+                            $titleText = preg_replace('/<br\s*\/?>/i', ' ', $titleText);
+                            
                             // Wikiリンク形式のタイトルを抽出
                             if (preg_match('/\[\[([^|\]]+)(?:\|([^\]]+))?\]\]/', $titleText, $titleMatches)) {
                                 $title = isset($titleMatches[2]) ? $titleMatches[2] : $titleMatches[1];
@@ -351,18 +354,6 @@ class FetchJapaneseBoxOffice extends Command
         }
     }
 
-    // 新しいヘルパーメソッドを追加
-    private function extractSimpleText($text)
-    {
-        // [[記事名|表示名]] 形式のリンクを処理
-        if (preg_match('/\[\[(?:[^|\]]+\|)?([^\]]+)\]\]/', $text, $matches)) {
-            return trim($matches[1]);
-        }
-        
-        // リンクでない通常のテキスト
-        return trim(preg_replace('/\[\[|\]\]/', '', $text));
-    }
-
     private function createMovieId($rank, $title, $distributor = '', $releaseYear = '')
     {
         // 数字を3桁のゼロ埋めに
@@ -373,17 +364,6 @@ class FetchJapaneseBoxOffice extends Command
         $titleHash = substr(md5($uniqueString), 0, 8);
         
         return "jp_{$rankPart}_{$titleHash}";
-    }
-
-    private function extractTitle($text)
-    {
-        // [[記事名|表示名]] 形式のリンクを処理
-        if (preg_match('/\[\[(?:[^|\]]+\|)?([^\]]+)\]\]/', $text, $matches)) {
-            return trim($matches[1]);
-        }
-        
-        // リンクでない通常のテキスト
-        return trim(preg_replace('/\[\[|\]\]/', '', $text));
     }
 
     private function fetchTMDBMovieDetails($title)

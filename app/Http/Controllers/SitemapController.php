@@ -2,7 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Movie;
+use App\Models\GlobalMovie;
+use App\Models\JapaneseMovie;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Log;
 
@@ -11,7 +12,11 @@ class SitemapController extends Controller
     public function index()
     {
         try {
-            $movies = Movie::all();
+            $globalMovies = GlobalMovie::all();
+            $japaneseMovies = JapaneseMovie::all();
+            
+            $movies = $globalMovies->concat($japaneseMovies);
+            
             $content = view('sitemap', [
                 'movies' => $movies
             ])->render();

@@ -191,6 +191,11 @@ class MovieController extends Controller
                 '歴史' => '履歴'
             ];
 
+            // タイトル変換マップを定義
+            $titleMap = [
+                '哪吒之魔童闹海' => 'ナタ 魔童の大暴れ'
+            ];
+
             // 世界の興行収入データ
             $globalMovies = GlobalMovie::query()
                 ->when($selectedGenre, function($query) use ($selectedGenre, $genreMap) {
@@ -202,8 +207,12 @@ class MovieController extends Controller
 
             // rankを設定し、その他の変換も行う
             $rank = ($globalMovies->currentPage() - 1) * $globalMovies->perPage() + 1;
-            $globalMovies->through(function ($movie) use ($genreMap, &$rank) {
+            $globalMovies->through(function ($movie) use ($genreMap, &$rank, $titleMap) {
                 $movie->rank = $rank++;
+                // タイトルの変換を追加
+                $originalTitle = $movie->title;
+                $movie->title = $titleMap[$originalTitle] ?? $originalTitle;
+                $movie->original_title = $originalTitle;
                 // ドルから円への換算（1ドル = 約150円で計算）
                 $movie->box_office_billion = number_format($movie->box_office * 150 / 100000000, 1);
                 $movie->budget_billion = number_format($movie->budget * 150 / 100000000, 1);
@@ -357,8 +366,10 @@ class MovieController extends Controller
 
             // データの変換処理
             $transformedData = collect($movies->items())->map(function ($movie, $index) use ($titleMap, $tab, $page, $perPage, $genreMap) {
-                // タイトルの変換
-                $movie->title = $titleMap[$movie->title] ?? $movie->title;
+                // タイトルの変換（ここを修正）
+                $originalTitle = $movie->title;
+                $movie->title = $titleMap[$originalTitle] ?? $originalTitle;
+                $movie->original_title = $originalTitle;  // 元のタイトルも保持
 
                 // ジャンルの変換
                 if (!is_array($movie->genres)) {

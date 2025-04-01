@@ -641,7 +641,7 @@
                                             <td class="text-end">
                                                 {{ $movie->box_office_billion }}億円
                                             </td>
-                                            <td class="text-end">{{ $movie->budget_billion }}億円</td>
+                                            <td class="text-end">{{ $movie->budget_billion === '0.0' ? '-' : $movie->budget_billion . '億円' }}</td>
                                             <td class="text-center">{{ \Carbon\Carbon::parse($movie->release_date)->format('Y') }}年</td>
                                         </tr>
                                         @endforeach
@@ -849,7 +849,7 @@
                         ${activeTab === 'global' ? 
                             `${(movie.budget / 100000000).toFixed(2)}億ドル<br>
                             <small class="text-muted">(${movie.budget_billion}億円)</small>` :
-                            `${movie.budget_billion}億円`
+                            `${movie.budget_billion === '0.0' ? '-' : movie.budget_billion + '億円'}`
                         }
                     </td>
                     <td class="text-center">${movie.release_date ? new Date(movie.release_date).getFullYear() : '未定'}年</td>

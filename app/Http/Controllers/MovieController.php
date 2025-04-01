@@ -196,8 +196,9 @@ class MovieController extends Controller
             $rank = ($globalMovies->currentPage() - 1) * $globalMovies->perPage() + 1;
             $globalMovies->through(function ($movie) use ($genreMap, &$rank) {
                 $movie->rank = $rank++;
-                $movie->box_office_billion = number_format(($movie->box_office * 150) / 10000000000, 3);
-                $movie->budget_billion = number_format(($movie->budget * 150) / 10000000000, 3);
+                // ドルから円への換算（1ドル = 約150円で計算）
+                $movie->box_office_billion = number_format($movie->box_office * 150 / 100000000, 1);
+                $movie->budget_billion = number_format($movie->budget * 150 / 100000000, 1);
                 if ($movie->genres) {
                     $movie->genres = array_map(function($genre) use ($genreMap) {
                         return $genreMap[$genre] ?? $genre;
@@ -219,8 +220,8 @@ class MovieController extends Controller
             $rank = ($japanMovies->currentPage() - 1) * $japanMovies->perPage() + 1;
             $japanMovies->through(function ($movie) use ($genreMap, &$rank) {
                 $movie->rank = $rank++;
-                $movie->box_office_billion = number_format($movie->box_office / 100000000, 3);
-                $movie->budget_billion = number_format($movie->budget / 100000000, 3);
+                $movie->box_office_billion = number_format($movie->box_office / 100000000, 1);
+                $movie->budget_billion = number_format($movie->budget / 100000000, 1);
                 
                 // genres のデバッグ出力
                 \Log::debug("Movie {$movie->title} genres:", [
@@ -292,13 +293,118 @@ class MovieController extends Controller
             \Log::debug('Japan movies count: ' . $japanMovies->count());
 
             // 最終更新日時の取得を修正
-            $lastUpdated = JapaneseMovie::whereNotNull('last_updated')
-                                      ->max('last_updated');
+            $japanLastUpdated = JapaneseMovie::whereNotNull('last_updated')
+                                          ->max('last_updated');
+            $globalLastUpdated = GlobalMovie::whereNotNull('last_updated')
+                                         ->max('last_updated');
 
-            return view('movies.index', compact('globalMovies', 'japanMovies', 'availableGenres', 'selectedGenre', 'genreColors', 'lastUpdated'));
+            return view('movies.index', compact('globalMovies', 'japanMovies', 'availableGenres', 'selectedGenre', 'genreColors', 'japanLastUpdated', 'globalLastUpdated'));
         } catch (\Exception $e) {
             \Log::error('Error in index method: ' . $e->getMessage());
             throw $e;
+        }
+    }
+
+    public function filterByGenre(Request $request)
+    {
+        try {
+            $genre = $request->query('genre');
+            $tab = $request->query('tab', 'global');
+            
+            Log::info('ジャンルフィルター実行:', [
+                'genre' => $genre,
+                'tab' => $tab
+            ]);
+
+            // ジャンル名の変換マップを定義
+            $genreMap = [
+                'アニメーション' => 'アニメ',
+                'サイエンスフィクション' => 'SF',
+                'アニメ' => 'アニメーション',
+                'SF' => 'サイエンスフィクション'
+            ];
+
+            $searchGenre = array_flip($genreMap)[$genre] ?? $genre;
+
+            if ($tab === 'global') {
+                $query = GlobalMovie::query();
+            } else {
+                $query = JapaneseMovie::query();
+            }
+
+            // ジャンルでフィルタリング
+            if ($genre) {
+                $query->whereRaw("genres::jsonb @> ?::jsonb", [json_encode([$searchGenre])]);
+            }
+
+            // 興行収入で降順ソート
+            $query->orderBy('box_office', 'desc');
+
+            // 全件数を取得
+            $total = $query->count();
+
+            // ページネーション
+            $perPage = 100;
+            $page = $request->query('page', 1);
+            $movies = $query->paginate($perPage);
+
+            // データを変換
+            $transformedData = [];
+            $rank = ($movies->currentPage() - 1) * $movies->perPage() + 1;
+
+            foreach ($movies->items() as $movie) {
+                // 興行収入と制作費の変換
+                if ($tab === 'global') {
+                    $movie->box_office_billion = number_format($movie->box_office * 150 / 100000000, 1);
+                    $movie->budget_billion = number_format($movie->budget * 150 / 100000000, 1);
+                } else {
+                    $movie->box_office_billion = number_format($movie->box_office / 100000000, 1);
+                    $movie->budget_billion = number_format($movie->budget / 100000000, 1);
+                }
+
+                // ジャンルの変換
+                if (!is_array($movie->genres)) {
+                    if (is_string($movie->genres)) {
+                        $movie->genres = json_decode($movie->genres, true) ?? [];
+                    } else {
+                        $movie->genres = [];
+                    }
+                }
+
+                $movie->genres = array_map(function($genre) use ($genreMap) {
+                    return $genreMap[$genre] ?? $genre;
+                }, $movie->genres);
+
+                $movie->rank = $rank++;
+                $transformedData[] = $movie;
+            }
+
+            // 変換したデータをページネーターに設定
+            $movies = new \Illuminate\Pagination\LengthAwarePaginator(
+                $transformedData,
+                $total,
+                $perPage,
+                $page,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+
+            return response()->json([
+                'success' => true,
+                'movies' => $movies
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('ジャンルフィルターエラー: ' . $e->getMessage(), [
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'データの取得中にエラーが発生しました: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

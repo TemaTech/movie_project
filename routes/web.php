@@ -21,6 +21,7 @@ Route::get('/fetch-movies', [MovieController::class, 'fetchMovies'])->name('movi
 Route::prefix('api')->group(function () {
     Route::get('/movies/popular', [MovieController::class, 'getPopularMovies'])->name('api.movies.popular');
     Route::get('/movies/search', [MovieController::class, 'search'])->name('api.movies.search');
+    Route::get('/movies/filter', [MovieController::class, 'filterByGenre'])->name('api.movies.filter');
 });
 
 Route::get('/sitemap.xml', [SitemapController::class, 'index']);

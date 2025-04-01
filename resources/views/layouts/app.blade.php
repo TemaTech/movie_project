@@ -19,5 +19,8 @@
     <div id="app">
         @yield('content')
     </div>
+
+    <!-- Scripts -->
+    @yield('scripts')
 </body>
 </html>

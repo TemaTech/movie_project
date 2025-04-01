@@ -224,8 +224,9 @@ class FetchJapaneseBoxOffice extends Command
                         }
                         
                         // 公開年を抽出（6列目）
-                        if (preg_match('/\|\s*(\d{4})/', $line, $yearMatch)) {
+                        if (preg_match('/\|\s*(?:style="text-align:center"\s*\|\s*)?(\d{4})(?:\s*年)?(?:\s*\||$)/', $line, $yearMatch)) {
                             $releaseYear = $yearMatch[1] . '-01-01';
+                            continue;
                         }
                     }
                     
@@ -240,7 +241,7 @@ class FetchJapaneseBoxOffice extends Command
                     // 映画データの追加
                     if ($currentRank !== null && !empty($title) && $boxOffice > 0) {
                         // TMDBから追加情報を取得
-                        $tmdbDetails = $this->fetchTMDBMovieDetails($title);
+                        $tmdbDetails = $this->fetchTMDBMovieDetails($title, $releaseYear);
                         
                         $movieData = [
                             'movie_id' => $this->createMovieId($currentRank, $title, $distributor, $releaseYear),
@@ -366,7 +367,7 @@ class FetchJapaneseBoxOffice extends Command
         return "jp_{$rankPart}_{$titleHash}";
     }
 
-    private function fetchTMDBMovieDetails($title)
+    private function fetchTMDBMovieDetails($title, $releaseYear = null)
     {
         $apiKey = config('services.tmdb.api_key');
         
@@ -380,21 +381,28 @@ class FetchJapaneseBoxOffice extends Command
             ]);
 
             if ($searchResponse->successful() && !empty($searchResponse->json()['results'])) {
-                // タイトルの完全一致か類似度の高いものを探す
                 $results = $searchResponse->json()['results'];
                 $bestMatch = null;
                 $highestSimilarity = 0;
 
                 foreach ($results as $result) {
-                    $similarity = similar_text($title, $result['title'], $percent);
-                    if ($percent > $highestSimilarity) {
-                        $highestSimilarity = $percent;
-                        $bestMatch = $result;
+                    // similar_text関数を使用して類似度を計算
+                    similar_text($title, $result['title'], $percent);
+                    
+                    // 公開年の取得と比較
+                    $tmdbYear = substr($result['release_date'], 0, 4);
+                    $wikiYear = substr($releaseYear, 0, 4);
+
+                    // 公開年が一致し、かつ類似度が10%以上の場合にマッチとみなす
+                    if ($wikiYear === $tmdbYear && $percent >= 10) {
+                        if ($percent > $highestSimilarity) {
+                            $highestSimilarity = $percent;
+                            $bestMatch = $result;
+                        }
                     }
                 }
 
-                // 類似度が70%以上の場合のみ採用
-                if ($highestSimilarity >= 70) {
+                if ($bestMatch) {
                     $detailsResponse = Http::get("https://api.themoviedb.org/3/movie/{$bestMatch['id']}", [
                         'api_key' => $apiKey,
                         'language' => 'ja-JP'
@@ -403,6 +411,13 @@ class FetchJapaneseBoxOffice extends Command
                     if ($detailsResponse->successful()) {
                         $details = $detailsResponse->json();
                         
+                        $this->info(sprintf(
+                            'タイトルマッチ: %s (類似度: %.2f%%, 公開年: %s)',
+                            $bestMatch['title'],
+                            $highestSimilarity,
+                            $tmdbYear
+                        ));
+                        
                         return [
                             'genres' => collect($details['genres'])->pluck('name')->toArray(),
                             'budget' => $details['budget'],
@@ -410,7 +425,7 @@ class FetchJapaneseBoxOffice extends Command
                         ];
                     }
                 } else {
-                    $this->warn("タイトルの一致度が低いためスキップ: {$title} (類似度: {$highestSimilarity}%)");
+                    $this->warn("タイトルの一致度が低いためスキップ: {$title} (最高類似度: {$highestSimilarity}%)");
                 }
             }
         } catch (\Exception $e) {
@@ -455,5 +470,41 @@ class FetchJapaneseBoxOffice extends Command
         }
 
         return $data;
+    }
+
+    private function normalizeTitle($title)
+    {
+        // タイトルの正規化処理
+        $title = mb_strtolower($title); // 小文字化
+        $title = $this->convertFullWidthToHalfWidth($title); // 全角→半角変換
+        
+        // 記号の統一や削除
+        $title = str_replace(['：', '：', '：'], ':', $title); // 各種コロンを半角に統一
+        $title = str_replace(['＆', '＆'], '&', $title); // アンパサンドを半角に統一
+        
+        // 空白文字の正規化
+        $title = preg_replace('/\s+/', ' ', $title);
+        $title = trim($title);
+        
+        return $title;
+    }
+
+    private function convertFullWidthToHalfWidth($str) 
+    {
+        return mb_convert_kana($str, 'as'); // 全角英数字→半角英数字
+    }
+
+    private function calculateSimilarity($str1, $str2) 
+    {
+        $len1 = mb_strlen($str1);
+        $len2 = mb_strlen($str2);
+        
+        if ($len1 === 0) return $len2 === 0 ? 1.0 : 0.0;
+        if ($len2 === 0) return 0.0;
+
+        $distance = levenshtein($str1, $str2);
+        $maxLength = max($len1, $len2);
+        
+        return 1 - ($distance / $maxLength);
     }
 }

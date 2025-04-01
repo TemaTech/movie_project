@@ -268,6 +268,39 @@
         /* スクロールバーのスタイリング */
         scrollbar-width: thin;
         scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+        max-height: 70vh;
+        position: relative;
+    }
+
+    /* テーブルヘッダーの固定表示 */
+    .table thead {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    .table thead th {
+        background: #2c3e50;
+        color: white;
+        border: none;
+        font-weight: 500;
+        padding: 15px;
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+
+    /* テーブルヘッダーの影を追加 */
+    .table thead::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -5px;
+        height: 5px;
+        background: linear-gradient(to bottom, rgba(0,0,0,0.1), transparent);
+        pointer-events: none;
     }
 
     /* Webkit（Chrome, Safari等）用のスクロールバースタイル */
@@ -296,6 +329,7 @@
             margin: 0 -10px;
             padding: 0 10px;
             width: calc(100% + 20px);
+            max-height: 60vh;
         }
 
         /* スクロールバーのスタイリング（モバイル用） */
@@ -306,27 +340,6 @@
         .table-responsive::-webkit-scrollbar-thumb {
             background-color: rgba(0, 0, 0, 0.2);
             border-radius: 2px;
-        }
-    }
-
-    /* スマートフォン対応のスタイル */
-    @media (max-width: 768px) {
-        .container {
-            padding: 0 10px;
-        }
-
-        h1 {
-            font-size: 1.8rem !important;
-            margin-bottom: 1rem !important;
-        }
-
-        .nav-tabs .nav-link {
-            padding: 8px 12px;
-            font-size: 0.9rem;
-        }
-
-        .custom-card {
-            padding: 10px !important;
         }
 
         .table thead th {
@@ -385,19 +398,29 @@
             min-width: 35px;
         }
     }
+
+    .genre-badge {
+        cursor: pointer;
+        background-color: #f8f9fa;
+        color: #2c3e50;
+    }
+    @foreach($genreColors as $genre => $color)
+    .genre-{{ Str::slug($genre) }} {
+        background-color: {{ $color }};
+        color: {{ in_array($genre, ['スリラー', 'ホラー']) ? '#ffffff' : '#2c3e50' }};
+    }
+    @endforeach
 </style>
 
 <div class="gradient-bg py-5">
     <div class="container">
-        <h1 class="mb-5 text-center fw-bold display-4 animate__animated animate__fadeIn">
-            🎬 映画興行収入ランキング
-        </h1>
-
-        <!-- タブナビゲーションの直前に移動 -->
+        <h1 class="text-center mb-4">映画興行収入ランキング</h1>
+        
+        <!-- フィルターフォーム -->
         <div class="mb-4">
-            <form action="{{ url('/movies') }}" method="get" class="d-flex justify-content-center align-items-center gap-2" id="filterForm">
+            <div class="d-flex justify-content-center align-items-center gap-2" id="filterForm">
                 <input type="hidden" name="tab" value="{{ request()->get('tab', 'global') }}" id="currentTab">
-                <select name="genre" class="form-select" style="max-width: 200px;">
+                <select name="genre" class="form-select" style="max-width: 200px;" id="genreSelect">
                     <option value="">すべてのジャンル</option>
                     @foreach($availableGenres as $genre)
                         <option value="{{ $genre }}" {{ $selectedGenre == $genre ? 'selected' : '' }}>
@@ -405,13 +428,11 @@
                         </option>
                     @endforeach
                 </select>
-                <button type="submit" class="btn btn-primary">絞り込み</button>
-                @if($selectedGenre)
-                    <a href="{{ url('/movies') }}?tab={{ request()->get('tab', 'global') }}" class="btn btn-outline-secondary">
-                        クリア
-                    </a>
-                @endif
-            </form>
+                <button type="button" class="btn btn-primary" id="filterButton">絞り込み</button>
+                <button type="button" class="btn btn-outline-secondary" id="clearFilter" style="display: none;">
+                    クリア
+                </button>
+            </div>
         </div>
 
         <!-- タブナビゲーション -->
@@ -429,11 +450,17 @@
         </ul>
 
         <!-- タブコンテンツ -->
-        <div class="tab-content" id="movieTabsContent">
+        <div class="tab-content">
             <!-- 世界興行収入タブ -->
             <div class="tab-pane fade show active" id="global" role="tabpanel">
                 <div class="custom-card shadow-lg">
                     <div class="card-body p-4">
+                        <div class="alert alert-info" role="alert">
+                            <i class="fas fa-info-circle"></i>
+                            世界の興行収入データはTMDbから取得しています。金額は1ドル = 150円で換算しています。
+                            <br>
+                            最終更新: {{ $globalLastUpdated }}
+                        </div>
                         <div class="table-responsive">
                             <table class="table table-hover">
                                 <thead class="table-dark">
@@ -447,40 +474,62 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach ($globalMovies as $movie)
-                                    <tr>
-                                        <td class="text-center fw-bold">{{ $movie->rank }}</td>
-                                        <td>{{ $movie->title }}</td>
-                                        <td>
-                                            @if($movie->genres && is_array($movie->genres) && count($movie->genres) > 0)
-                                                @foreach($movie->genres as $genre)
-                                                    <a href="{{ route('movies.list', ['tab' => request()->get('tab', 'global'), 'genre' => $genre]) }}" 
-                                                       class="badge text-decoration-none me-1" 
-                                                       style="cursor: pointer; background-color: {{ $genreColors[$genre] ?? '#f8f9fa' }}; color: {{ in_array($genre, ['スリラー', 'ホラー']) ? '#ffffff' : '#2c3e50' }};">
-                                                        {{ $genre }}
-                                                    </a>
-                                                @endforeach
-                                            @else
-                                                <span class="text-muted">-</span>
-                                            @endif
-                                        </td>
-                                        <td class="text-end">{{ $movie->box_office_billion }}億円</td>
-                                        <td class="text-end">{{ $movie->budget_billion }}億円</td>
-                                        <td class="text-center">{{ \Carbon\Carbon::parse($movie->release_date)->format('Y/m/d') }}</td>
-                                    </tr>
-                                    @endforeach
+                                    @if($globalMovies->isEmpty())
+                                        <tr>
+                                            <td colspan="6" class="text-center">
+                                                検索結果がありません
+                                            </td>
+                                        </tr>
+                                    @else
+                                        @foreach ($globalMovies as $movie)
+                                        <tr>
+                                            <td class="text-center fw-bold">{{ $movie->rank }}</td>
+                                            <td>
+                                                @if($movie->title === '哪吒之魔童闹海')
+                                                    ナタ 魔童の大暴れ
+                                                @else
+                                                    {{ $movie->title }}
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @if($movie->genres && is_array($movie->genres) && count($movie->genres) > 0)
+                                                    @foreach($movie->genres as $genre)
+                                                        @php
+                                                            $style = 'cursor: pointer; background-color: ' . 
+                                                                     ($genreColors[$genre] ?? '#f8f9fa') . 
+                                                                     '; color: ' . 
+                                                                     (in_array($genre, ['スリラー', 'ホラー']) ? '#ffffff' : '#2c3e50');
+                                                        @endphp
+                                                        <span class="badge" 
+                                                              data-genre="{{ $genre }}" 
+                                                              style="{{ $style }}">
+                                                            {{ $genre }}
+                                                        </span>
+                                                    @endforeach
+                                                @else
+                                                    <span class="text-muted">-</span>
+                                                @endif
+                                            </td>
+                                            <td class="text-end">
+                                                {{ number_format($movie->box_office / 100000000, 2) }}億ドル<br>
+                                                <small class="text-muted">({{ $movie->box_office_billion }}億円)</small>
+                                            </td>
+                                            <td class="text-end">
+                                                {{ number_format($movie->budget / 100000000, 2) }}億ドル<br>
+                                                <small class="text-muted">({{ $movie->budget_billion }}億円)</small>
+                                            </td>
+                                            <td class="text-center">{{ \Carbon\Carbon::parse($movie->release_date)->format('Y') }}年</td>
+                                        </tr>
+                                        @endforeach
+                                    @endif
                                 </tbody>
                             </table>
                             <!-- グローバル映画のページネーション -->
                             <div class="d-flex flex-column align-items-center mt-4">
-                                @if($globalMovies->total() > 0)
+                                @if(!$globalMovies->isEmpty())
                                     {{ $globalMovies->appends(['japan_page' => request()->japan_page])->links() }}
                                     <div class="pagination-info">
-                                        全{{ $globalMovies->total() }}件中 {{ $globalMovies->firstItem() }}～{{ $globalMovies->lastItem() }}件を表示
-                                    </div>
-                                @else
-                                    <div class="pagination-info">
-                                        検索結果がありません
+                                        全{{ $globalMovies->total() }}件中 {{ $globalMovies->firstItem() ?? 0 }}～{{ $globalMovies->lastItem() ?? 0 }}件を表示
                                     </div>
                                 @endif
                             </div>
@@ -497,7 +546,7 @@
                             <i class="fas fa-info-circle"></i>
                             日本国内の興行収入データは<a href="https://ja.wikipedia.org/wiki/日本歴代興行成績上位の映画一覧" target="_blank" rel="noopener noreferrer">Wikipedia</a>から取得しています（CC BY-SA 3.0）
                             <br>
-                            最終更新: {{ $lastUpdated }}
+                            最終更新: {{ $japanLastUpdated }}
                         </div>
                         <div class="table-responsive">
                             <table class="table table-hover">
@@ -512,38 +561,54 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach ($japanMovies as $movie)
-                                    <tr>
-                                        <td class="text-center fw-bold">{{ $movie->rank }}</td>
-                                        <td>{{ $movie->title }}</td>
-                                        <td>
-                                            @if($movie->genres && is_array($movie->genres) && count($movie->genres) > 0)
-                                                @foreach($movie->genres as $genre)
-                                                    <a href="{{ route('movies.list', ['tab' => request()->get('tab', 'global'), 'genre' => $genre]) }}" 
-                                                       class="badge text-decoration-none me-1" 
-                                                       style="cursor: pointer; background-color: {{ $genreColors[$genre] ?? '#f8f9fa' }}; color: {{ in_array($genre, ['スリラー', 'ホラー']) ? '#ffffff' : '#2c3e50' }};">
-                                                        {{ $genre }}
-                                                    </a>
-                                                @endforeach
-                                            @else
-                                                <span class="text-muted">-</span>
-                                            @endif
-                                        </td>
-                                        <td class="text-end">
-                                            {{ $movie->box_office_billion }}億円
-                                        </td>
-                                        <td class="text-end">{{ $movie->budget_billion }}億円</td>
-                                        <td class="text-center">{{ \Carbon\Carbon::parse($movie->release_date)->format('Y/m/d') }}</td>
-                                    </tr>
-                                    @endforeach
+                                    @if($japanMovies->isEmpty())
+                                        <tr>
+                                            <td colspan="6" class="text-center">
+                                                検索結果がありません
+                                            </td>
+                                        </tr>
+                                    @else
+                                        @foreach ($japanMovies as $movie)
+                                        <tr>
+                                            <td class="text-center fw-bold">{{ $movie->rank }}</td>
+                                            <td>{{ $movie->title }}</td>
+                                            <td>
+                                                @if($movie->genres && is_array($movie->genres) && count($movie->genres) > 0)
+                                                    @foreach($movie->genres as $genre)
+                                                        @php
+                                                            $style = 'cursor: pointer; background-color: ' . 
+                                                                     ($genreColors[$genre] ?? '#f8f9fa') . 
+                                                                     '; color: ' . 
+                                                                     (in_array($genre, ['スリラー', 'ホラー']) ? '#ffffff' : '#2c3e50');
+                                                        @endphp
+                                                        <span class="badge" 
+                                                              data-genre="{{ $genre }}" 
+                                                              style="{{ $style }}">
+                                                            {{ $genre }}
+                                                        </span>
+                                                    @endforeach
+                                                @else
+                                                    <span class="text-muted">-</span>
+                                                @endif
+                                            </td>
+                                            <td class="text-end">
+                                                {{ $movie->box_office_billion }}億円
+                                            </td>
+                                            <td class="text-end">{{ $movie->budget_billion }}億円</td>
+                                            <td class="text-center">{{ \Carbon\Carbon::parse($movie->release_date)->format('Y') }}年</td>
+                                        </tr>
+                                        @endforeach
+                                    @endif
                                 </tbody>
                             </table>
                             <!-- 日本映画のページネーション -->
                             <div class="d-flex flex-column align-items-center mt-4">
-                                {{ $japanMovies->appends(['global_page' => request()->global_page])->links() }}
-                                <div class="pagination-info">
-                                    全{{ $japanMovies->total() }}件中 {{ $japanMovies->firstItem() }}～{{ $japanMovies->lastItem() }}件を表示
-                                </div>
+                                @if(!$japanMovies->isEmpty())
+                                    {{ $japanMovies->appends(['global_page' => request()->global_page])->links() }}
+                                    <div class="pagination-info">
+                                        全{{ $japanMovies->total() }}件中 {{ $japanMovies->firstItem() ?? 0 }}～{{ $japanMovies->lastItem() ?? 0 }}件を表示
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -558,7 +623,31 @@
 
 <!-- タブの状態を維持するためのスクリプトを追加 -->
 <script>
+    // PHPから渡されたgenreColorsをJavaScriptで使用できるようにする
+    const genreColors = {!! json_encode($genreColors) !!};
+
     document.addEventListener('DOMContentLoaded', function() {
+        // DOM要素の取得
+        const filterForm = document.getElementById('filterForm');
+        const filterButton = document.getElementById('filterButton');
+        const clearFilter = document.getElementById('clearFilter');
+        const genreSelect = document.getElementById('genreSelect');
+        const currentTab = document.getElementById('currentTab');
+        const movieTabs = document.getElementById('movieTabs');
+
+        // 要素が見つからない場合はコンソールに警告を出す
+        if (!filterButton) console.warn('filterButton not found');
+        if (!clearFilter) console.warn('clearFilter not found');
+        if (!genreSelect) console.warn('genreSelect not found');
+        if (!currentTab) console.warn('currentTab not found');
+        if (!movieTabs) console.warn('movieTabs not found');
+
+        // 検索結果のキャッシュを保持するオブジェクト
+        const searchCache = {
+            global: { genre: null, data: null },
+            japan: { genre: null, data: null }
+        };
+
         // ローカルストレージからタブの状態を取得、なければURLから取得、それもなければデフォルトはglobal
         const savedTab = localStorage.getItem('activeMovieTab');
         const urlParams = new URLSearchParams(window.location.search);
@@ -572,46 +661,234 @@
         }
 
         // フォームの hidden input を更新
-        document.getElementById('currentTab').value = activeTab;
+        currentTab.value = activeTab;
+
+        const loadingSpinner = `
+            <tr>
+                <td colspan="6" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">読み込み中...</span>
+                    </div>
+                </td>
+            </tr>
+        `;
+
+        // クリアボタンの表示状態を更新する関数
+        function updateClearButtonVisibility() {
+            if (clearFilter) {
+                clearFilter.style.display = genreSelect.value && genreSelect.value !== '' ? 'block' : 'none';
+            }
+        }
+
+        // 初期表示時のクリアボタンの表示状態を設定
+        updateClearButtonVisibility();
+
+        // ジャンル選択時にクリアボタンの表示状態を更新
+        genreSelect.addEventListener('change', updateClearButtonVisibility);
+
+        // ジャンルバッジのクリックイベントを設定する関数
+        function setupGenreBadgeListeners() {
+            document.querySelectorAll('.badge[data-genre]').forEach(badge => {
+                badge.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const genre = this.dataset.genre;
+                    genreSelect.value = genre;
+                    updateClearButtonVisibility();
+                    // キャッシュをクリアして新しい検索を実行
+                    clearSearchCache();
+                    updateMovieList();
+                });
+            });
+        }
+
+        // 検索キャッシュをクリアする関数
+        function clearSearchCache() {
+            searchCache.global = { genre: null, data: null };
+            searchCache.japan = { genre: null, data: null };
+        }
+
+        // 初期設定
+        setupGenreBadgeListeners();
 
         // タブ切り替え時の処理
-        const tabs = document.querySelectorAll('[data-bs-toggle="tab"]');
-        tabs.forEach(tab => {
-            tab.addEventListener('shown.bs.tab', function(event) {
-                const id = event.target.id.replace('-tab', '');
+        if (movieTabs) {
+            movieTabs.addEventListener('shown.bs.tab', function(event) {
+                const activeTab = event.target.getAttribute('data-bs-target').replace('#', '');
+                currentTab.value = activeTab;
                 
-                // ローカルストレージにタブの状態を保存
-                localStorage.setItem('activeMovieTab', id);
-
-                // フォームの hidden input を更新
-                document.getElementById('currentTab').value = id;
-
-                // ジャンルフィルターが設定されている場合はフォームを送信
-                const genreSelect = document.querySelector('select[name="genre"]');
-                if (genreSelect.value) {
-                    document.getElementById('filterForm').submit();
+                // キャッシュされた結果があり、ジャンルが一致する場合はそれを使用
+                if (searchCache[activeTab].data && searchCache[activeTab].genre === genreSelect.value) {
+                    displayMovies(searchCache[activeTab].data, activeTab);
+                } else if (genreSelect.value) {
+                    // キャッシュがない場合は新しく検索
+                    updateMovieList();
                 } else {
                     // URLにタブパラメータを追加
                     const currentUrl = new URL(window.location.href);
-                    currentUrl.searchParams.set('tab', id);
+                    currentUrl.searchParams.set('tab', activeTab);
                     window.history.replaceState({}, '', currentUrl);
                 }
             });
-        });
+        }
 
-        // ページネーションリンクにタブとジャンルパラメータを追加
-        document.querySelectorAll('.pagination a').forEach(link => {
-            link.addEventListener('click', function(e) {
-                const currentTab = document.getElementById('currentTab').value;
-                const currentGenre = document.querySelector('select[name="genre"]').value;
-                const url = new URL(this.href);
-                url.searchParams.set('tab', currentTab);
-                if (currentGenre) {
-                    url.searchParams.set('genre', currentGenre);
-                }
-                this.href = url.toString();
+        // フィルターボタンクリック時の処理
+        if (filterButton) {
+            filterButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('Filter button clicked');
+                // キャッシュをクリアして新しい検索を実行
+                clearSearchCache();
+                updateMovieList();
             });
-        });
+        }
+
+        // クリアボタンクリック時の処理
+        if (clearFilter) {
+            clearFilter.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('Clear button clicked');
+                genreSelect.value = '';
+                updateClearButtonVisibility();
+                // キャッシュをクリアして新しい検索を実行
+                clearSearchCache();
+                updateMovieList();
+            });
+        }
+
+        // 映画データを表示する関数
+        function displayMovies(data, activeTab) {
+            const tableBody = document.querySelector(`#${activeTab} tbody`);
+            if (!tableBody) {
+                console.error('Table body not found for tab:', activeTab);
+                return;
+            }
+
+            if (data.movies.data.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center">
+                            検索結果がありません
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tableBody.innerHTML = '';
+            data.movies.data.forEach(movie => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="text-center fw-bold">${movie.rank}</td>
+                    <td>
+                        <a href="/movies/${movie.id}" class="text-decoration-none text-dark">
+                            ${movie.title}
+                        </a>
+                    </td>
+                    <td>
+                        ${movie.genres.map(genre => {
+                            const backgroundColor = genreColors[genre] || '#f8f9fa';
+                            const textColor = ['スリラー', 'ホラー'].includes(genre) ? '#ffffff' : '#2c3e50';
+                            return `<span class="badge" data-genre="${genre}" style="cursor: pointer; background-color: ${backgroundColor}; color: ${textColor};">${genre}</span>`;
+                        }).join('')}
+                    </td>
+                    <td class="text-end">
+                        ${activeTab === 'global' ? 
+                            `${(movie.box_office / 100000000).toFixed(2)}億ドル<br>
+                            <small class="text-muted">(${movie.box_office_billion}億円)</small>` :
+                            `${movie.box_office_billion}億円`
+                        }
+                    </td>
+                    <td class="text-end">
+                        ${activeTab === 'global' ? 
+                            `${(movie.budget / 100000000).toFixed(2)}億ドル<br>
+                            <small class="text-muted">(${movie.budget_billion}億円)</small>` :
+                            `${movie.budget_billion}億円`
+                        }
+                    </td>
+                    <td class="text-center">${movie.release_date ? new Date(movie.release_date).getFullYear() : '未定'}年</td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            // ジャンルバッジのイベントリスナーを再設定
+            setupGenreBadgeListeners();
+
+            // URLを更新
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('tab', activeTab);
+            if (genreSelect.value) {
+                currentUrl.searchParams.set('genre', genreSelect.value);
+            } else {
+                currentUrl.searchParams.delete('genre');
+            }
+            window.history.replaceState({}, '', currentUrl);
+
+            // ページネーション情報を更新
+            const paginationInfo = document.querySelector(`#${activeTab} .pagination-info`);
+            if (paginationInfo && data.movies.total > 0) {
+                paginationInfo.textContent = `全${data.movies.total}件中 ${data.movies.from}～${data.movies.to}件を表示`;
+            }
+        }
+
+        // 映画リストの更新処理
+        async function updateMovieList() {
+            const activeTab = currentTab.value;
+            const genre = genreSelect.value;
+            console.log('Updating movie list:', { activeTab, genre });
+
+            const tableBody = document.querySelector(`#${activeTab} tbody`);
+            if (!tableBody) {
+                console.error('Table body not found for tab:', activeTab);
+                return;
+            }
+
+            // キャッシュをチェック
+            if (searchCache[activeTab].data && searchCache[activeTab].genre === genre) {
+                console.log('Using cached data for:', { activeTab, genre });
+                displayMovies(searchCache[activeTab].data, activeTab);
+                return;
+            }
+
+            // ローディング表示
+            tableBody.innerHTML = loadingSpinner;
+
+            try {
+                const response = await fetch(`/api/movies/filter?genre=${encodeURIComponent(genre)}&tab=${activeTab}`);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                console.log('Received data:', data);
+
+                if (data.success) {
+                    // 検索結果をキャッシュに保存
+                    searchCache[activeTab] = {
+                        genre: genre,
+                        data: data
+                    };
+                    displayMovies(data, activeTab);
+                } else {
+                    throw new Error(data.message || 'データの取得に失敗しました');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center text-danger">
+                            データの取得中にエラーが発生しました。<br>
+                            <small>${error.message}</small>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        // 初期表示時にジャンルが選択されている場合は検索を実行
+        if (genreSelect.value) {
+            updateMovieList();
+        }
     });
 </script>
 

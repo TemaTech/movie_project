@@ -46,8 +46,13 @@ class FetchGlobalBoxOffice extends Command
                                 'language' => 'ja'
                             ])->json();
 
-                            // 興行収入が0の映画はスキップ
-                            if (empty($movieDetails['revenue'])) {
+                            // 興行収入が0または丁度10億ドルの場合はスキップ
+                            if (empty($movieDetails['revenue']) || $movieDetails['revenue'] === 1000000000) {
+                                $this->info(sprintf(
+                                    'スキップ: %s (興行収入: $%s - 信頼性の低いデータ)',
+                                    $movie['title'],
+                                    number_format($movieDetails['revenue'])
+                                ));
                                 continue;
                             }
 

@@ -400,17 +400,70 @@
     }
 
     .genre-badge {
+        display: inline-block;
+        padding: 8px 16px;
+        border-radius: 20px;
+        margin: 4px;
         cursor: pointer;
-        background-color: #f8f9fa;
-        color: #2c3e50;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        border: none;
+        color: #2c3e50 !important;
+        text-shadow: none;
     }
-    @foreach($genreColors as $genre => $color)
-    .genre-{{ Str::slug($genre) }} {
-        background-color: {{ $color }};
-        color: {{ in_array($genre, ['スリラー', 'ホラー']) ? '#ffffff' : '#2c3e50' }};
+
+    /* ジャンル別の色定義（暖色系と寒色系のバランス調整） */
+    /* 暖色系 */
+    [data-genre="アクション"], .genre-action { background-color: #ffcccc !important; }      /* ソフトコーラルピンク */
+    [data-genre="アドベンチャー"], .genre-adventure { background-color: #ffe4b5 !important; }  /* ライトマンゴー */
+    [data-genre="コメディ"], .genre-comedy { background-color: #f0e68c !important; }         /* カーキ */
+    [data-genre="ドラマ"], .genre-drama { background-color: #add8e6 !important; }          /* ライトブルー */
+    [data-genre="ロマンス"], .genre-romance { background-color: #ffb3d1 !important; }       /* ピンク */
+    [data-genre="ファミリー"], .genre-family { background-color: #fff4b8 !important; }       /* ライトイエロー */
+    [data-genre="歴史"], .genre-history { background-color: #fffacd !important; }         /* レモンシフォン */
+
+    /* 寒色系 */
+    [data-genre="アニメ"], .genre-anime { background-color: #e0ffe0 !important; }          /* ライトグリーン */
+    [data-genre="ファンタジー"], .genre-fantasy { background-color: #e8e0ff !important; }     /* ライトパープル */
+    [data-genre="ホラー"], .genre-horror { background-color: #d3d3d3 !important; }         /* ライトグレー */
+    [data-genre="ミステリー"], .genre-mystery { background-color: #b2e0e0 !important; }      /* ライトシアン */
+    [data-genre="SF"], .genre-sf { background-color: #bae1ff !important; }               /* ライトスカイブルー */
+    [data-genre="スリラー"], .genre-thriller { background-color: #b0e0e6 !important; }      /* パウダーブルー */
+    [data-genre="サスペンス"], .genre-suspense { background-color: #d3d3d3 !important; }     /* ライトグレー */
+
+    /* テキストカラーの調整を削除 */
+
+    .genre-badge:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        filter: brightness(0.95);
     }
-    @endforeach
 </style>
+
+<!-- ジャンルバッジのテンプレート -->
+<template id="genre-badge-template">
+    <span class="genre-badge" data-genre=""></span>
+</template>
+
+<script>
+    // ジャンルバッジを生成する関数
+    function createGenreBadge(genre) {
+        const template = document.getElementById('genre-badge-template');
+        const badge = template.content.cloneNode(true).querySelector('.genre-badge');
+        badge.textContent = genre;
+        badge.setAttribute('data-genre', genre);
+        return badge;
+    }
+
+    // ジャンルリストを更新する関数
+    function updateGenreList(genres, container) {
+        container.innerHTML = '';
+        genres.forEach(genre => {
+            const badge = createGenreBadge(genre);
+            container.appendChild(badge);
+        });
+    }
+</script>
 
 <div class="gradient-bg py-5">
     <div class="container">
@@ -485,11 +538,7 @@
                                         <tr>
                                             <td class="text-center fw-bold">{{ $movie->rank }}</td>
                                             <td>
-                                                @if($movie->title === '哪吒之魔童闹海')
-                                                    ナタ 魔童の大暴れ
-                                                @else
-                                                    {{ $movie->title }}
-                                                @endif
+                                                {{ $movie->title }}
                                             </td>
                                             <td>
                                                 @if($movie->genres && is_array($movie->genres) && count($movie->genres) > 0)
@@ -497,8 +546,7 @@
                                                         @php
                                                             $style = 'cursor: pointer; background-color: ' . 
                                                                      ($genreColors[$genre] ?? '#f8f9fa') . 
-                                                                     '; color: ' . 
-                                                                     (in_array($genre, ['スリラー', 'ホラー']) ? '#ffffff' : '#2c3e50');
+                                                                     '; color: #2c3e50';
                                                         @endphp
                                                         <span class="badge" 
                                                               data-genre="{{ $genre }}" 
@@ -578,8 +626,7 @@
                                                         @php
                                                             $style = 'cursor: pointer; background-color: ' . 
                                                                      ($genreColors[$genre] ?? '#f8f9fa') . 
-                                                                     '; color: ' . 
-                                                                     (in_array($genre, ['スリラー', 'ホラー']) ? '#ffffff' : '#2c3e50');
+                                                                     '; color: #2c3e50';
                                                         @endphp
                                                         <span class="badge" 
                                                               data-genre="{{ $genre }}" 
@@ -788,8 +835,7 @@
                     <td>
                         ${movie.genres.map(genre => {
                             const backgroundColor = genreColors[genre] || '#f8f9fa';
-                            const textColor = ['スリラー', 'ホラー'].includes(genre) ? '#ffffff' : '#2c3e50';
-                            return `<span class="badge" data-genre="${genre}" style="cursor: pointer; background-color: ${backgroundColor}; color: ${textColor};">${genre}</span>`;
+                            return `<span class="badge" data-genre="${genre}" style="cursor: pointer; background-color: ${backgroundColor}; color: #2c3e50;">${genre}</span>`;
                         }).join('')}
                     </td>
                     <td class="text-end">

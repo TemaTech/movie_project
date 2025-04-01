@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Log;
 use App\Models\GlobalMovie;
 use App\Models\JapaneseMovie;
 use Illuminate\Support\Facades\DB;
+use App\Models\Movie;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class MovieController extends Controller
 {
@@ -180,7 +182,13 @@ class MovieController extends Controller
                 'アニメーション' => 'アニメ',
                 'サイエンスフィクション' => 'SF',
                 'アニメ' => 'アニメーション',
-                'SF' => 'サイエンスフィクション'
+                'SF' => 'サイエンスフィクション',
+                '謎' => 'ミステリー',
+                'ミステリー' => '謎',
+                '犯罪' => 'サスペンス',
+                'サスペンス' => '犯罪',
+                '履歴' => '歴史',
+                '歴史' => '履歴'
             ];
 
             // 世界の興行収入データ
@@ -310,57 +318,47 @@ class MovieController extends Controller
         try {
             $genre = $request->query('genre');
             $tab = $request->query('tab', 'global');
-            
-            Log::info('ジャンルフィルター実行:', [
-                'genre' => $genre,
-                'tab' => $tab
-            ]);
+            $perPage = 100;
+            $page = $request->query('page', 1);
 
             // ジャンル名の変換マップを定義
             $genreMap = [
                 'アニメーション' => 'アニメ',
                 'サイエンスフィクション' => 'SF',
                 'アニメ' => 'アニメーション',
-                'SF' => 'サイエンスフィクション'
+                'SF' => 'サイエンスフィクション',
+                '謎' => 'ミステリー',
+                'ミステリー' => '謎',
+                '犯罪' => 'サスペンス',
+                'サスペンス' => '犯罪',
+                '履歴' => '歴史',
+                '歴史' => '履歴'
             ];
 
-            $searchGenre = array_flip($genreMap)[$genre] ?? $genre;
+            // タイトル変換マップを定義
+            $titleMap = [
+                '哪吒之魔童闹海' => 'ナタ 魔童の大暴れ'
+            ];
 
-            if ($tab === 'global') {
-                $query = GlobalMovie::query();
-            } else {
-                $query = JapaneseMovie::query();
+            // タブに応じてモデルを選択
+            $query = $tab === 'global' ? GlobalMovie::query() : JapaneseMovie::query();
+
+            // ジャンルでフィルタリング（ジャンルが指定されている場合のみ）
+            if ($genre && $genre !== 'すべてのジャンル') {
+                $searchGenre = array_flip($genreMap)[$genre] ?? $genre;
+                $query->whereJsonContains('genres', $searchGenre);
             }
 
-            // ジャンルでフィルタリング
-            if ($genre) {
-                $query->whereRaw("genres::jsonb @> ?::jsonb", [json_encode([$searchGenre])]);
-            }
-
-            // 興行収入で降順ソート
+            // 興行収入でソート
             $query->orderBy('box_office', 'desc');
 
-            // 全件数を取得
             $total = $query->count();
-
-            // ページネーション
-            $perPage = 100;
-            $page = $request->query('page', 1);
             $movies = $query->paginate($perPage);
 
-            // データを変換
-            $transformedData = [];
-            $rank = ($movies->currentPage() - 1) * $movies->perPage() + 1;
-
-            foreach ($movies->items() as $movie) {
-                // 興行収入と制作費の変換
-                if ($tab === 'global') {
-                    $movie->box_office_billion = number_format($movie->box_office * 150 / 100000000, 1);
-                    $movie->budget_billion = number_format($movie->budget * 150 / 100000000, 1);
-                } else {
-                    $movie->box_office_billion = number_format($movie->box_office / 100000000, 1);
-                    $movie->budget_billion = number_format($movie->budget / 100000000, 1);
-                }
+            // データの変換処理
+            $transformedData = collect($movies->items())->map(function ($movie, $index) use ($titleMap, $tab, $page, $perPage, $genreMap) {
+                // タイトルの変換
+                $movie->title = $titleMap[$movie->title] ?? $movie->title;
 
                 // ジャンルの変換
                 if (!is_array($movie->genres)) {
@@ -370,17 +368,35 @@ class MovieController extends Controller
                         $movie->genres = [];
                     }
                 }
-
                 $movie->genres = array_map(function($genre) use ($genreMap) {
                     return $genreMap[$genre] ?? $genre;
                 }, $movie->genres);
 
-                $movie->rank = $rank++;
-                $transformedData[] = $movie;
-            }
+                // 既存の変換処理
+                if ($tab === 'global') {
+                    if ($movie->box_office) {
+                        $movie->box_office_billion = number_format($movie->box_office * 150 / 100000000, 1);
+                    }
+                    if ($movie->budget) {
+                        $movie->budget_billion = number_format($movie->budget * 150 / 100000000, 1);
+                    }
+                } else {
+                    if ($movie->box_office) {
+                        $movie->box_office_billion = number_format($movie->box_office / 100000000, 1);
+                    }
+                    if ($movie->budget) {
+                        $movie->budget_billion = number_format($movie->budget / 100000000, 1);
+                    }
+                }
 
-            // 変換したデータをページネーターに設定
-            $movies = new \Illuminate\Pagination\LengthAwarePaginator(
+                // ランク付け（インデックスを使用）
+                $movie->rank = ($page - 1) * $perPage + $index + 1;
+
+                return $movie;
+            });
+
+            // 新しいページネーターインスタンスを作成
+            $paginator = new LengthAwarePaginator(
                 $transformedData,
                 $total,
                 $perPage,
@@ -390,11 +406,11 @@ class MovieController extends Controller
 
             return response()->json([
                 'success' => true,
-                'movies' => $movies
+                'movies' => $paginator,
             ]);
 
         } catch (\Exception $e) {
-            Log::error('ジャンルフィルターエラー: ' . $e->getMessage(), [
+            \Log::error('Movie filtering error: ' . $e->getMessage(), [
                 'exception' => get_class($e),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
@@ -403,7 +419,7 @@ class MovieController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'データの取得中にエラーが発生しました: ' . $e->getMessage()
+                'message' => 'データの取得中にエラーが発生しました。'
             ], 500);
         }
     }

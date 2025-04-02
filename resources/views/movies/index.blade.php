@@ -630,7 +630,7 @@
                                             </td>
                                             <td class="text-end">
                                                 {{ number_format($movie->budget / 100000000, 2) }}億ドル<br>
-                                                <small class="text-muted">({{ $movie->budget_billion }}億円)</small>
+                                                <small class="text-muted">({{ $movie->budget_billion ? $movie->budget_billion . '億円' : '-' }})</small>
                                             </td>
                                             <td class="text-center">{{ \Carbon\Carbon::parse($movie->release_date)->format('Y') }}年</td>
                                         </tr>
@@ -694,7 +694,7 @@
                                             <td class="text-end">
                                                 {{ $movie->box_office_billion }}億円
                                             </td>
-                                            <td class="text-end">{{ $movie->budget_billion === '0.0' ? '-' : $movie->budget_billion . '億円' }}</td>
+                                            <td class="text-end">{{ $movie->budget_billion === '0.0' || !$movie->budget_billion ? '-' : $movie->budget_billion . '億円' }}</td>
                                             <td class="text-center">{{ \Carbon\Carbon::parse($movie->release_date)->format('Y') }}年</td>
                                         </tr>
                                         @endforeach
@@ -749,8 +749,14 @@
         if (!movieTabs) console.warn('movieTabs not found');
 
         const searchCache = {
-            global: { genre: null, data: null },
-            japan: { genre: null, data: null }
+            global: {
+                timestamp: null,
+                data: {}
+            },
+            japan: {
+                timestamp: null,
+                data: {}
+            }
         };
 
         const savedTab = localStorage.getItem('activeMovieTab');
@@ -793,15 +799,20 @@
                     const genre = this.dataset.genre;
                     genreSelect.value = genre;
                     updateClearButtonVisibility();
-                    clearSearchCache();
-                    updateMovieList();
+                    updateMovieList(false);
                 });
             });
         }
 
         function clearSearchCache() {
-            searchCache.global = { genre: null, data: null };
-            searchCache.japan = { genre: null, data: null };
+            searchCache.global = {
+                timestamp: null,
+                data: {}
+            };
+            searchCache.japan = {
+                timestamp: null,
+                data: {}
+            };
         }
 
         setupGenreBadgeListeners();
@@ -811,15 +822,19 @@
                 const activeTab = event.target.getAttribute('data-bs-target').replace('#', '');
                 currentTab.value = activeTab;
                 
-                if (searchCache[activeTab].data && searchCache[activeTab].genre === genreSelect.value) {
-                    displayMovies(searchCache[activeTab].data, activeTab);
-                } else if (genreSelect.value) {
-                    updateMovieList();
-                } else {
-                    const currentUrl = new URL(window.location.href);
-                    currentUrl.searchParams.set('tab', activeTab);
-                    window.history.replaceState({}, '', currentUrl);
+                const genre = genreSelect.value;
+                const cacheKey = genre || 'all';
+                
+                if (searchCache[activeTab].data[cacheKey]) {
+                    console.log('Using cached data for:', { activeTab, genre });
+                    displayMovies(searchCache[activeTab].data[cacheKey], activeTab);
+                } else if (genre) {
+                    updateMovieList(false);
                 }
+                
+                const currentUrl = new URL(window.location.href);
+                currentUrl.searchParams.set('tab', activeTab);
+                window.history.replaceState({}, '', currentUrl);
             });
         }
 
@@ -827,8 +842,7 @@
             filterButton.addEventListener('click', function(e) {
                 e.preventDefault();
                 console.log('Filter button clicked');
-                clearSearchCache();
-                updateMovieList();
+                updateMovieList(false);
             });
         }
 
@@ -838,8 +852,7 @@
                 console.log('Clear button clicked');
                 genreSelect.value = '';
                 updateClearButtonVisibility();
-                clearSearchCache();
-                updateMovieList();
+                updateMovieList(false);
             });
         }
 
@@ -850,7 +863,7 @@
                 return;
             }
 
-            if (data.movies.data.length === 0) {
+            if (!data.movies || !data.movies.data || data.movies.data.length === 0) {
                 tableBody.innerHTML = `
                     <tr>
                         <td colspan="6" class="text-center">
@@ -866,16 +879,15 @@
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td class="text-center fw-bold">${movie.rank}</td>
+                    <td>${movie.title}</td>
                     <td>
-                        <a href="/movies/${movie.id}" class="text-decoration-none text-dark">
-                            ${movie.title}
-                        </a>
-                    </td>
-                    <td>
-                        ${movie.genres.map(genre => {
-                            const backgroundColor = genreColors[genre] || '#f8f9fa';
-                            return `<span class="badge" data-genre="${genre}" style="cursor: pointer; background-color: ${backgroundColor}; color: #2c3e50;">${genre}</span>`;
-                        }).join('')}
+                        ${movie.genres && movie.genres.length > 0 ? 
+                            movie.genres.map(genre => {
+                                const backgroundColor = genreColors[genre] || '#f8f9fa';
+                                return `<span class="badge" data-genre="${genre}" style="cursor: pointer; background-color: ${backgroundColor}; color: #2c3e50;">${genre}</span>`;
+                            }).join('') : 
+                            '<span class="text-muted">-</span>'
+                        }
                     </td>
                     <td class="text-end">
                         ${activeTab === 'global' ? 
@@ -887,8 +899,8 @@
                     <td class="text-end">
                         ${activeTab === 'global' ? 
                             `${(movie.budget / 100000000).toFixed(2)}億ドル<br>
-                            <small class="text-muted">(${movie.budget_billion}億円)</small>` :
-                            `${movie.budget_billion === '0.0' ? '-' : movie.budget_billion + '億円'}`
+                            <small class="text-muted">(${movie.budget_billion ? movie.budget_billion + '億円' : '-'})</small>` :
+                            `${!movie.budget_billion || movie.budget_billion === '0.0' ? '-' : movie.budget_billion + '億円'}`
                         }
                     </td>
                     <td class="text-center">${movie.release_date ? new Date(movie.release_date).getFullYear() : '未定'}年</td>
@@ -908,10 +920,17 @@
             window.history.replaceState({}, '', currentUrl);
         }
 
-        async function updateMovieList() {
+        function isCacheValid(tab) {
+            if (!searchCache[tab].timestamp) return false;
+            const cacheAge = Date.now() - searchCache[tab].timestamp;
+            return cacheAge < 10 * 60 * 1000; // 10分
+        }
+
+        async function updateMovieList(clearCache = false) {
             const activeTab = currentTab.value;
             const genre = genreSelect.value;
-            console.log('Updating movie list:', { activeTab, genre });
+            const cacheKey = genre || 'all';
+            console.log('Updating movie list:', { activeTab, genre, clearCache });
 
             const tableBody = document.querySelector(`#${activeTab} tbody`);
             if (!tableBody) {
@@ -919,9 +938,11 @@
                 return;
             }
 
-            if (searchCache[activeTab].data && searchCache[activeTab].genre === genre) {
+            if (!clearCache && 
+                searchCache[activeTab].data[cacheKey] && 
+                isCacheValid(activeTab)) {
                 console.log('Using cached data for:', { activeTab, genre });
-                displayMovies(searchCache[activeTab].data, activeTab);
+                displayMovies(searchCache[activeTab].data[cacheKey], activeTab);
                 return;
             }
 
@@ -937,10 +958,8 @@
                 console.log('Received data:', data);
 
                 if (data.success) {
-                    searchCache[activeTab] = {
-                        genre: genre,
-                        data: data
-                    };
+                    searchCache[activeTab].timestamp = Date.now();
+                    searchCache[activeTab].data[cacheKey] = data;
                     displayMovies(data, activeTab);
                 } else {
                     throw new Error(data.message || 'データの取得に失敗しました');
@@ -959,7 +978,9 @@
         }
 
         if (genreSelect.value) {
-            updateMovieList();
+            updateMovieList(false);
+        } else {
+            updateMovieList(false);
         }
     });
 </script>

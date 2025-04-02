@@ -20,6 +20,16 @@ class MovieController extends Controller
     {
         $this->apiKey = env('TMDB_API_KEY');
         $this->baseUrl = 'https://api.themoviedb.org/3';
+        
+        // HTTPクライアントのデフォルト設定
+        Http::macro('tmdb', function () {
+            return Http::timeout(30)
+                ->retry(3, 1000)
+                ->withHeaders([
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
+                ]);
+        });
     }
 
     public function getPopularMovies()
@@ -108,31 +118,34 @@ class MovieController extends Controller
             Log::info('APIキーを使用: ' . $api_key);
 
             // グローバルの映画データのみを取得
-            $response = Http::get('https://api.themoviedb.org/3/discover/movie', [
+            $response = Http::tmdb()->get('https://api.themoviedb.org/3/discover/movie', [
                 'api_key' => $api_key,
                 'sort_by' => 'revenue.desc',
                 'language' => 'ja'
             ]);
 
-            if ($response->successful()) {
-                $movies = $response->json()['results'];
-                foreach ($movies as $movie) {
-                    try {
-                        GlobalMovie::updateOrCreate(
-                            ['movie_id' => 'global_' . $movie['id']],
-                            [
-                                'title' => $movie['title'],
-                                'box_office' => $movie['revenue'] ?? 0,
-                                'budget' => $movie['budget'] ?? 0,
-                                'release_date' => $movie['release_date'] ?? null,
-                                'region' => 'global',
-                                'genres' => isset($movie['genres']) ? collect($movie['genres'])->pluck('name')->toArray() : []
-                            ]
-                        );
-                    } catch (\Exception $e) {
-                        Log::error('個別の映画保存でエラー: ' . $e->getMessage());
-                        continue;
-                    }
+            if (!$response->successful()) {
+                Log::error('TMDB API エラー: ' . $response->status() . ' - ' . $response->body());
+                throw new \Exception('映画データの取得に失敗しました。');
+            }
+
+            $movies = $response->json()['results'];
+            foreach ($movies as $movie) {
+                try {
+                    GlobalMovie::updateOrCreate(
+                        ['movie_id' => 'global_' . $movie['id']],
+                        [
+                            'title' => $movie['title'],
+                            'box_office' => $movie['revenue'] ?? 0,
+                            'budget' => $movie['budget'] ?? 0,
+                            'release_date' => $movie['release_date'] ?? null,
+                            'region' => 'global',
+                            'genres' => isset($movie['genres']) ? collect($movie['genres'])->pluck('name')->toArray() : []
+                        ]
+                    );
+                } catch (\Exception $e) {
+                    Log::error('個別の映画保存でエラー: ' . $e->getMessage());
+                    continue;
                 }
             }
 

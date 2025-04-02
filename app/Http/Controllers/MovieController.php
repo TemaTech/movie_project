@@ -413,7 +413,9 @@ class MovieController extends Controller
                     }
                 }
 
-                // ランク付け（インデックスを使用）
+                // 元のランクを保持
+                $movie->original_rank = $movie->rank;
+                // フィルタリング後のランクを設定
                 $movie->rank = ($page - 1) * $perPage + $index + 1;
 
                 return $movie;

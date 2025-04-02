@@ -541,7 +541,7 @@
 
 <div class="gradient-bg py-5">
     <div class="container">
-        <h1 class="text-center mb-4">映画興行収入ランキング</h1>
+        <h1 class="text-center mb-4">Movie Scope<br><small class="fs-5 text-muted">世界と日本の映画興行収入ランキング</small></h1>
         
         <div class="mb-4">
             <div class="d-flex justify-content-center align-items-center gap-2" id="filterForm">
@@ -759,17 +759,24 @@
             }
         };
 
-        const savedTab = localStorage.getItem('activeMovieTab');
+        // URLパラメータからタブを取得、なければglobalをデフォルトに
         const urlParams = new URLSearchParams(window.location.search);
-        const activeTab = urlParams.get('tab') || savedTab || 'global';
+        const activeTab = 'global';  // 常にglobalをデフォルトに設定
 
-        const tab = document.querySelector(`#${activeTab}-tab`);
+        // タブの初期化
+        const tab = document.querySelector('#global-tab');
         if (tab) {
             const tabInstance = new bootstrap.Tab(tab);
             tabInstance.show();
         }
 
         currentTab.value = activeTab;
+
+        // URLからジャンルパラメータを削除
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.delete('tab');
+        currentUrl.searchParams.delete('genre');
+        window.history.replaceState({}, '', currentUrl);
 
         const loadingSpinner = `
             <tr>
@@ -817,23 +824,41 @@
 
         setupGenreBadgeListeners();
 
+        function getCacheKey(genre) {
+            // 空文字列、null、undefined、「すべてのジャンル」を全て 'all' として扱う
+            return (!genre || genre === '' || genre === 'すべてのジャンル') ? 'all' : genre;
+        }
+
+        function updateCache(tab, genre, data) {
+            const cacheKey = getCacheKey(genre);
+            if (!searchCache[tab]) {
+                searchCache[tab] = { timestamp: null, data: {} };
+            }
+            searchCache[tab].timestamp = Date.now();
+            searchCache[tab].data[cacheKey] = data;
+        }
+
         if (movieTabs) {
             movieTabs.addEventListener('shown.bs.tab', function(event) {
                 const activeTab = event.target.getAttribute('data-bs-target').replace('#', '');
                 currentTab.value = activeTab;
                 
                 const genre = genreSelect.value;
-                const cacheKey = genre || 'all';
+                const cacheKey = getCacheKey(genre);
                 
-                if (searchCache[activeTab].data[cacheKey]) {
-                    console.log('Using cached data for:', { activeTab, genre });
+                if (searchCache[activeTab].data[cacheKey] && isCacheValid(activeTab)) {
+                    console.log('Using cached data for:', { activeTab, genre, cacheKey });
                     displayMovies(searchCache[activeTab].data[cacheKey], activeTab);
-                } else if (genre) {
+                } else {
+                    console.log('Cache miss, fetching new data:', { activeTab, genre, cacheKey });
                     updateMovieList(false);
                 }
                 
                 const currentUrl = new URL(window.location.href);
                 currentUrl.searchParams.set('tab', activeTab);
+                if (!genre) {
+                    currentUrl.searchParams.delete('genre');
+                }
                 window.history.replaceState({}, '', currentUrl);
             });
         }
@@ -842,7 +867,12 @@
             filterButton.addEventListener('click', function(e) {
                 e.preventDefault();
                 console.log('Filter button clicked');
-                updateMovieList(false);
+                const genre = genreSelect.value;
+                const activeTab = currentTab.value;
+                
+                // フィルタ時は現在のジャンルのキャッシュのみを削除
+                clearSpecificCache(activeTab, genre);
+                updateMovieList(true);
             });
         }
 
@@ -850,9 +880,21 @@
             clearFilter.addEventListener('click', function(e) {
                 e.preventDefault();
                 console.log('Clear button clicked');
+                const activeTab = currentTab.value;
+                const oldGenre = genreSelect.value;
+                
                 genreSelect.value = '';
                 updateClearButtonVisibility();
-                updateMovieList(false);
+
+                // すでに'all'のキャッシュがある場合はそれを使用
+                const allCacheKey = getCacheKey('');
+                if (searchCache[activeTab].data[allCacheKey] && isCacheValid(activeTab)) {
+                    console.log('Using existing all cache');
+                    displayMovies(searchCache[activeTab].data[allCacheKey], activeTab);
+                } else {
+                    // キャッシュがない場合のみ新しいデータを取得
+                    updateMovieList(true);
+                }
             });
         }
 
@@ -875,10 +917,17 @@
             }
 
             tableBody.innerHTML = '';
-            data.movies.data.forEach(movie => {
+            const currentGenre = genreSelect.value;
+            data.movies.data.forEach((movie, index) => {
                 const row = document.createElement('tr');
+                const isFiltered = currentGenre && currentGenre !== '';
+                const filteredRank = movie.rank;
+                const originalRank = movie.original_rank;
                 row.innerHTML = `
-                    <td class="text-center fw-bold">${movie.rank}</td>
+                    <td class="text-center fw-bold">
+                        ${filteredRank}
+                        ${isFiltered && originalRank ? `<br><small class="text-muted">(${originalRank})</small>` : ''}
+                    </td>
                     <td>${movie.title}</td>
                     <td>
                         ${movie.genres && movie.genres.length > 0 ? 
@@ -926,11 +975,11 @@
             return cacheAge < 10 * 60 * 1000; // 10分
         }
 
-        async function updateMovieList(clearCache = false) {
+        async function updateMovieList(forceFetch = false) {
             const activeTab = currentTab.value;
             const genre = genreSelect.value;
-            const cacheKey = genre || 'all';
-            console.log('Updating movie list:', { activeTab, genre, clearCache });
+            const cacheKey = getCacheKey(genre);
+            console.log('Updating movie list:', { activeTab, genre, cacheKey, forceFetch });
 
             const tableBody = document.querySelector(`#${activeTab} tbody`);
             if (!tableBody) {
@@ -938,10 +987,9 @@
                 return;
             }
 
-            if (!clearCache && 
-                searchCache[activeTab].data[cacheKey] && 
-                isCacheValid(activeTab)) {
-                console.log('Using cached data for:', { activeTab, genre });
+            // キャッシュチェック
+            if (!forceFetch && searchCache[activeTab].data[cacheKey] && isCacheValid(activeTab)) {
+                console.log('Using cached data for:', { activeTab, genre, cacheKey });
                 displayMovies(searchCache[activeTab].data[cacheKey], activeTab);
                 return;
             }
@@ -958,9 +1006,10 @@
                 console.log('Received data:', data);
 
                 if (data.success) {
-                    searchCache[activeTab].timestamp = Date.now();
-                    searchCache[activeTab].data[cacheKey] = data;
+                    // キャッシュを更新
+                    updateCache(activeTab, genre, data);
                     displayMovies(data, activeTab);
+                    return data;
                 } else {
                     throw new Error(data.message || 'データの取得に失敗しました');
                 }
@@ -974,6 +1023,7 @@
                         </td>
                     </tr>
                 `;
+                throw error;
             }
         }
 
@@ -989,8 +1039,8 @@
 {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "name": "映画興行収入ランキング",
-    "description": "世界と日本の映画興行収入ランキングデータベース",
+    "name": "Movie Scope",
+    "description": "世界と日本の映画興行収入ランキング - 正確なデータと詳細なジャンル分析を提供",
     "url": "{{ url('/') }}"
 }
 </script>

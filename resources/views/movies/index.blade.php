@@ -518,7 +518,7 @@
                             <table class="table table-hover">
                                 <thead class="table-dark">
                                     <tr>
-                                        <th class="text-center">#</th>
+                                        <th class="text-center">順位</th>
                                         <th>タイトル</th>
                                         <th>ジャンル</th>
                                         <th class="text-end">興行収入</th>
@@ -600,7 +600,7 @@
                             <table class="table table-hover">
                                 <thead class="table-dark">
                                     <tr>
-                                        <th class="text-center">#</th>
+                                        <th class="text-center">順位</th>
                                         <th>タイトル</th>
                                         <th>ジャンル</th>
                                         <th class="text-end">興行収入</th>

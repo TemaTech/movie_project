@@ -2,97 +2,162 @@
 
 @section('content')
 <style>
+    body {
+        background: #f5f7fa;
+    }
+
     .gradient-bg {
-        background: linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%);
+        background: #f5f7fa;
         min-height: 100vh;
+        padding: 2rem 0;
     }
+
     .custom-card {
-        backdrop-filter: blur(10px);
-        background: rgba(255, 255, 255, 0.98);
-        border-radius: 20px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
         transition: all 0.3s ease;
+        margin-bottom: 2rem;
     }
+
     .custom-card:hover {
         transform: translateY(-3px);
-        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
     }
+
+    .nav-tabs {
+        border: none;
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: center;
+        width: 100%;
+        gap: 1rem;
+        padding: 0;
+    }
+
+    .nav-tabs .nav-item {
+        flex: 1;
+        max-width: none;
+    }
+
     .nav-tabs .nav-link {
         border: none;
-        color: #555;
+        color: #6c757d;
         border-radius: 12px;
-        margin: 0 5px;
-        padding: 12px 24px;
+        padding: 0.75rem;
+        font-weight: 500;
         transition: all 0.3s ease;
-        background: rgba(255, 255, 255, 0.9);
+        background: white;
+        position: relative;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
+
+    .nav-tabs .nav-link:hover {
+        background: #f8f9fa;
+        transform: translateY(-2px);
+        color: #2c3e50;
+    }
+
     .nav-tabs .nav-link.active {
         background: #2c3e50;
         color: white;
-        border: none;
+        box-shadow: 0 4px 12px rgba(44, 62, 80, 0.2);
     }
+
+    .nav-tabs .nav-link .emoji {
+        font-size: 1.2em;
+    }
+
+    .nav-tabs .nav-link::after {
+        display: none;
+    }
+
+    .tab-pane {
+        transition: all 0.3s ease-in-out;
+    }
+
+    .tab-pane.fade {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    .tab-pane.fade.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
     .table thead th {
         background: #2c3e50;
         color: white;
+        font-weight: 500;
+        padding: 1rem;
         border: none;
-        font-weight: 500;
-        padding: 15px;
         white-space: nowrap;
+        text-align: center;
     }
-    .badge {
-        color: #2c3e50;
-        font-weight: 500;
-        padding: 4px 8px;
-        border-radius: 12px;
-        border: 1px solid rgba(0,0,0,0.1);
+
+    .table tbody tr {
         transition: all 0.2s ease;
-        text-decoration: none;
-        cursor: pointer;
-        display: inline-block;
-        margin: 1px;
-        white-space: nowrap;
-        font-size: 0.75rem;
     }
-    .badge:hover {
-        transform: scale(1.05);
-        filter: brightness(0.95);
+
+    .table tbody tr:hover {
+        background: #f8f9fa;
     }
+
     .table td {
-        padding: 15px;
-        color: #495057;
+        padding: 1rem;
+        vertical-align: middle;
         border-bottom: 1px solid #f1f3f5;
-        white-space: nowrap;
     }
+
+    .table td:first-child {
+        text-align: center;
+        white-space: nowrap;
+        width: 80px;
+    }
+
     .table td:nth-child(2),
     .table td:nth-child(3) {
         white-space: normal;
         min-width: 180px;
         max-width: 350px;
     }
+
     .table td:nth-child(2) {
         min-width: 250px;
         max-width: 500px;
     }
+
     .table th:nth-child(4),
     .table th:nth-child(5) {
         min-width: 150px;
     }
+
     .table th:nth-child(6) {
         min-width: 100px;
     }
+
     h1 {
         color: #2c3e50;
         font-weight: 600;
+        margin-bottom: 2.5rem;
+        font-size: 2.2rem;
     }
+
     .custom-card .pagination {
         margin: 2rem 0 0;
         gap: 0.5rem;
     }
-    
+
     .custom-card .page-item {
         margin: 0 2px;
     }
-    
+
     .custom-card .page-link {
         color: #2c3e50;
         border: 1px solid #e9ecef;
@@ -105,31 +170,28 @@
         text-align: center;
         line-height: 1.2;
     }
-    
-    /* 矢印アイコンのスタイルを変更 */
+
     .custom-card .page-item:first-child .page-link,
     .custom-card .page-item:last-child .page-link {
         font-size: 0.8rem;
         padding: 0.6rem 0.8rem;
     }
-    
-    /* 矢印アイコンを変更 */
+
     .custom-card .page-item:first-child .page-link::before {
         content: "←";
         font-family: system-ui;
     }
-    
+
     .custom-card .page-item:last-child .page-link::before {
         content: "→";
         font-family: system-ui;
     }
-    
-    /* デフォルトの矢印を非表示に */
+
     .custom-card .page-item:first-child .page-link svg,
     .custom-card .page-item:last-child .page-link svg {
         display: none;
     }
-    
+
     .custom-card .page-link:hover {
         background: #f8f9fa;
         color: #2c3e50;
@@ -137,14 +199,14 @@
         transform: translateY(-1px);
         box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
-    
+
     .custom-card .page-item.active .page-link {
         background-color: #2c3e50;
         border-color: #2c3e50;
         color: #fff;
         font-weight: 500;
     }
-    
+
     .custom-card .page-item.disabled .page-link {
         background-color: #f8f9fa;
         border-color: #e9ecef;
@@ -152,37 +214,25 @@
         pointer-events: none;
     }
 
-    .custom-card .pagination-info {
-        text-align: center;
-        color: #6c757d;
-        font-size: 0.9rem;
-        margin-top: 1rem;
-    }
-
-    /* ページネーションの基本設定 */
     .custom-card nav[role="navigation"] {
         width: 100%;
         margin: 2rem 0;
     }
 
-    /* モバイル用ページネーションを非表示 */
     .custom-card .flex.justify-between.sm\:hidden {
         display: none;
     }
 
-    /* デスクトップ用ページネーションコンテナ */
     .custom-card .hidden.sm\:flex-1.sm\:flex.sm\:items-center.sm\:justify-between {
         display: flex !important;
         flex-direction: column;
         align-items: center;
     }
 
-    /* 英語の表示を非表示にする */
     .custom-card .text-sm.text-gray-700.leading-5 {
         display: none;
     }
 
-    /* ページネーションリスト */
     .custom-card .relative.z-0.inline-flex.rtl\:flex-row-reverse {
         display: inline-flex;
         align-items: center;
@@ -191,7 +241,6 @@
         border: 1px solid #e2e8f0;
     }
 
-    /* ページネーションアイテム */
     .custom-card .relative.inline-flex.items-center,
     .custom-card span[aria-current="page"] {
         display: flex;
@@ -211,87 +260,79 @@
         text-decoration: none !important;
     }
 
-    /* リンクの下線を削除 */
     .custom-card .relative.inline-flex.items-center a {
         text-decoration: none !important;
     }
 
-    /* 最後のアイテムのボーダーを削除 */
     .custom-card .relative.inline-flex.items-center:last-child {
         border-right: none;
     }
 
-    /* ホバー効果 */
     .custom-card .relative.inline-flex.items-center:hover:not([aria-current="page"]) {
         background: #f7fafc;
         color: #2d3748;
     }
 
-    /* アクティブページ */
     .custom-card span[aria-current="page"] {
         background: #3182ce;
         color: white;
         font-weight: 600;
     }
 
-    /* 矢印アイコン */
     .custom-card svg.w-5.h-5 {
         width: 16px;
         height: 16px;
         stroke-width: 3;
     }
 
-    /* ページ情報テキスト */
     .custom-card .pagination-info {
         margin-top: 1rem;
         font-size: 14px;
         color: #718096;
     }
 
-    /* 無効なページネーションアイテム */
     .custom-card .relative.inline-flex.items-center[aria-disabled="true"] {
         color: #a0aec0;
         background: #f7fafc;
         cursor: not-allowed;
     }
 
-    /* すべてのリンクの下線を削除 */
     .custom-card a {
         text-decoration: none !important;
     }
 
-    /* テーブルのレスポンシブ対応を改善 */
     .table-responsive {
+        background: white;
+        border-radius: 12px;
+        overflow-y: auto;
         overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        margin-bottom: 1rem;
-        /* スクロールバーのスタイリング */
-        scrollbar-width: thin;
-        scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
-        max-height: 70vh;
-        position: relative;
+        margin: 0;
+        height: auto;
+        max-height: none;
     }
 
-    /* テーブルヘッダーの固定表示 */
+    .table {
+        margin-bottom: 0;
+    }
+
     .table thead {
         position: sticky;
         top: 0;
         z-index: 1;
+        background: #2c3e50;
     }
 
     .table thead th {
         background: #2c3e50;
         color: white;
-        border: none;
         font-weight: 500;
-        padding: 15px;
-        white-space: nowrap;
+        padding: 1rem;
+        border: none;
         position: sticky;
         top: 0;
         z-index: 2;
     }
 
-    /* テーブルヘッダーの影を追加 */
     .table thead::after {
         content: '';
         position: absolute;
@@ -299,11 +340,10 @@
         right: 0;
         bottom: -5px;
         height: 5px;
-        background: linear-gradient(to bottom, rgba(0,0,0,0.1), transparent);
+        background: linear-gradient(to bottom, rgba(0,0,0,0.2), transparent);
         pointer-events: none;
     }
 
-    /* Webkit（Chrome, Safari等）用のスクロールバースタイル */
     .table-responsive::-webkit-scrollbar {
         height: 8px;
     }
@@ -317,7 +357,6 @@
         border-radius: 4px;
     }
 
-    /* テーブルのスクロール対応改善 */
     .table-responsive {
         margin: 0 -15px;
         padding: 0 15px;
@@ -329,10 +368,8 @@
             margin: 0 -10px;
             padding: 0 10px;
             width: calc(100% + 20px);
-            max-height: 60vh;
         }
 
-        /* スクロールバーのスタイリング（モバイル用） */
         .table-responsive::-webkit-scrollbar {
             height: 4px;
         }
@@ -357,7 +394,6 @@
             padding: 2px 6px;
         }
 
-        /* テーブルのレスポンシブ調整 */
         .table td:nth-child(2),
         .table td:nth-child(3) {
             min-width: 120px;
@@ -370,7 +406,6 @@
             min-width: auto;
         }
 
-        /* フィルターフォームの調整 */
         #filterForm {
             flex-direction: column;
             gap: 10px;
@@ -385,7 +420,6 @@
             width: 100%;
         }
 
-        /* ページネーションの調整 */
         .pagination {
             flex-wrap: wrap;
             justify-content: center;
@@ -400,53 +434,94 @@
     }
 
     .genre-badge {
-        display: inline-block;
-        padding: 8px 16px;
-        border-radius: 20px;
-        margin: 4px;
-        cursor: pointer;
+        padding: 0.4rem 0.8rem;
+        border-radius: 8px;
         font-weight: 500;
-        transition: all 0.3s ease;
+        font-size: 0.8rem;
+        transition: all 0.2s ease;
         border: none;
-        color: #2c3e50 !important;
-        text-shadow: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
-
-    /* ジャンル別の色定義（暖色系と寒色系のバランス調整） */
-    /* 暖色系 */
-    [data-genre="アクション"], .genre-action { background-color: #ffcccc !important; }      /* ソフトコーラルピンク */
-    [data-genre="アドベンチャー"], .genre-adventure { background-color: #ffe4b5 !important; }  /* ライトマンゴー */
-    [data-genre="コメディ"], .genre-comedy { background-color: #f0e68c !important; }         /* カーキ */
-    [data-genre="ドラマ"], .genre-drama { background-color: #add8e6 !important; }          /* ライトブルー */
-    [data-genre="ロマンス"], .genre-romance { background-color: #ffb3d1 !important; }       /* ピンク */
-    [data-genre="ファミリー"], .genre-family { background-color: #fff4b8 !important; }       /* ライトイエロー */
-    [data-genre="歴史"], .genre-history { background-color: #fffacd !important; }         /* レモンシフォン */
-
-    /* 寒色系 */
-    [data-genre="アニメ"], .genre-anime { background-color: #e0ffe0 !important; }          /* ライトグリーン */
-    [data-genre="ファンタジー"], .genre-fantasy { background-color: #e8e0ff !important; }     /* ライトパープル */
-    [data-genre="ホラー"], .genre-horror { background-color: #d3d3d3 !important; }         /* ライトグレー */
-    [data-genre="ミステリー"], .genre-mystery { background-color: #b2e0e0 !important; }      /* ライトシアン */
-    [data-genre="SF"], .genre-sf { background-color: #bae1ff !important; }               /* ライトスカイブルー */
-    [data-genre="スリラー"], .genre-thriller { background-color: #b0e0e6 !important; }      /* パウダーブルー */
-    [data-genre="サスペンス"], .genre-suspense { background-color: #d3d3d3 !important; }     /* ライトグレー */
-
-    /* テキストカラーの調整を削除 */
 
     .genre-badge:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        filter: brightness(0.95);
+        transform: translateY(-1px);
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
     }
+
+    .data-source-info {
+        font-size: 0.8rem;
+        color: #6c757d;
+        padding: 1.5rem;
+        margin-top: 1rem;
+        border-top: 1px solid #f1f3f5;
+        text-align: center;
+        background: #f8f9fa;
+        border-radius: 0 0 12px 12px;
+    }
+
+    .data-source-info a {
+        color: #2c3e50;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .data-source-info a:hover {
+        text-decoration: underline;
+    }
+
+    .badge {
+        padding: 0.4rem 0.8rem;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 0.8rem;
+        transition: all 0.2s ease;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .badge:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .attribution {
+        background: white;
+        padding: 1rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        margin: 2rem auto;
+        width: 100%;
+        text-align: center;
+    }
+
+    .attribution img {
+        height: 1.2rem;
+        width: auto;
+        vertical-align: middle;
+    }
+
+    [data-genre="アクション"], .genre-action { background-color: #ffcccc !important; }
+    [data-genre="アドベンチャー"], .genre-adventure { background-color: #ffe4b5 !important; }
+    [data-genre="コメディ"], .genre-comedy { background-color: #f0e68c !important; }
+    [data-genre="ドラマ"], .genre-drama { background-color: #add8e6 !important; }
+    [data-genre="ロマンス"], .genre-romance { background-color: #ffb3d1 !important; }
+    [data-genre="ファミリー"], .genre-family { background-color: #fff4b8 !important; }
+    [data-genre="歴史"], .genre-history { background-color: #fffacd !important; }
+
+    [data-genre="アニメ"], .genre-anime { background-color: #e0ffe0 !important; }
+    [data-genre="ファンタジー"], .genre-fantasy { background-color: #e8e0ff !important; }
+    [data-genre="ホラー"], .genre-horror { background-color: #d3d3d3 !important; }
+    [data-genre="ミステリー"], .genre-mystery { background-color: #b2e0e0 !important; }
+    [data-genre="SF"], .genre-sf { background-color: #bae1ff !important; }
+    [data-genre="スリラー"], .genre-thriller { background-color: #b0e0e6 !important; }
+    [data-genre="サスペンス"], .genre-suspense { background-color: #d3d3d3 !important; }
 </style>
 
-<!-- ジャンルバッジのテンプレート -->
 <template id="genre-badge-template">
     <span class="genre-badge" data-genre=""></span>
 </template>
 
 <script>
-    // ジャンルバッジを生成する関数
     function createGenreBadge(genre) {
         const template = document.getElementById('genre-badge-template');
         const badge = template.content.cloneNode(true).querySelector('.genre-badge');
@@ -455,7 +530,6 @@
         return badge;
     }
 
-    // ジャンルリストを更新する関数
     function updateGenreList(genres, container) {
         container.innerHTML = '';
         genres.forEach(genre => {
@@ -469,7 +543,6 @@
     <div class="container">
         <h1 class="text-center mb-4">映画興行収入ランキング</h1>
         
-        <!-- フィルターフォーム -->
         <div class="mb-4">
             <div class="d-flex justify-content-center align-items-center gap-2" id="filterForm">
                 <input type="hidden" name="tab" value="{{ request()->get('tab', 'global') }}" id="currentTab">
@@ -488,32 +561,25 @@
             </div>
         </div>
 
-        <!-- タブナビゲーション -->
-        <ul class="nav nav-tabs nav-fill mb-4 border-0" id="movieTabs" role="tablist">
+        <ul class="nav nav-tabs mb-4" id="movieTabs" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="global-tab" data-bs-toggle="tab" data-bs-target="#global" type="button" role="tab" aria-controls="global" aria-selected="true">
-                    🌏 世界興行収入
+                <button class="nav-link active" id="global-tab" data-bs-toggle="tab" data-bs-target="#global" type="button" role="tab">
+                    <span class="emoji">🌏</span>
+                    <span>世界興行収入</span>
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="japan-tab" data-bs-toggle="tab" data-bs-target="#japan" type="button" role="tab" aria-controls="japan" aria-selected="false">
-                    🗾 日本興行収入
+                <button class="nav-link" id="japan-tab" data-bs-toggle="tab" data-bs-target="#japan" type="button" role="tab">
+                    <span class="emoji">🗾</span>
+                    <span>日本興行収入</span>
                 </button>
             </li>
         </ul>
 
-        <!-- タブコンテンツ -->
         <div class="tab-content">
-            <!-- 世界興行収入タブ -->
             <div class="tab-pane fade show active" id="global" role="tabpanel">
-                <div class="custom-card shadow-lg">
+                <div class="custom-card">
                     <div class="card-body p-4">
-                        <div class="alert alert-info" role="alert">
-                            <i class="fas fa-info-circle"></i>
-                            世界の興行収入データはTMDbから取得しています。金額は1ドル = 150円で換算しています。
-                            <br>
-                            最終更新: {{ $globalLastUpdated }}
-                        </div>
                         <div class="table-responsive">
                             <table class="table table-hover">
                                 <thead class="table-dark">
@@ -572,30 +638,17 @@
                                     @endif
                                 </tbody>
                             </table>
-                            <!-- グローバル映画のページネーション -->
-                            <div class="d-flex flex-column align-items-center mt-4">
-                                @if(!$globalMovies->isEmpty())
-                                    {{ $globalMovies->appends(['japan_page' => request()->japan_page])->links() }}
-                                    <div class="pagination-info">
-                                        全{{ $globalMovies->total() }}件中 {{ $globalMovies->firstItem() ?? 0 }}～{{ $globalMovies->lastItem() ?? 0 }}件を表示
-                                    </div>
-                                @endif
-                            </div>
+                        </div>
+                        <div class="text-center mt-3">
+                            <small class="text-muted">最終更新: {{ $globalLastUpdated }}</small>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 日本興行収入タブ -->
             <div class="tab-pane fade" id="japan" role="tabpanel">
-                <div class="custom-card shadow-lg">
+                <div class="custom-card">
                     <div class="card-body p-4">
-                        <div class="alert alert-info" role="alert">
-                            <i class="fas fa-info-circle"></i>
-                            日本国内の興行収入データは<a href="https://ja.wikipedia.org/wiki/日本歴代興行成績上位の映画一覧" target="_blank" rel="noopener noreferrer">Wikipedia</a>から取得しています（CC BY-SA 3.0）
-                            <br>
-                            最終更新: {{ $japanLastUpdated }}
-                        </div>
                         <div class="table-responsive">
                             <table class="table table-hover">
                                 <thead class="table-dark">
@@ -648,33 +701,40 @@
                                     @endif
                                 </tbody>
                             </table>
-                            <!-- 日本映画のページネーション -->
-                            <div class="d-flex flex-column align-items-center mt-4">
-                                @if(!$japanMovies->isEmpty())
-                                    {{ $japanMovies->appends(['global_page' => request()->global_page])->links() }}
-                                    <div class="pagination-info">
-                                        全{{ $japanMovies->total() }}件中 {{ $japanMovies->firstItem() ?? 0 }}～{{ $japanMovies->lastItem() ?? 0 }}件を表示
-                                    </div>
-                                @endif
-                            </div>
+                        </div>
+                        <div class="text-center mt-3">
+                            <small class="text-muted">最終更新: {{ $japanLastUpdated }}</small>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <div class="attribution d-flex align-items-center justify-content-center gap-3 flex-wrap">
+            <div class="d-flex align-items-center gap-2">
+                <small class="text-muted">世界の映画データ提供:</small>
+                <a href="https://www.themoviedb.org/" target="_blank" rel="noopener" class="text-decoration-none">
+                    <img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_short-8e7b30f73a4020692ccca9c88bafe5dcb6f8a62a4c6bc55cd9ba82bb2cd95f6c.svg" 
+                         alt="TMDb">
+                </a>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <small class="text-muted">日本の映画データ提供:</small>
+                <a href="https://ja.wikipedia.org/wiki/日本歴代興行成績上位の映画一覧" target="_blank" rel="noopener noreferrer" class="text-decoration-none">
+                    Wikipedia
+                </a>
+            </div>
+            <small class="text-muted">（金額は1ドル = 150円で換算）</small>
+        </div>
     </div>
 </div>
 
-<!-- Animate.css の追加 -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
 
-<!-- タブの状態を維持するためのスクリプトを追加 -->
 <script>
-    // PHPから渡されたgenreColorsをJavaScriptで使用できるようにする
     const genreColors = {!! json_encode($genreColors) !!};
 
     document.addEventListener('DOMContentLoaded', function() {
-        // DOM要素の取得
         const filterForm = document.getElementById('filterForm');
         const filterButton = document.getElementById('filterButton');
         const clearFilter = document.getElementById('clearFilter');
@@ -682,32 +742,27 @@
         const currentTab = document.getElementById('currentTab');
         const movieTabs = document.getElementById('movieTabs');
 
-        // 要素が見つからない場合はコンソールに警告を出す
         if (!filterButton) console.warn('filterButton not found');
         if (!clearFilter) console.warn('clearFilter not found');
         if (!genreSelect) console.warn('genreSelect not found');
         if (!currentTab) console.warn('currentTab not found');
         if (!movieTabs) console.warn('movieTabs not found');
 
-        // 検索結果のキャッシュを保持するオブジェクト
         const searchCache = {
             global: { genre: null, data: null },
             japan: { genre: null, data: null }
         };
 
-        // ローカルストレージからタブの状態を取得、なければURLから取得、それもなければデフォルトはglobal
         const savedTab = localStorage.getItem('activeMovieTab');
         const urlParams = new URLSearchParams(window.location.search);
         const activeTab = urlParams.get('tab') || savedTab || 'global';
 
-        // タブの状態を設定
         const tab = document.querySelector(`#${activeTab}-tab`);
         if (tab) {
             const tabInstance = new bootstrap.Tab(tab);
             tabInstance.show();
         }
 
-        // フォームの hidden input を更新
         currentTab.value = activeTab;
 
         const loadingSpinner = `
@@ -720,20 +775,16 @@
             </tr>
         `;
 
-        // クリアボタンの表示状態を更新する関数
         function updateClearButtonVisibility() {
             if (clearFilter) {
                 clearFilter.style.display = genreSelect.value && genreSelect.value !== '' ? 'block' : 'none';
             }
         }
 
-        // 初期表示時のクリアボタンの表示状態を設定
         updateClearButtonVisibility();
 
-        // ジャンル選択時にクリアボタンの表示状態を更新
         genreSelect.addEventListener('change', updateClearButtonVisibility);
 
-        // ジャンルバッジのクリックイベントを設定する関数
         function setupGenreBadgeListeners() {
             document.querySelectorAll('.badge[data-genre]').forEach(badge => {
                 badge.addEventListener('click', function(e) {
@@ -742,36 +793,29 @@
                     const genre = this.dataset.genre;
                     genreSelect.value = genre;
                     updateClearButtonVisibility();
-                    // キャッシュをクリアして新しい検索を実行
                     clearSearchCache();
                     updateMovieList();
                 });
             });
         }
 
-        // 検索キャッシュをクリアする関数
         function clearSearchCache() {
             searchCache.global = { genre: null, data: null };
             searchCache.japan = { genre: null, data: null };
         }
 
-        // 初期設定
         setupGenreBadgeListeners();
 
-        // タブ切り替え時の処理
         if (movieTabs) {
             movieTabs.addEventListener('shown.bs.tab', function(event) {
                 const activeTab = event.target.getAttribute('data-bs-target').replace('#', '');
                 currentTab.value = activeTab;
                 
-                // キャッシュされた結果があり、ジャンルが一致する場合はそれを使用
                 if (searchCache[activeTab].data && searchCache[activeTab].genre === genreSelect.value) {
                     displayMovies(searchCache[activeTab].data, activeTab);
                 } else if (genreSelect.value) {
-                    // キャッシュがない場合は新しく検索
                     updateMovieList();
                 } else {
-                    // URLにタブパラメータを追加
                     const currentUrl = new URL(window.location.href);
                     currentUrl.searchParams.set('tab', activeTab);
                     window.history.replaceState({}, '', currentUrl);
@@ -779,31 +823,26 @@
             });
         }
 
-        // フィルターボタンクリック時の処理
         if (filterButton) {
             filterButton.addEventListener('click', function(e) {
                 e.preventDefault();
                 console.log('Filter button clicked');
-                // キャッシュをクリアして新しい検索を実行
                 clearSearchCache();
                 updateMovieList();
             });
         }
 
-        // クリアボタンクリック時の処理
         if (clearFilter) {
             clearFilter.addEventListener('click', function(e) {
                 e.preventDefault();
                 console.log('Clear button clicked');
                 genreSelect.value = '';
                 updateClearButtonVisibility();
-                // キャッシュをクリアして新しい検索を実行
                 clearSearchCache();
                 updateMovieList();
             });
         }
 
-        // 映画データを表示する関数
         function displayMovies(data, activeTab) {
             const tableBody = document.querySelector(`#${activeTab} tbody`);
             if (!tableBody) {
@@ -857,10 +896,8 @@
                 tableBody.appendChild(row);
             });
 
-            // ジャンルバッジのイベントリスナーを再設定
             setupGenreBadgeListeners();
 
-            // URLを更新
             const currentUrl = new URL(window.location.href);
             currentUrl.searchParams.set('tab', activeTab);
             if (genreSelect.value) {
@@ -869,15 +906,8 @@
                 currentUrl.searchParams.delete('genre');
             }
             window.history.replaceState({}, '', currentUrl);
-
-            // ページネーション情報を更新
-            const paginationInfo = document.querySelector(`#${activeTab} .pagination-info`);
-            if (paginationInfo && data.movies.total > 0) {
-                paginationInfo.textContent = `全${data.movies.total}件中 ${data.movies.from}～${data.movies.to}件を表示`;
-            }
         }
 
-        // 映画リストの更新処理
         async function updateMovieList() {
             const activeTab = currentTab.value;
             const genre = genreSelect.value;
@@ -889,14 +919,12 @@
                 return;
             }
 
-            // キャッシュをチェック
             if (searchCache[activeTab].data && searchCache[activeTab].genre === genre) {
                 console.log('Using cached data for:', { activeTab, genre });
                 displayMovies(searchCache[activeTab].data, activeTab);
                 return;
             }
 
-            // ローディング表示
             tableBody.innerHTML = loadingSpinner;
 
             try {
@@ -909,7 +937,6 @@
                 console.log('Received data:', data);
 
                 if (data.success) {
-                    // 検索結果をキャッシュに保存
                     searchCache[activeTab] = {
                         genre: genre,
                         data: data
@@ -931,7 +958,6 @@
             }
         }
 
-        // 初期表示時にジャンルが選択されている場合は検索を実行
         if (genreSelect.value) {
             updateMovieList();
         }
@@ -947,13 +973,4 @@
     "url": "{{ url('/') }}"
 }
 </script>
-
-<div class="attribution d-flex align-items-center justify-content-end gap-2 mt-3 mb-4">
-    <small class="text-muted">映画データ提供:</small>
-    <a href="https://www.themoviedb.org/" target="_blank" rel="noopener" class="text-decoration-none">
-        <img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_short-8e7b30f73a4020692ccca9c88bafe5dcb6f8a62a4c6bc55cd9ba82bb2cd95f6c.svg" 
-             alt="TMDb" 
-             style="height: 1.2rem; width: auto;">
-    </a>
-</div>
 @endsection

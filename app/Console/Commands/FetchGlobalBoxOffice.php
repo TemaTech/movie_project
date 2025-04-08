@@ -120,7 +120,9 @@ class FetchGlobalBoxOffice extends Command
             if (!empty($movies)) {
                 $this->info('データベースへの一括登録を開始...');
                 
-                DB::transaction(function () use ($movies) {
+                try {
+                    DB::beginTransaction();
+                    
                     // 既存のデータを一旦全て削除
                     GlobalMovie::truncate();
                     
@@ -128,9 +130,13 @@ class FetchGlobalBoxOffice extends Command
                     foreach (array_chunk($movies, 50) as $chunk) {
                         GlobalMovie::insert($chunk);
                     }
-                });
-                
-                $this->info(sprintf('データベースに%d件の映画データを保存しました', count($movies)));
+                    
+                    DB::commit();
+                    $this->info(sprintf('データベースに%d件の映画データを保存しました', count($movies)));
+                } catch (\Exception $e) {
+                    DB::rollBack();
+                    throw $e;
+                }
             }
 
             $this->info("処理完了: 合計{$totalMovies}件の映画データを更新しました");

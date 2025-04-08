@@ -28,7 +28,6 @@ return new class extends Migration
             $table->index('release_date');
             $table->index('distributor');
             $table->index('box_office');
-            $table->index('genres');
             $table->index(['box_office', 'release_date']);
         });
     }

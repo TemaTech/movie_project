@@ -12,8 +12,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // GINインデックスの作成
-        DB::statement('CREATE INDEX idx_movies_genres ON movies USING GIN (genres)');
+        Schema::table('movies', function (Blueprint $table) {
+            // MySQLではJSON型のカラムに対して通常のインデックスを作成
+            $table->index('genres', 'idx_movies_genres');
+        });
 
         // 複合インデックスの作成
         Schema::table('movies', function (Blueprint $table) {
@@ -27,8 +29,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('movies', function (Blueprint $table) {
-            // GINインデックスの削除
-            DB::statement('DROP INDEX IF EXISTS idx_movies_genres');
+            $table->dropIndex('idx_movies_genres');
+            // 他のインデックスがあれば、同様に修正
             
             // 複合インデックスの削除
             $table->dropIndex('idx_movies_region_box_office');

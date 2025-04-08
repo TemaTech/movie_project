@@ -81,8 +81,9 @@ class FetchJapaneseBoxOffice extends Command
                         ));
                     }
 
-                    // バルク処理による高速化
-                    DB::transaction(function () use ($moviesData) {
+                    try {
+                        DB::beginTransaction();
+                        
                         // 既存のデータを一旦全て削除
                         JapaneseMovie::truncate();
                         
@@ -91,8 +92,12 @@ class FetchJapaneseBoxOffice extends Command
                             JapaneseMovie::insert($chunk);
                         }
                         
+                        DB::commit();
                         $this->info(sprintf('データベースに%d件の映画データを保存しました', count($moviesData)));
-                    });
+                    } catch (\Exception $e) {
+                        DB::rollBack();
+                        $this->error('データベース処理中にエラーが発生しました: ' . $e->getMessage());
+                    }
                 } else {
                     $this->error('映画データの解析に失敗しました');
                 }

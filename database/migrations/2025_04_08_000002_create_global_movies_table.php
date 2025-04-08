@@ -17,6 +17,7 @@ return new class extends Migration
             $table->date('release_date')->nullable();
             $table->json('genres')->nullable();
             $table->string('production_country')->nullable();
+            $table->string('region')->default('global');
             $table->integer('rank')->nullable();
             $table->string('data_source')->nullable();
             $table->string('data_source_url')->nullable();

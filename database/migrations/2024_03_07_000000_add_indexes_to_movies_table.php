@@ -3,7 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -15,10 +14,6 @@ return new class extends Migration
         Schema::table('movies', function (Blueprint $table) {
             // MySQLではJSON型のカラムに対して通常のインデックスを作成
             $table->index('genres', 'idx_movies_genres');
-        });
-
-        // 複合インデックスの作成
-        Schema::table('movies', function (Blueprint $table) {
             $table->index(['region', 'box_office'], 'idx_movies_region_box_office');
         });
     }
@@ -30,9 +25,6 @@ return new class extends Migration
     {
         Schema::table('movies', function (Blueprint $table) {
             $table->dropIndex('idx_movies_genres');
-            // 他のインデックスがあれば、同様に修正
-            
-            // 複合インデックスの削除
             $table->dropIndex('idx_movies_region_box_office');
         });
     }

@@ -19,7 +19,7 @@ return new class extends Migration
             $table->bigInteger('budget')->default(0);
             $table->date('release_date')->nullable();
             $table->string('region')->default('global');
-            $table->jsonb('genres')->nullable();
+            $table->json('genres')->nullable();
             $table->timestamps();
         });
     }

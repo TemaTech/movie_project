@@ -3,7 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -16,7 +15,7 @@ return new class extends Migration
             $table->bigInteger('box_office')->default(0);
             $table->bigInteger('budget')->default(0);
             $table->date('release_date')->nullable();
-            $table->jsonb('genres')->nullable();
+            $table->json('genres')->nullable();
             $table->string('production_country')->default('日本');
             $table->string('distributor')->nullable();
             $table->string('data_source')->nullable();
@@ -28,10 +27,8 @@ return new class extends Migration
             $table->index('release_date');
             $table->index('distributor');
             $table->index(['box_office', 'release_date']);
+            $table->index('genres');
         });
-
-        // GINインデックスの作成（ジャンル検索の最適化用）
-        DB::statement('CREATE INDEX idx_japanese_movies_genres ON japanese_movies USING GIN (genres)');
     }
 
     public function down(): void

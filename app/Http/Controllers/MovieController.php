@@ -163,10 +163,10 @@ class MovieController extends Controller
             // データベース接続情報のデバッグ
             \Log::debug('Database Connection Settings:', [
                 'connection' => config('database.default'),
-                'host' => config('database.connections.pgsql.host'),
-                'port' => config('database.connections.pgsql.port'),
-                'database' => config('database.connections.pgsql.database'),
-                'username' => config('database.connections.pgsql.username')
+                'host' => config('database.connections.mysql.host'),
+                'port' => config('database.connections.mysql.port'),
+                'database' => config('database.connections.mysql.database'),
+                'username' => config('database.connections.mysql.username')
             ]);
 
             // 接続テスト
@@ -213,7 +213,7 @@ class MovieController extends Controller
             $globalMovies = GlobalMovie::query()
                 ->when($selectedGenre, function($query) use ($selectedGenre, $genreMap) {
                     $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
-                    return $query->whereRaw("genres::jsonb @> ?::jsonb", [json_encode([$searchGenre])]);
+                    return $query->whereRaw("JSON_CONTAINS(genres, ?)", [json_encode([$searchGenre])]);
                 })
                 ->orderBy('box_office', 'desc')
                 ->paginate(100, ['*'], 'global_page');
@@ -241,7 +241,7 @@ class MovieController extends Controller
             $japanMovies = JapaneseMovie::query()  // Movie から JapaneseMovie に変更
                 ->when($selectedGenre, function($query) use ($selectedGenre, $genreMap) {
                     $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
-                    return $query->whereRaw("genres::jsonb @> ?::jsonb", [json_encode([$searchGenre])]);
+                    return $query->whereRaw("JSON_CONTAINS(genres, ?)", [json_encode([$searchGenre])]);
                 })
                 ->orderBy('box_office', 'desc')
                 ->paginate(100, ['*'], 'japan_page');
@@ -368,7 +368,7 @@ class MovieController extends Controller
             // ジャンルでフィルタリング（ジャンルが指定されている場合のみ）
             if ($genre && $genre !== 'すべてのジャンル') {
                 $searchGenre = array_flip($genreMap)[$genre] ?? $genre;
-                $query->whereJsonContains('genres', $searchGenre);
+                $query->whereRaw("JSON_CONTAINS(genres, ?)", [json_encode([$searchGenre])]);
             }
 
             // 興行収入でソート

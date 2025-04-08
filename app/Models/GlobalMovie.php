@@ -9,7 +9,7 @@ class GlobalMovie extends Model
 {
     use HasFactory;
 
-    protected $connection = 'pgsql';
+    protected $connection = 'mysql';
     protected $table = 'global_movies';
     
     protected $primaryKey = 'movie_id';
@@ -31,7 +31,7 @@ class GlobalMovie extends Model
     ];
 
     protected $casts = [
-        'genres' => 'array',
+        'genres' => 'json',
         'release_date' => 'date',
         'box_office' => 'integer',
         'budget' => 'integer',

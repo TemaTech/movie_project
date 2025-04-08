@@ -252,13 +252,13 @@ class FetchJapaneseBoxOffice extends Command
                             'distributor' => $distributor,
                             'release_date' => $releaseYear,
                             'last_updated' => now(),
-                            'genres' => '[]',  // デフォルト値として空の配列のJSON文字列を設定
-                            'budget' => 0
+                            'genres' => json_encode($tmdbDetails['genres']),
+                            'budget' => $tmdbDetails['budget']
                         ];
 
                         // TMDBからの追加情報があれば更新
                         if ($tmdbDetails) {
-                            $movieData['genres'] = json_encode($tmdbDetails['genres']);  // 配列をJSON文字列に変換
+                            $movieData['genres'] = json_encode($tmdbDetails['genres']);
                             $movieData['budget'] = $tmdbDetails['budget'];
                             
                             $this->info(sprintf(
@@ -449,8 +449,8 @@ class FetchJapaneseBoxOffice extends Command
             'data_source' => 'Wikipedia',
             'data_source_url' => 'https://ja.wikipedia.org/wiki/日本歴代興行成績上位の映画一覧',
             'last_updated' => $now,
-            'genres' => '[]',  // デフォルト値
-            'budget' => 0,     // デフォルト値
+            'genres' => json_encode($tmdbDetails['genres']),
+            'budget' => $tmdbDetails['budget'],
             'release_date' => $movie['release_date'] 
                 ? Carbon::createFromFormat('Y', $movie['release_date'])->startOfYear()
                 : $now

@@ -9,7 +9,7 @@ class JapaneseMovie extends Model
 {
     use HasFactory;
 
-    protected $connection = 'pgsql';
+    protected $connection = 'mysql';
     protected $table = 'japanese_movies';
     
     protected $primaryKey = 'movie_id';
@@ -31,7 +31,7 @@ class JapaneseMovie extends Model
     ];
 
     protected $casts = [
-        'genres' => 'array',
+        'genres' => 'json',
         'release_date' => 'date',
         'box_office' => 'integer',
         'budget' => 'integer',

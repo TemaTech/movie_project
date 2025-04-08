@@ -62,7 +62,7 @@ class FetchGlobalBoxOffice extends Command
                             // genresをJSON文字列に変換
                             $genres = isset($movieDetails['genres']) 
                                 ? json_encode(collect($movieDetails['genres'])->pluck('name')->toArray())
-                                : '[]';
+                                : json_encode([]);
 
                             $movies[] = [
                                 'movie_id' => 'global_' . sprintf('%03d', $rank) . '_' . $movie['id'],

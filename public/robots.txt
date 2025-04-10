@@ -1,3 +1,3 @@
 User-agent: *
 Allow: /
-Sitemap: https://movie-ranking-app.onrender.com/sitemap.xml
+Sitemap: http://160.251.76.199/sitemap.xml

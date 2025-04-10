@@ -1,0 +1,21 @@
+{
+    "name": "Movie Ranking",
+    "short_name": "Movie Ranking",
+    "description": "世界と日本の映画興行収入・統計データ",
+    "icons": [
+        {
+            "src": "/images/android-chrome-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/images/android-chrome-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ],
+    "theme_color": "#2c3e50",
+    "background_color": "#f5f7fa",
+    "display": "standalone",
+    "start_url": "/"
+} 

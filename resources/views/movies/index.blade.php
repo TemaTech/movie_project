@@ -1,6 +1,30 @@
 @extends('layouts.app')
 
 @section('content')
+<head>
+    <title>Movie Ranking - 世界と日本の映画興行収入・統計データ</title>
+    
+    <!-- favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('images/favicon-16x16.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/apple-touch-icon.png') }}">
+    <link rel="manifest" href="{{ asset('site.webmanifest') }}">
+    
+    <!-- OGP -->
+    <meta property="og:title" content="Movie Ranking - 映画興行収入・統計データ">
+    <meta property="og:description" content="世界と日本の映画興行収入データをリアルタイムで提供。ジャンル別の分析や制作費との比較も可能な映画統計データベース。">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ url()->current() }}">
+    <meta property="og:image" content="{{ asset('images/ogp.png') }}">
+    <meta property="og:site_name" content="Movie Ranking">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Movie Ranking - 映画興行収入・統計データ">
+    <meta name="twitter:description" content="世界と日本の映画興行収入データをリアルタイムで提供。ジャンル別の分析や制作費との比較も可能な映画統計データベース。">
+    <meta name="twitter:image" content="{{ asset('images/ogp.png') }}">
+</head>
+
 <style>
     body {
         background: #f5f7fa;
@@ -515,6 +539,32 @@
     [data-genre="SF"], .genre-sf { background-color: #bae1ff !important; }
     [data-genre="スリラー"], .genre-thriller { background-color: #b0e0e6 !important; }
     [data-genre="サスペンス"], .genre-suspense { background-color: #d3d3d3 !important; }
+
+    /* サイトロゴのスタイル */
+    .site-logo {
+        font-family: 'Montserrat', sans-serif;
+        font-weight: 700;
+        color: #2c3e50;
+        text-decoration: none;
+        display: inline-block;
+        transition: all 0.3s ease;
+    }
+
+    .site-logo:hover {
+        transform: translateY(-2px);
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .site-logo small {
+        display: block;
+        font-size: 0.9rem;
+        font-weight: 400;
+        color: #6c757d;
+        margin-top: 0.2rem;
+    }
+
+    /* Google Fontsの追加 */
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
 </style>
 
 <template id="genre-badge-template">
@@ -541,7 +591,12 @@
 
 <div class="gradient-bg py-5">
     <div class="container">
-        <h1 class="text-center mb-4">Movie Scope<br><small class="fs-5 text-muted">世界と日本の映画興行収入ランキング</small></h1>
+        <h1 class="text-center mb-4">
+            <a href="/" class="site-logo">
+                Movie Ranking
+                <small class="fs-5 text-muted">世界と日本の映画興行収入・統計データ</small>
+            </a>
+        </h1>
         
         <div class="mb-4">
             <div class="d-flex justify-content-center align-items-center gap-2" id="filterForm">
@@ -1039,8 +1094,8 @@
 {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "name": "Movie Scope",
-    "description": "世界と日本の映画興行収入ランキング - 正確なデータと詳細なジャンル分析を提供",
+    "name": "Movie Ranking",
+    "description": "世界と日本の映画興行収入・統計データ - 正確なデータと詳細なジャンル分析を提供",
     "url": "{{ url('/') }}"
 }
 </script>

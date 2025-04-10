@@ -1,3 +1,3 @@
 User-agent: *
 Allow: /
-Sitemap: http://160.251.76.199/sitemap.xml
+Sitemap: https://movie-ranking.jp/sitemap.xml

@@ -1,8 +1,15 @@
 # Ensure HTTPS
 RewriteEngine On
-RewriteCond %{HTTP_HOST} !^movie-ranking\.jp$ [NC]
-RewriteRule ^(.*)$ https://movie-ranking.jp/$1 [L,R=301]
+
+# Ensure www
+RewriteCond %{HTTP_HOST} !^www\. [NC]
+RewriteCond %{HTTP_HOST} !^$
+RewriteRule ^(.*)$ http://www.%{HTTP_HOST}/$1 [R=301,L]
+
+# Redirect from IP to domain
+RewriteCond %{HTTP_HOST} ^160\.251\.76\.199$ [NC]
+RewriteRule ^(.*)$ http://movie-ranking.jp/$1 [R=301,L]
 
 # Remove public from URL
 RewriteCond %{REQUEST_URI} !^public
-RewriteRule ^(.*)$ public/$1 [L] 
+RewriteRule ^(.*)$ public/$1 [L]

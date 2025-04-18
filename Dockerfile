@@ -26,8 +26,16 @@ RUN apt-get update && apt-get install -y \
     unzip \
     libzip-dev \
     procps \
+    openssl \
     && docker-php-ext-configure pgsql -with-pgsql=/usr/local/pgsql \
     && docker-php-ext-install pdo pdo_pgsql pgsql zip opcache
+
+# SSL証明書の設定
+RUN mkdir -p /etc/nginx/ssl
+RUN openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/nginx/ssl/server.key \
+    -out /etc/nginx/ssl/server.crt \
+    -subj "/C=JP/ST=Tokyo/L=Tokyo/O=Movie Ranking/CN=movie-ranking.jp"
 
 # Composerのインストール
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -64,7 +72,7 @@ RUN mkdir -p /var/log/nginx && \
     chown -R www-data:www-data /var/log/nginx
 
 # ポート設定
-EXPOSE 8080
+EXPOSE 8080 443
 
 # 起動スクリプトのコピーと実行
 COPY docker/start.sh /usr/local/bin/start.sh

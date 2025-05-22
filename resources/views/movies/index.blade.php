@@ -2,6 +2,10 @@
 
 @section('content')
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="description" content="Movie Ranking - 世界と日本の映画興行収入ランキング。正確な興行収入データと詳細なジャンル分析を提供。">
     <title>Movie Ranking - 世界と日本の映画興行収入・統計データ</title>
     
     <!-- favicon -->
@@ -919,15 +923,19 @@
         }
 
         if (filterButton) {
-            filterButton.addEventListener('click', function(e) {
+            filterButton.addEventListener('click', async function(e) {
                 e.preventDefault();
                 console.log('Filter button clicked');
                 const genre = genreSelect.value;
                 const activeTab = currentTab.value;
                 
-                // フィルタ時は現在のジャンルのキャッシュのみを削除
-                clearSpecificCache(activeTab, genre);
-                updateMovieList(true);
+                try {
+                    // フィルタ時は現在のジャンルのキャッシュのみを削除
+                    clearSpecificCache(activeTab, genre);
+                    await updateMovieList(true);
+                } catch (error) {
+                    console.error('フィルタリングエラー:', error);
+                }
             });
         }
 
@@ -1052,7 +1060,12 @@
             tableBody.innerHTML = loadingSpinner;
 
             try {
-                const response = await fetch(`/api/movies/filter?genre=${encodeURIComponent(genre)}&tab=${activeTab}`);
+                const response = await fetch(`/api/movies/filter?genre=${encodeURIComponent(genre)}&tab=${activeTab}`, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.message || `HTTP error! status: ${response.status}`);

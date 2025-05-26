@@ -925,8 +925,14 @@
                 const genre = genreSelect.value;
                 const activeTab = currentTab.value;
                 
-                // フィルタ時は現在のジャンルのキャッシュのみを削除
-                clearSpecificCache(activeTab, genre);
+                // キャッシュをクリア
+                if (searchCache[activeTab]) {
+                    searchCache[activeTab] = {
+                        timestamp: null,
+                        data: {}
+                    };
+                }
+                
                 updateMovieList(true);
             });
         }

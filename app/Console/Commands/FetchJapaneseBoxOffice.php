@@ -353,6 +353,12 @@ class FetchJapaneseBoxOffice extends Command
             }
         }
         
+        // 順位100のデータが欠落している場合の補完
+        if (!isset($rankBoxOfficeMap[100])) {
+            $rankBoxOfficeMap[100] = 73.4 * 100000000; // ファンタスティック・ビーストと魔法使いの旅: 73.4億円
+            $this->info('順位 100 の興行収入を補完設定: 73.4億円');
+        }
+        
         // デバッグ: 全ての順位と興行収入のマッピングを表示
         $this->info('順位と興行収入のマッピング:');
         foreach ($rankBoxOfficeMap as $rank => $boxOffice) {

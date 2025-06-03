@@ -6,7 +6,7 @@
     <meta name="description" content="Movie Ranking - 世界と日本の映画興行収入ランキング。正確な興行収入データと詳細なジャンル分析を提供。">
     <meta name="keywords" content="映画,興行収入,ランキング,ボックスオフィス,日本映画,世界の映画,Movie Ranking">
     <meta name="robots" content="index, follow">
-    <link rel="canonical" href="{{ url()->current() }}" />
+    <link rel="canonical" href="{{ route('movies.index') }}" />
     <title>Movie Ranking | 世界と日本の映画興行収入ランキング</title>
     
     <!-- Bootstrap CSS -->

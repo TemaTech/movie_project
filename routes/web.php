@@ -6,7 +6,9 @@ use App\Http\Controllers\SitemapController;
 
 // メインページ（映画一覧）
 Route::get('/', [MovieController::class, 'index'])->name('movies.index');
-Route::get('/movies', [MovieController::class, 'index'])->name('movies.list');
+Route::get('/movies', function() {
+    return redirect()->route('movies.index', [], 301);
+});
 
 // 映画詳細ページ
 Route::get('/movies/{id}', [MovieController::class, 'show'])->name('movies.show');

@@ -93,7 +93,7 @@ class FetchJapaneseBoxOffice extends Command
                     
                     try {
                         // 既存のデータを一旦全て削除（truncateは暗黙的にコミットするため、トランザクション外で実行）
-                        JapaneseMovie::delete();
+                        JapaneseMovie::query()->delete();
                         $this->info('既存のデータを削除しました');
                         
                         DB::beginTransaction();

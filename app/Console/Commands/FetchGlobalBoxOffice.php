@@ -120,21 +120,45 @@ class FetchGlobalBoxOffice extends Command
             if (!empty($movies)) {
                 $this->info('データベースへの一括登録を開始...');
                 
+                // 既存のトランザクションがあれば終了
+                try {
+                    if (DB::transactionLevel() > 0) {
+                        DB::rollBack();
+                        $this->info('既存のトランザクションをロールバックしました');
+                    }
+                } catch (\Exception $e) {
+                    // 既存のトランザクションがない場合は無視
+                }
+                
                 try {
                     DB::beginTransaction();
+                    $this->info('トランザクションを開始しました');
                     
                     // 既存のデータを一旦全て削除
                     GlobalMovie::truncate();
+                    $this->info('既存のデータを削除しました');
                     
                     // チャンクに分割してバルクインサート
-                    foreach (array_chunk($movies, 50) as $chunk) {
+                    foreach (array_chunk($movies, 50) as $chunkIndex => $chunk) {
                         GlobalMovie::insert($chunk);
+                        $this->info(sprintf('チャンク %d/%d を挿入しました', $chunkIndex + 1, count(array_chunk($movies, 50))));
                     }
                     
                     DB::commit();
+                    $this->info('トランザクションをコミットしました');
                     $this->info(sprintf('データベースに%d件の映画データを保存しました', count($movies)));
                 } catch (\Exception $e) {
-                    DB::rollBack();
+                    $this->error('データベース操作中にエラーが発生しました: ' . $e->getMessage());
+                    Log::error('Database operation error:', [
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                    
+                    // トランザクションがアクティブかチェックしてからロールバック
+                    if (DB::transactionLevel() > 0) {
+                        DB::rollBack();
+                        $this->info('トランザクションをロールバックしました');
+                    }
                     throw $e;
                 }
             }
@@ -147,6 +171,16 @@ class FetchGlobalBoxOffice extends Command
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
+            
+            // 最終的なトランザクションのクリーンアップ
+            try {
+                if (DB::transactionLevel() > 0) {
+                    DB::rollBack();
+                    $this->info('最終的なトランザクションをロールバックしました');
+                }
+            } catch (\Exception $cleanupError) {
+                $this->error('トランザクションクリーンアップ中にエラー: ' . $cleanupError->getMessage());
+            }
         }
     }
 } 

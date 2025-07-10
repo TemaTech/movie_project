@@ -81,22 +81,46 @@ class FetchJapaneseBoxOffice extends Command
                         ));
                     }
 
+                    // 既存のトランザクションがあれば終了
                     try {
-                        DB::beginTransaction();
+                        if (DB::transactionLevel() > 0) {
+                            DB::rollBack();
+                            $this->info('既存のトランザクションをロールバックしました');
+                        }
+                    } catch (\Exception $e) {
+                        // 既存のトランザクションがない場合は無視
+                    }
+                    
+                    try {
+                        // 既存のデータを一旦全て削除（truncateは暗黙的にコミットするため、トランザクション外で実行）
+                        JapaneseMovie::delete();
+                        $this->info('既存のデータを削除しました');
                         
-                        // 既存のデータを一旦全て削除
-                        JapaneseMovie::truncate();
+                        DB::beginTransaction();
+                        $this->info('トランザクションを開始しました');
                         
                         // チャンクに分割してバルクインサート
-                        foreach (array_chunk($moviesData, 50) as $chunk) {
+                        foreach (array_chunk($moviesData, 50) as $chunkIndex => $chunk) {
                             JapaneseMovie::insert($chunk);
+                            $this->info(sprintf('チャンク %d/%d を挿入しました', $chunkIndex + 1, count(array_chunk($moviesData, 50))));
                         }
                         
                         DB::commit();
+                        $this->info('トランザクションをコミットしました');
                         $this->info(sprintf('データベースに%d件の映画データを保存しました', count($moviesData)));
                     } catch (\Exception $e) {
-                        DB::rollBack();
                         $this->error('データベース処理中にエラーが発生しました: ' . $e->getMessage());
+                        Log::error('Japanese movie database operation error:', [
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString()
+                        ]);
+                        
+                        // トランザクションがアクティブかチェックしてからロールバック
+                        if (DB::transactionLevel() > 0) {
+                            DB::rollBack();
+                            $this->info('トランザクションをロールバックしました');
+                        }
+                        throw $e;
                     }
                 } else {
                     $this->error('映画データの解析に失敗しました');
@@ -108,6 +132,16 @@ class FetchJapaneseBoxOffice extends Command
         } catch (\Exception $e) {
             $this->error('エラー発生: ' . $e->getMessage());
             $this->error('スタックトレース: ' . $e->getTraceAsString());
+            
+            // 最終的なトランザクションのクリーンアップ
+            try {
+                if (DB::transactionLevel() > 0) {
+                    DB::rollBack();
+                    $this->info('最終的なトランザクションをロールバックしました');
+                }
+            } catch (\Exception $cleanupError) {
+                $this->error('トランザクションクリーンアップ中にエラー: ' . $cleanupError->getMessage());
+            }
         }
     }
 

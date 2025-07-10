@@ -131,12 +131,12 @@ class FetchGlobalBoxOffice extends Command
                 }
                 
                 try {
+                    // 既存のデータを一旦全て削除（truncateは暗黙的にコミットするため、トランザクション外で実行）
+                    GlobalMovie::where('region', 'global')->delete();
+                    $this->info('既存のデータを削除しました');
+                    
                     DB::beginTransaction();
                     $this->info('トランザクションを開始しました');
-                    
-                    // 既存のデータを一旦全て削除
-                    GlobalMovie::truncate();
-                    $this->info('既存のデータを削除しました');
                     
                     // チャンクに分割してバルクインサート
                     foreach (array_chunk($movies, 50) as $chunkIndex => $chunk) {

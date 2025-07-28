@@ -7,6 +7,15 @@
     <meta name="keywords" content="映画,興行収入,ランキング,売上,日本映画,世界の映画,最新,ムビラン,ボックスオフィス">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="{{ route('movies.index') }}" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('images/favicon-16x16.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/apple-touch-icon.png') }}">
+    <link rel="manifest" href="{{ asset('site.webmanifest') }}">
+    <meta name="theme-color" content="#2c3e50">
+    
     <title>最新映画興行収入ランキング - 世界と日本の映画売上データ</title>
     
     <!-- Bootstrap CSS -->

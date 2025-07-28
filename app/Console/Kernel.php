@@ -4,6 +4,7 @@ namespace App\Console;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
+use Illuminate\Support\Facades\Log;
 
 class Kernel extends ConsoleKernel
 {
@@ -16,15 +17,17 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // 毎日午前3時に実行
+        // 毎日午前2時30分に日本の映画データを取得
         $schedule->command('movies:fetch-japanese-boxoffice')
-                ->dailyAt('03:00')
-                ->withoutOverlapping();
+                ->dailyAt('02:30')
+                ->withoutOverlapping()
+                ->appendOutputTo(storage_path('logs/japanese-boxoffice.log'));
 
-        // グローバル映画データの取得を追加
+        // 毎日午前3時30分にグローバル映画データを取得
         $schedule->command('movies:fetch-global-boxoffice')
-                ->dailyAt('03:00')
-                ->withoutOverlapping();
+                ->dailyAt('03:30')
+                ->withoutOverlapping()
+                ->appendOutputTo(storage_path('logs/global-boxoffice.log'));
     }
 
     /**

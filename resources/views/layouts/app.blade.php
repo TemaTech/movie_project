@@ -98,6 +98,39 @@
             }
             </script>
             
+            <!-- サイト情報（構造化データ） -->
+            <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "WebSite",
+                "name": "ムビラン - 最新映画興行収入ランキング",
+                "alternateName": "Movie Ranking",
+                "description": "世界と日本の映画興行収入・統計データ",
+                "url": "{{ url('/') }}",
+                "logo": "{{ asset('images/android-chrome-512x512.png') }}",
+                "sameAs": [],
+                "potentialAction": {
+                    "@type": "SearchAction",
+                    "target": "{{ url('/') }}?search={search_term_string}",
+                    "query-input": "required name=search_term_string"
+                }
+            }
+            </script>
+            
+            <!-- 組織情報（構造化データ） -->
+            <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "Organization",
+                "name": "ムビラン",
+                "alternateName": "Movie Ranking",
+                "description": "映画興行収入ランキングサイト",
+                "url": "{{ url('/') }}",
+                "logo": "{{ asset('images/android-chrome-512x512.png') }}",
+                "sameAs": []
+            }
+            </script>
+            
             @yield('content')
         </div>
     </div>

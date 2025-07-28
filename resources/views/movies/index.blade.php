@@ -1102,12 +1102,7 @@
     "@type": "WebSite",
     "name": "ムビラン - 最新映画興行収入ランキング",
     "description": "世界と日本の映画興行収入・売上データ - 正確なデータと詳細なジャンル分析を提供",
-    "url": "{{ url('/') }}",
-    "potentialAction": {
-        "@type": "SearchAction",
-        "target": "{{ url('/') }}?search={search_term_string}",
-        "query-input": "required name=search_term_string"
-    }
+    "url": "{{ url('/') }}"
 }
 </script>
 
@@ -1117,23 +1112,14 @@
     "@type": "ItemList",
     "name": "映画興行収入ランキング",
     "description": "世界と日本の最新映画興行収入ランキングデータ",
+    "numberOfItems": {{ $globalMovies->count() }},
+    "itemListOrder": "https://schema.org/ItemListOrderDescending",
     "itemListElement": [
         @foreach($globalMovies->take(10) as $index => $movie)
         {
             "@type": "ListItem",
             "position": {{ $index + 1 }},
-            "item": {
-                "@type": "Movie",
-                "name": {!! json_encode($movie->title, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!},
-                "genre": {!! json_encode($movie->genres ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!},
-                "datePublished": {!! json_encode($movie->release_date ? $movie->release_date->format('Y-m-d') : '', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!},
-                "aggregateRating": {
-                    "@type": "AggregateRating",
-                    "ratingValue": "{{ number_format($movie->box_office / 1000000000, 1) }}",
-                    "ratingCount": "1",
-                    "bestRating": "5"
-                }
-            }
+            "name": {!! json_encode($movie->title, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}
         }{{ !$loop->last ? ',' : '' }}
         @endforeach
     ]

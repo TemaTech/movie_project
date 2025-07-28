@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="ムビラン - 最新映画興行収入ランキング。世界と日本の映画売上データをリアルタイムで提供。正確な興行収入データと詳細なジャンル分析を提供。">
-    <meta name="keywords" content="映画,興行収入,ランキング,売上,日本映画,世界の映画,最新,ムビラン,ボックスオフィス">
+    <meta name="keywords" content="映画,興行収入,ランキング,売上,日本映画,世界の映画,最新,ムビラン,ボックスオフィス,映画統計,映画データ,映画売上,興行成績,映画ランキング,最新映画">
     <meta name="robots" content="index, follow">
+    <meta name="author" content="ムビラン">
+    <meta name="language" content="ja">
     <link rel="canonical" href="{{ route('movies.index') }}" />
     
     <!-- Favicon -->
@@ -78,6 +80,24 @@
     <!-- メインコンテンツ -->
     <div class="main-content">
         <div class="container">
+            <!-- パンくずリスト（構造化データ） -->
+            <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "BreadcrumbList",
+                "itemListElement": [
+                    {
+                        "@type": "ListItem",
+                        "position": 1,
+                        "item": {
+                            "@id": "{{ url('/') }}",
+                            "name": "ホーム"
+                        }
+                    }
+                ]
+            }
+            </script>
+            
             @yield('content')
         </div>
     </div>
@@ -94,6 +114,9 @@
                     <h5>リンク</h5>
                     <ul class="list-unstyled">
                         <li><a href="{{ url('/') }}" class="text-decoration-none">ホーム</a></li>
+                        <li><a href="{{ url('/') }}?tab=global" class="text-decoration-none">世界興行収入ランキング</a></li>
+                        <li><a href="{{ url('/') }}?tab=japan" class="text-decoration-none">日本興行収入ランキング</a></li>
+                        <li><a href="{{ url('/sitemap.xml') }}" class="text-decoration-none">サイトマップ</a></li>
                     </ul>
                 </div>
             </div>

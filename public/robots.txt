@@ -1,3 +1,22 @@
 User-agent: *
 Allow: /
-Sitemap: http://www.movie-ranking.jp/sitemap.xml
+
+# サイトマップ
+Sitemap: https://movie-ranking.jp/sitemap.xml
+
+# 検索エンジンにクロールしてほしくないディレクトリ
+Disallow: /storage/
+Disallow: /vendor/
+Disallow: /bootstrap/
+Disallow: /config/
+Disallow: /database/
+Disallow: /tests/
+Disallow: /.env
+Disallow: /composer.json
+Disallow: /composer.lock
+
+# 管理画面がある場合（将来的に）
+# Disallow: /admin/
+
+# クロール間隔の設定（サーバー負荷軽減）
+Crawl-delay: 1

@@ -17,25 +17,15 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // デバッグ用ログ
-        \Log::info('Kernel schedule method called');
-        
-        // テスト用：シンプルなechoコマンド
-        $schedule->exec('echo "Test schedule working"')
-                ->everyMinute()
-                ->appendOutputTo(storage_path('logs/schedule-test.log'));
-        
-        // テスト用：毎分実行（すぐに動作確認ができる）
+        // 毎日午前2時30分に日本の映画データを取得
         $schedule->command('movies:fetch-japanese-boxoffice')
-                ->everyMinute()
-                ->withoutOverlapping()
-                ->appendOutputTo(storage_path('logs/japanese-boxoffice.log'));
+                ->dailyAt('02:30')
+                ->withoutOverlapping();
 
-        // テスト用：毎分実行（すぐに動作確認ができる）
+        // 毎日午前3時30分にグローバル映画データを取得
         $schedule->command('movies:fetch-global-boxoffice')
-                ->everyMinute()
-                ->withoutOverlapping()
-                ->appendOutputTo(storage_path('logs/global-boxoffice.log'));
+                ->dailyAt('03:30')
+                ->withoutOverlapping();
     }
 
     /**

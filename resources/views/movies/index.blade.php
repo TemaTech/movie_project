@@ -2,7 +2,7 @@
 
 @section('content')
 <head>
-    <title>Movie Ranking - 世界と日本の映画興行収入・統計データ</title>
+    <title>最新映画興行収入ランキング - 世界と日本の映画売上データ</title>
     
     <!-- favicon -->
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/favicon-32x32.png') }}">
@@ -11,16 +11,16 @@
     <link rel="manifest" href="{{ asset('site.webmanifest') }}">
     
     <!-- OGP -->
-    <meta property="og:title" content="Movie Ranking - 映画興行収入・統計データ">
+    <meta property="og:title" content="ムビラン - 最新映画興行収入ランキング">
     <meta property="og:description" content="世界と日本の映画興行収入データをリアルタイムで提供。ジャンル別の分析や制作費との比較も可能な映画統計データベース。">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ url()->current() }}">
     <meta property="og:image" content="{{ asset('images/ogp.png') }}">
-    <meta property="og:site_name" content="Movie Ranking">
+    <meta property="og:site_name" content="ムビラン - 最新映画興行収入ランキング">
     
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Movie Ranking - 映画興行収入・統計データ">
+    <meta name="twitter:title" content="ムビラン - 最新映画興行収入ランキング">
     <meta name="twitter:description" content="世界と日本の映画興行収入データをリアルタイムで提供。ジャンル別の分析や制作費との比較も可能な映画統計データベース。">
     <meta name="twitter:image" content="{{ asset('images/ogp.png') }}">
 </head>
@@ -593,8 +593,8 @@
     <div class="container">
         <h1 class="text-center mb-4">
             <a href="/" class="site-logo">
-                Movie Ranking
-                <small class="fs-5 text-muted">世界と日本の映画興行収入・統計データ</small>
+                ムビラン
+                <small class="fs-5 text-muted">最新映画興行収入ランキング</small>
             </a>
         </h1>
         
@@ -1100,8 +1100,8 @@
 {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "name": "Movie Ranking",
-    "description": "世界と日本の映画興行収入・統計データ - 正確なデータと詳細なジャンル分析を提供",
+    "name": "ムビラン - 最新映画興行収入ランキング",
+    "description": "世界と日本の映画興行収入・売上データ - 正確なデータと詳細なジャンル分析を提供",
     "url": "{{ url('/') }}"
 }
 </script>

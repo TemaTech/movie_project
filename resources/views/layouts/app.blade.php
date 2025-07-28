@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Movie Ranking - 世界と日本の映画興行収入ランキング。正確な興行収入データと詳細なジャンル分析を提供。">
-    <meta name="keywords" content="映画,興行収入,ランキング,ボックスオフィス,日本映画,世界の映画,Movie Ranking">
+    <meta name="description" content="ムビラン - 最新映画興行収入ランキング。世界と日本の映画売上データをリアルタイムで提供。正確な興行収入データと詳細なジャンル分析を提供。">
+    <meta name="keywords" content="映画,興行収入,ランキング,売上,日本映画,世界の映画,最新,ムビラン,ボックスオフィス">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="{{ route('movies.index') }}" />
-    <title>Movie Ranking | 世界と日本の映画興行収入ランキング</title>
+    <title>最新映画興行収入ランキング - 世界と日本の映画売上データ</title>
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -52,7 +52,7 @@
     <!-- ヘッダー -->
     <nav class="navbar navbar-expand-lg navbar-light">
         <div class="container">
-            <a class="navbar-brand" href="{{ url('/') }}">🎬 Movie Ranking</a>
+            <a class="navbar-brand" href="{{ url('/') }}">🎬 ムビラン | 最新映画興行収入ランキング</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -78,7 +78,7 @@
         <div class="container">
             <div class="row">
                 <div class="col-md-8">
-                    <h5>Movie Ranking</h5>
+                    <h5>ムビラン - 最新映画興行収入ランキング</h5>
                     <p>世界と日本の映画興行収入を比較できる、信頼性の高いランキングサイトです。</p>
                 </div>
                 <div class="col-md-4">
@@ -90,7 +90,7 @@
             </div>
             <hr>
             <div class="text-center">
-                <p>&copy; {{ date('Y') }} Movie Ranking. All rights reserved.</p>
+                <p>&copy; {{ date('Y') }} ムビラン - 最新映画興行収入ランキング. All rights reserved.</p>
             </div>
         </div>
     </footer>

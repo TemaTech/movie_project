@@ -441,6 +441,10 @@
         .col-year { position: relative; padding-right: 0.6em; }
         .table td.col-year::after { content: '年'; margin-left: 0.1em; }
 
+        /* テーブル最下段のボーダー線を消す（最終更新の直上に線が見えないように） */
+        .table tbody tr:last-child td,
+        .table tbody tr:last-child th { border-bottom: none !important; }
+
         /* 列幅の最適化（合計100%） */
         .col-rank { width: 12%; white-space: nowrap; }
         .col-title { width: 49%; max-width: 100%; white-space: normal; word-break: break-word; hyphens: auto; }
@@ -728,8 +732,8 @@
                             </table>
                         </div>
                         </div>
-                        <div class="text-center mt-3">
-                            <small class="text-muted">最終更新: {{ $globalLastUpdated }}</small>
+                        <div class="text-center mt-2 mb-0" style="border-top: none !important;">
+                            <small class="text-muted d-inline-block mt-2">最終更新: {{ $globalLastUpdated }}</small>
                         </div>
                     </div>
                 </div>
@@ -788,8 +792,8 @@
                             </table>
                         </div>
                         </div>
-                        <div class="text-center mt-3">
-                            <small class="text-muted">最終更新: {{ $japanLastUpdated }}</small>
+                        <div class="text-center mt-2 mb-0" style="border-top: none !important;">
+                            <small class="text-muted d-inline-block mt-2">最終更新: {{ $japanLastUpdated }}</small>
                         </div>
                     </div>
                 </div>

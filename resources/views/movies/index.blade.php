@@ -416,11 +416,11 @@
         .custom-card, .custom-card * { -webkit-tap-highlight-color: transparent; }
         .custom-card .card-body { padding: 0; }
 
-        /* テーブルは画面幅にフィット。モバイルでは内側スクロールを完全に無効化 */
+        /* テーブルはコンテナ幅に合わせ、内側スクロールを完全に無効化 */
         .table-responsive {
-            margin: 0 -20px;
-            padding: 0 20px;
-            width: calc(100% + 40px);
+            margin: 0;
+            padding: 0;
+            width: 100%;
             overflow: visible !important; /* 内側スクロールを発生させない */
             background: transparent;
             border-radius: 0;
@@ -432,11 +432,16 @@
         /* 見出しのstickyはモバイルでは無効化（スクロール親の誤判定を避ける） */
         .table thead, .table thead th { position: static !important; top: auto; }
 
+        /* 公開年の表記は数値のみにして、行内の末尾で '年' を疑似要素で表示
+           → 行の折返しでも文字がはみ出さないように調整 */
+        .col-year { position: relative; padding-right: 0.6em; }
+        .col-year::after { content: '年'; margin-left: 0.1em; }
+
         /* 列幅の最適化（合計100%） */
         .col-rank { width: 12%; white-space: nowrap; }
-        .col-title { width: 50%; max-width: 100%; white-space: normal; word-break: break-word; hyphens: auto; }
-        .col-boxoffice { width: 26%; white-space: nowrap; }
-        .col-year { width: 12%; white-space: nowrap; }
+        .col-title { width: 49%; max-width: 100%; white-space: normal; word-break: break-word; hyphens: auto; }
+        .col-boxoffice { width: 25%; white-space: nowrap; }
+        .col-year { width: 14%; white-space: nowrap; }
 
         /* 追加情報（円換算）の小さな文字はモバイルでは非表示にして圧縮 */
         .col-boxoffice small { display: none; }
@@ -707,7 +712,7 @@
                                                 {{ number_format($movie->budget / 100000000, 2) }}億ドル<br>
                                                 <small class="text-muted">({{ $movie->budget_billion ? $movie->budget_billion . '億円' : '-' }})</small>
                                             </td>
-                                            <td class="text-center col-year">{{ \Carbon\Carbon::parse($movie->release_date)->format('Y') }}年</td>
+                                            <td class="text-center col-year">{{ \Carbon\Carbon::parse($movie->release_date)->format('Y') }}</td>
                                         </tr>
                                         @endforeach
                                     @endif
@@ -765,7 +770,7 @@
                                                 {{ $movie->box_office_billion }}億円
                                             </td>
                                             <td class="text-end col-budget">{{ $movie->budget_billion === '0.0' || !$movie->budget_billion ? '-' : $movie->budget_billion . '億円' }}</td>
-                                            <td class="text-center col-year">{{ \Carbon\Carbon::parse($movie->release_date)->format('Y') }}年</td>
+                                            <td class="text-center col-year">{{ \Carbon\Carbon::parse($movie->release_date)->format('Y') }}</td>
                                         </tr>
                                         @endforeach
                                     @endif
@@ -1025,7 +1030,7 @@
                             `${!movie.budget_billion || movie.budget_billion === '0.0' ? '-' : movie.budget_billion + '億円'}`
                         }
                     </td>
-                    <td class="text-center col-year">${movie.release_date ? new Date(movie.release_date).getFullYear() : '未定'}年</td>
+                    <td class="text-center col-year">${movie.release_date ? new Date(movie.release_date).getFullYear() : '未定'}</td>
                 `;
                 tableBody.appendChild(row);
             });

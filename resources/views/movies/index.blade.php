@@ -407,8 +407,13 @@
         /* モバイルではジャンル・制作費を非表示にし、横スクロール不要へ */
         .col-genre, .col-budget { display: none !important; }
 
-        /* カードの白背景レイヤーを削除して余白を確保 */
-        .custom-card { background: transparent; box-shadow: none; border-radius: 0; }
+        /* カードの白背景レイヤー/影/浮き上がりを完全に無効化して余白を確保 */
+        .custom-card { background: transparent !important; box-shadow: none !important; border-radius: 0 !important; border: none !important; }
+        .custom-card:hover,
+        .custom-card:active,
+        .custom-card:focus,
+        .custom-card:focus-within { box-shadow: none !important; transform: none !important; }
+        .custom-card, .custom-card * { -webkit-tap-highlight-color: transparent; }
         .custom-card .card-body { padding: 0; }
 
         /* テーブルは画面幅にフィット。モバイルでは内側スクロールを完全に無効化 */

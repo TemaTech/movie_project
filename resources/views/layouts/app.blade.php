@@ -3,8 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    @hasSection('meta_description')
+    <meta name="description" content="@yield('meta_description')">
+    @else
     <meta name="description" content="ムビラン - 最新映画興行収入ランキング。世界と日本の映画売上データをリアルタイムで提供。正確な興行収入データと詳細なジャンル分析を提供。">
+    @endif
+    @hasSection('meta_keywords')
+    <meta name="keywords" content="@yield('meta_keywords')">
+    @else
     <meta name="keywords" content="映画,興行収入,ランキング,売上,日本映画,世界の映画,最新,ムビラン,ボックスオフィス,映画統計,映画データ,映画売上,興行成績,映画ランキング,最新映画">
+    @endif
     @if(count(request()->query()) > 0)
     <meta name="robots" content="noindex, follow">
     @else
@@ -26,7 +34,33 @@
     <link rel="manifest" href="{{ asset('site.webmanifest') }}">
     <meta name="theme-color" content="#2c3e50">
     
+    @hasSection('title')
+    <title>@yield('title')</title>
+    @else
     <title>最新映画興行収入ランキング - 世界と日本の映画売上データ</title>
+    @endif
+
+    <!-- OGP (デフォルト／上書き可) -->
+    @hasSection('og')
+        @yield('og')
+    @else
+        <meta property="og:title" content="@yield('title', 'ムビラン - 最新映画興行収入ランキング')">
+        <meta property="og:description" content="@yield('meta_description', '世界と日本の映画興行収入データをリアルタイムで提供。ジャンル別の分析や制作費との比較も可能な映画統計データベース。')">
+        <meta property="og:type" content="website">
+        <meta property="og:url" content="{{ url()->current() }}">
+        <meta property="og:image" content="{{ asset('images/android-chrome-512x512.png') }}">
+        <meta property="og:site_name" content="ムビラン - 最新映画興行収入ランキング">
+    @endif
+
+    <!-- Twitter Card (デフォルト／上書き可) -->
+    @hasSection('twitter')
+        @yield('twitter')
+    @else
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:title" content="@yield('title', 'ムビラン - 最新映画興行収入ランキング')">
+        <meta name="twitter:description" content="@yield('meta_description', '世界と日本の映画興行収入データをリアルタイムで提供。ジャンル別の分析や制作費との比較も可能な映画統計データベース。')">
+        <meta name="twitter:image" content="{{ asset('images/android-chrome-512x512.png') }}">
+    @endif
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -88,23 +122,27 @@
     <!-- メインコンテンツ -->
     <div class="main-content">
         <div class="container">
-            <!-- パンくずリスト（構造化データ） -->
-            <script type="application/ld+json">
-            {
-                "@context": "https://schema.org",
-                "@type": "BreadcrumbList",
-                "itemListElement": [
-                    {
-                        "@type": "ListItem",
-                        "position": 1,
-                        "item": {
-                             "@id": "{{ rtrim(config('app.url'), '/') }}/",
-                            "name": "ホーム"
+            <!-- パンくず（必要時に上書き） -->
+            @hasSection('breadcrumbs')
+                @yield('breadcrumbs')
+            @else
+                <script type="application/ld+json">
+                {
+                    "@context": "https://schema.org",
+                    "@type": "BreadcrumbList",
+                    "itemListElement": [
+                        {
+                            "@type": "ListItem",
+                            "position": 1,
+                            "item": {
+                                "@id": "{{ rtrim(config('app.url'), '/') }}/",
+                                "name": "ホーム"
+                            }
                         }
-                    }
-                ]
-            }
-            </script>
+                    ]
+                }
+                </script>
+            @endif
             
             <!-- サイト情報（構造化データ） -->
             <script type="application/ld+json">
@@ -114,12 +152,12 @@
                 "name": "ムビラン - 最新映画興行収入ランキング",
                 "alternateName": "Movie Ranking",
                 "description": "世界と日本の映画興行収入・統計データ",
-                 "url": "{{ rtrim(config('app.url'), '/') }}/",
+                "url": "{{ rtrim(config('app.url'), '/') }}/",
                 "logo": "{{ asset('images/android-chrome-512x512.png') }}",
                 "sameAs": [],
                 "potentialAction": {
                     "@type": "SearchAction",
-                     "target": "{{ rtrim(config('app.url'), '/') }}/?search={search_term_string}",
+                    "target": "{{ rtrim(config('app.url'), '/') }}/search?query={search_term_string}",
                     "query-input": "required name=search_term_string"
                 }
             }

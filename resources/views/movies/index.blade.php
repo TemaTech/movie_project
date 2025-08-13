@@ -1,29 +1,20 @@
 @extends('layouts.app')
 
-@section('content')
-<head>
-    <title>最新映画興行収入ランキング - 世界と日本の映画売上データ</title>
-    
-    <!-- favicon -->
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/favicon-32x32.png') }}">
-    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('images/favicon-16x16.png') }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/apple-touch-icon.png') }}">
-    <link rel="manifest" href="{{ asset('site.webmanifest') }}">
-    
-    <!-- OGP -->
-    <meta property="og:title" content="ムビラン - 最新映画興行収入ランキング">
-    <meta property="og:description" content="世界と日本の映画興行収入データをリアルタイムで提供。ジャンル別の分析や制作費との比較も可能な映画統計データベース。">
+@section('title', '最新映画興行収入ランキング - 世界と日本の映画売上データ')
+@section('meta_description', '世界と日本の映画興行収入データをリアルタイムで提供。ジャンル別の分析や制作費との比較も可能な映画統計データベース。')
+@section('meta_keywords', '映画,興行収入,ランキング,世界,日本,最新,ボックスオフィス,映画データ')
+@section('canonical')
+<link rel="canonical" href="{{ rtrim(config('app.url'), '/') }}/" />
+@endsection
+@section('og')
     <meta property="og:type" content="website">
-    <meta property="og:url" content="{{ url()->current() }}">
+    <meta property="og:url" content="{{ rtrim(config('app.url'), '/') }}/">
     <meta property="og:image" content="{{ asset('images/ogp.png') }}">
-    <meta property="og:site_name" content="ムビラン - 最新映画興行収入ランキング">
-    
-    <!-- Twitter Card -->
+@endsection
+@section('twitter')
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="ムビラン - 最新映画興行収入ランキング">
-    <meta name="twitter:description" content="世界と日本の映画興行収入データをリアルタイムで提供。ジャンル別の分析や制作費との比較も可能な映画統計データベース。">
-    <meta name="twitter:image" content="{{ asset('images/ogp.png') }}">
-</head>
+@endsection
+@section('content')
 
 <style>
     body {
@@ -659,21 +650,22 @@
                                         <tr>
                                             <td class="text-center fw-bold">{{ $movie->rank }}</td>
                                             <td>
-                                                {{ $movie->title }}
+                                                @php
+                                                    $tmdbId = null;
+                                                    if (isset($movie->movie_id) && is_string($movie->movie_id) && str_starts_with($movie->movie_id, 'global_')) {
+                                                        $tmdbId = str_replace('global_', '', $movie->movie_id);
+                                                    }
+                                                @endphp
+                                                @if($tmdbId)
+                                                    <a href="{{ rtrim(config('app.url'), '/') }}/movies/{{ $tmdbId }}" class="text-decoration-none">{{ $movie->title }}</a>
+                                                @else
+                                                    {{ $movie->title }}
+                                                @endif
                                             </td>
                                             <td>
                                                 @if($movie->genres && is_array($movie->genres) && count($movie->genres) > 0)
                                                     @foreach($movie->genres as $genre)
-                                                        @php
-                                                            $style = 'cursor: pointer; background-color: ' . 
-                                                                     ($genreColors[$genre] ?? '#f8f9fa') . 
-                                                                     '; color: #2c3e50';
-                                                        @endphp
-                                                        <span class="badge" 
-                                                              data-genre="{{ $genre }}" 
-                                                              style="{{ $style }}">
-                                                            {{ $genre }}
-                                                        </span>
+                                                        <span class="badge" data-genre="{{ $genre }}">{{ $genre }}</span>
                                                     @endforeach
                                                 @else
                                                     <span class="text-muted">-</span>
@@ -727,20 +719,25 @@
                                         @foreach ($japanMovies as $movie)
                                         <tr>
                                             <td class="text-center fw-bold">{{ $movie->rank }}</td>
-                                            <td>{{ $movie->title }}</td>
+                                            <td>
+                                                @php
+                                                    $tmdbId = null;
+                                                    if (isset($movie->movie_id) && is_string($movie->movie_id)) {
+                                                        if (str_starts_with($movie->movie_id, 'global_')) {
+                                                            $tmdbId = str_replace('global_', '', $movie->movie_id);
+                                                        }
+                                                    }
+                                                @endphp
+                                                @if($tmdbId)
+                                                    <a href="{{ rtrim(config('app.url'), '/') }}/movies/{{ $tmdbId }}" class="text-decoration-none">{{ $movie->title }}</a>
+                                                @else
+                                                    {{ $movie->title }}
+                                                @endif
+                                            </td>
                                             <td>
                                                 @if($movie->genres && is_array($movie->genres) && count($movie->genres) > 0)
                                                     @foreach($movie->genres as $genre)
-                                                        @php
-                                                            $style = 'cursor: pointer; background-color: ' . 
-                                                                     ($genreColors[$genre] ?? '#f8f9fa') . 
-                                                                     '; color: #2c3e50';
-                                                        @endphp
-                                                        <span class="badge" 
-                                                              data-genre="{{ $genre }}" 
-                                                              style="{{ $style }}">
-                                                            {{ $genre }}
-                                                        </span>
+                                                        <span class="badge" data-genre="{{ $genre }}">{{ $genre }}</span>
                                                     @endforeach
                                                 @else
                                                     <span class="text-muted">-</span>
@@ -786,8 +783,11 @@
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
 
+<script type="application/json" id="genreColorsData">{!! json_encode($genreColors, JSON_UNESCAPED_UNICODE) !!}</script>
+
 <script>
-    const genreColors = {!! json_encode($genreColors) !!};
+    const genreColorsElement = document.getElementById('genreColorsData');
+    const genreColors = genreColorsElement ? JSON.parse(genreColorsElement.textContent) : {};
 
     document.addEventListener('DOMContentLoaded', function() {
         const filterForm = document.getElementById('filterForm');

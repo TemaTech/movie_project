@@ -444,11 +444,14 @@
         /* 列幅の最適化（合計100%） */
         .col-rank { width: 12%; white-space: nowrap; }
         .col-title { width: 49%; max-width: 100%; white-space: normal; word-break: break-word; hyphens: auto; }
-        .col-boxoffice { width: 25%; white-space: nowrap; }
+        .col-boxoffice { width: 25%; white-space: normal; }
         .col-year { width: 14%; white-space: nowrap; }
 
-        /* 追加情報（円換算）の小さな文字はモバイルでは非表示にして圧縮 */
-        .col-boxoffice small { display: none; }
+        /* 追加情報（円換算）はモバイルでも表示。2行表示で見やすく */
+        .col-boxoffice small { display: block; margin-top: 2px; }
+
+        /* attributionの上に見える線を消す（影・背景を無効化） */
+        .attribution { box-shadow: none; background: transparent; padding: 0; }
 
         /* テーブル上のタッチ操作で縦スクロールを阻害しない */
         table, thead, tbody, tr, th, td { touch-action: pan-y; }

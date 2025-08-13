@@ -196,7 +196,6 @@
                         <li><a href="{{ rtrim(config('app.url'), '/') }}/" class="text-decoration-none">ホーム</a></li>
                         <li><a href="{{ rtrim(config('app.url'), '/') }}/?tab=global" class="text-decoration-none">世界興行収入ランキング</a></li>
                         <li><a href="{{ rtrim(config('app.url'), '/') }}/?tab=japan" class="text-decoration-none">日本興行収入ランキング</a></li>
-                        <li><a href="{{ rtrim(config('app.url'), '/') }}/sitemap.xml" class="text-decoration-none">サイトマップ</a></li>
                     </ul>
                 </div>
             </div>

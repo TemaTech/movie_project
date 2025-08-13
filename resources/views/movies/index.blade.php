@@ -342,11 +342,10 @@
     .table-responsive {
         background: white;
         border-radius: 12px;
-        /* 横スクロールのみ許可し、縦方向はページ本体に委ねる */
+        /* PCでは必要に応じて横スクロール。縦はページに委譲 */
         overflow-y: visible;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-        touch-action: pan-x;
         margin: 0;
         height: auto;
         max-height: none;
@@ -356,12 +355,12 @@
         margin-bottom: 0;
     }
 
-    .table thead {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        background: #2c3e50;
-    }
+        .table thead {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #2c3e50;
+        }
 
     .table thead th {
         background: #2c3e50;
@@ -412,21 +411,21 @@
         .custom-card { background: transparent; box-shadow: none; border-radius: 0; }
         .custom-card .card-body { padding: 0; }
 
-        /* テーブルは画面幅にフィットさせ、横スクロールを抑止。左右の余白も最大活用 */
+        /* テーブルは画面幅にフィット。モバイルでは内側スクロールを完全に無効化 */
         .table-responsive {
-            margin: 0 -16px;
-            padding: 0 16px;
-            width: calc(100% + 32px);
-            overflow-x: hidden;
+            margin: 0 -20px;
+            padding: 0 20px;
+            width: calc(100% + 40px);
+            overflow: visible !important; /* 内側スクロールを発生させない */
             background: transparent;
             border-radius: 0;
-            touch-action: auto; /* テーブル上での縦スクロールを許可 */
-            -webkit-overflow-scrolling: auto;
         }
         .table { table-layout: fixed; }
         .table thead th { padding: 8px 4px; font-size: 0.78rem; }
         .table td { padding: 8px 4px; font-size: 0.78rem; }
         .table th, .table td { min-width: 0 !important; }
+        /* 見出しのstickyはモバイルでは無効化（スクロール親の誤判定を避ける） */
+        .table thead, .table thead th { position: static !important; top: auto; }
 
         /* 列幅の最適化（合計100%） */
         .col-rank { width: 12%; white-space: nowrap; }
@@ -438,7 +437,7 @@
         .col-boxoffice small { display: none; }
 
         /* テーブル上のタッチ操作で縦スクロールを阻害しない */
-        table, thead, tbody, tr, th, td { touch-action: pan-y manipulation; }
+        table, thead, tbody, tr, th, td { touch-action: pan-y; }
 
         #filterForm {
             flex-direction: column;

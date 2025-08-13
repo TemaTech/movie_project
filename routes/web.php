@@ -6,6 +6,9 @@ use App\Http\Controllers\SitemapController;
 
 // メインページ（映画一覧）
 Route::get('/', [MovieController::class, 'index'])->name('movies.index');
+// ランディングページ（分割URL）
+Route::get('/global', [MovieController::class, 'index'])->name('movies.global');
+Route::get('/japan', [MovieController::class, 'index'])->name('movies.japan');
 // 旧 `/movies` 直叩きの正規化（末尾スラッシュやクエリは保持）
 Route::permanentRedirect('/movies', '/');
 

@@ -114,6 +114,12 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ rtrim(config('app.url'), '/') }}/">ホーム</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ rtrim(config('app.url'), '/') }}/global">世界興行収入ランキング</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ rtrim(config('app.url'), '/') }}/japan">日本興行収入ランキング</a>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -193,8 +199,8 @@
                     <h5>リンク</h5>
                     <ul class="list-unstyled">
                         <li><a href="{{ rtrim(config('app.url'), '/') }}/" class="text-decoration-none">ホーム</a></li>
-                        <li><a href="{{ rtrim(config('app.url'), '/') }}/?tab=global" class="text-decoration-none">世界興行収入ランキング</a></li>
-                        <li><a href="{{ rtrim(config('app.url'), '/') }}/?tab=japan" class="text-decoration-none">日本興行収入ランキング</a></li>
+                        <li><a href="{{ rtrim(config('app.url'), '/') }}/global" class="text-decoration-none">世界興行収入ランキング</a></li>
+                        <li><a href="{{ rtrim(config('app.url'), '/') }}/japan" class="text-decoration-none">日本興行収入ランキング</a></li>
                     </ul>
                 </div>
             </div>

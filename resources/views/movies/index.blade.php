@@ -1,10 +1,33 @@
 @extends('layouts.app')
 
-@section('title', '最新映画興行収入ランキング - 世界と日本の映画売上データ')
-@section('meta_description', '世界と日本の映画興行収入データをリアルタイムで提供。ジャンル別の分析や制作費との比較も可能な映画統計データベース。')
+@php
+    $isJapan = request()->is('japan');
+    $isGlobal = request()->is('global');
+    $baseTitle = $isJapan ? '日本映画興行収入ランキング' : ($isGlobal ? '世界映画興行収入ランキング' : '最新映画興行収入ランキング');
+    $fullTitle = $baseTitle . ' - 世界と日本の映画売上データ';
+    $metaDesc = $isJapan
+        ? '日本の映画興行収入ランキングを最新順で掲載。ジャンル別の分析や制作費との比較も可能。'
+        : ($isGlobal
+            ? '世界の映画興行収入ランキングを最新順で掲載。ジャンル別の分析や制作費との比較も可能。'
+            : '世界と日本の映画興行収入データをリアルタイムで提供。ジャンル別の分析や制作費との比較も可能な映画統計データベース。');
+@endphp
+@section('title', $fullTitle)
+@section('meta_description', $metaDesc)
 @section('meta_keywords', '映画,興行収入,ランキング,世界,日本,最新,ボックスオフィス,映画データ')
 @section('canonical')
-<link rel="canonical" href="{{ rtrim(config('app.url'), '/') }}/" />
+<link rel="canonical" href="{{ url()->current() }}" />
+@endsection
+@section('breadcrumbs')
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "item": {"@id": "{{ rtrim(config('app.url'), '/') }}/", "name": "ホーム"}},
+    {"@type": "ListItem", "position": 2, "item": {"@id": "{{ url()->current() }}", "name": "{{ $isJapan ? '日本興行収入ランキング' : ($isGlobal ? '世界興行収入ランキング' : '映画興行収入ランキング') }}"}}
+  ]
+}
+</script>
 @endsection
 @section('og')
     <meta property="og:type" content="website">
@@ -582,12 +605,12 @@
 
 <div class="gradient-bg py-5">
     <div class="container">
-        <h1 class="text-center mb-4">
-            <a href="/" class="site-logo">
-                ムビラン
-                <small class="fs-5 text-muted">最新映画興行収入ランキング</small>
-            </a>
-        </h1>
+        <h1 class="text-center mb-2">{{ $baseTitle }}</h1>
+        <p class="text-center text-muted mb-4">{{ $isJapan ? '日本の興行収入ランキングをジャンル別に分析' : ($isGlobal ? '世界の興行収入ランキングをジャンル別に分析' : '世界・日本の興行収入ランキングをまとめて比較') }}</p>
+        <div class="text-center mb-4">
+            <a href="{{ rtrim(config('app.url'), '/') }}/global" class="me-3">世界興行収入ランキング</a>
+            <a href="{{ rtrim(config('app.url'), '/') }}/japan">日本興行収入ランキング</a>
+        </div>
         
         <div class="mb-4">
             <div class="d-flex justify-content-center align-items-center gap-2" id="filterForm">
@@ -814,9 +837,10 @@
             }
         };
 
-        // URLパラメータからタブを取得、なければglobalをデフォルトに
+        // URL・パスから初期タブを決定
         const urlParams = new URLSearchParams(window.location.search);
-        const activeTab = 'global';  // 常にglobalをデフォルトに設定
+        const path = window.location.pathname;
+        let activeTab = urlParams.get('tab') || (path.startsWith('/japan') ? 'japan' : 'global');
 
         // タブの初期化
         const tab = document.querySelector('#global-tab');
@@ -826,12 +850,6 @@
         }
 
         currentTab.value = activeTab;
-
-        // URLからジャンルパラメータを削除
-        const currentUrl = new URL(window.location.href);
-        currentUrl.searchParams.delete('tab');
-        currentUrl.searchParams.delete('genre');
-        window.history.replaceState({}, '', currentUrl);
 
         const loadingSpinner = `
             <tr>
@@ -1099,13 +1117,24 @@
 <script type="application/ld+json">
 {
     "@context": "https://schema.org",
-    "@type": "WebSite",
-    "name": "ムビラン - 最新映画興行収入ランキング",
-    "description": "世界と日本の映画興行収入・売上データ - 正確なデータと詳細なジャンル分析を提供",
-    "url": "{{ url('/') }}"
+    "@type": "CollectionPage",
+    "name": "{{ $baseTitle }}",
+    "description": "{{ $metaDesc }}",
+    "url": "{{ url()->current() }}"
 }
 </script>
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type": "Question", "name": "映画興行収入ランキングはいつ更新されますか？", "acceptedAnswer": {"@type": "Answer", "text": "データは定期的に更新されます。日本は公表値、世界はTMDBデータを基にしています。"}},
+    {"@type": "Question", "name": "世界と日本のランキングの違いは？", "acceptedAnswer": {"@type": "Answer", "text": "世界はドル建ての収入、日本は円建ての収入を表示し、相互に換算値も併記しています。"}},
+    {"@type": "Question", "name": "速報の扱いは？", "acceptedAnswer": {"@type": "Answer", "text": "公開直後の作品は速報として反映されることがありますが、確定値と区別して掲載します。"}}
+  ]
+}
+</script>
 <script type="application/ld+json">
 {
     "@context": "https://schema.org",

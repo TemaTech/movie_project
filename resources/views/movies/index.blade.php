@@ -358,6 +358,9 @@
             border-spacing: 0; /* 不要な隙間を防ぐ */
         }
 
+    /* PC/モバイル共通: 円換算は改行して2行表示 */
+    .col-boxoffice small { display: block; margin-top: 2px; }
+
         .table thead {
             position: sticky;
             top: 0;
@@ -454,9 +457,6 @@
         .col-title { width: 49%; max-width: 100%; white-space: normal; word-break: break-word; hyphens: auto; }
         .col-boxoffice { width: 25%; white-space: normal; }
         .col-year { width: 14%; white-space: nowrap; }
-
-        /* 追加情報（円換算）はモバイルでも表示。2行表示で見やすく */
-        .col-boxoffice small { display: block; margin-top: 2px; }
 
         /* attributionの上に見える線を消す（影・背景を無効化） */
         .attribution { box-shadow: none; background: transparent; padding: 0; }

@@ -611,10 +611,6 @@
                 <small class="fs-5 text-muted">{{ $baseTitle }}</small>
             </a>
         </h1>
-        <div class="text-center mb-3">
-            <a href="/?tab=global" class="me-3" title="世界興行収入ランキング（世界の映画興行収入を一覧）">世界興行収入ランキング</a>
-            <a href="/?tab=japan" title="日本興行収入ランキング（日本の映画興行収入を一覧）">日本興行収入ランキング</a>
-        </div>
         
         <div class="mb-4">
             <div class="d-flex justify-content-center align-items-center gap-2" id="filterForm" aria-label="映画ランキングの絞り込み">

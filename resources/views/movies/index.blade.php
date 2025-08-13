@@ -47,7 +47,7 @@
     .gradient-bg {
         background: #f5f7fa;
         min-height: 100vh;
-        padding: 2rem 0;
+        padding: 1.25rem 0 2rem; /* 上の余白を少し圧縮 */
     }
 
     .custom-card {

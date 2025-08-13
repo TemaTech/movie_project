@@ -70,10 +70,22 @@
     <style>
         .navbar-brand {
             font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .navbar {
             background-color: white !important;
             border-bottom: 1px solid #eee;
+        }
+        .navbar .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        @media (max-width: 576px) {
+            .navbar-brand { max-width: calc(100% - 48px); }
+            .navbar-toggler { padding: .25rem .5rem; margin-left: 8px; }
         }
         .footer {
             background-color: white;

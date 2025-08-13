@@ -9,8 +9,10 @@ Route::get('/', [MovieController::class, 'index'])->name('movies.index');
 // 旧 `/movies` 直叩きの正規化（末尾スラッシュやクエリは保持）
 Route::permanentRedirect('/movies', '/');
 
-// 映画詳細ページ
-Route::get('/movies/{id}', [MovieController::class, 'show'])->name('movies.show');
+// 映画詳細ページ（TMDBの数値IDのみ許可）
+Route::get('/movies/{id}', [MovieController::class, 'show'])
+    ->whereNumber('id')
+    ->name('movies.show');
 
 // 検索結果ページ
 Route::get('/search', [MovieController::class, 'search'])->name('movies.search');

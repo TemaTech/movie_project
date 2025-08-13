@@ -54,6 +54,11 @@ class MovieController extends Controller
 
     public function show($id)
     {
+        // 数値でないIDは404
+        if (!ctype_digit((string)$id)) {
+            abort(404);
+        }
+
         try {
             $response = Http::get("{$this->baseUrl}/movie/{$id}", [
                 'api_key' => $this->apiKey,
@@ -61,15 +66,15 @@ class MovieController extends Controller
                 'append_to_response' => 'credits,videos'
             ]);
 
-            if ($response->successful()) {
+            if ($response->successful() && $response->json()) {
                 $movie = $response->json();
                 return view('movies.show', compact('movie'));
             }
 
-            return redirect()->route('movies.index')->with('error', '映画の詳細情報の取得に失敗しました');
+            abort(404);
 
         } catch (\Exception $e) {
-            return redirect()->route('movies.index')->with('error', $e->getMessage());
+            abort(404);
         }
     }
 

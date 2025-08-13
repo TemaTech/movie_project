@@ -342,8 +342,11 @@
     .table-responsive {
         background: white;
         border-radius: 12px;
-        overflow-y: auto;
+        /* 横スクロールのみ許可し、縦方向はページ本体に委ねる */
+        overflow-y: visible;
         overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        touch-action: pan-x;
         margin: 0;
         height: auto;
         max-height: none;

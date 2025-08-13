@@ -88,8 +88,8 @@
         }
         .footer {
             background-color: white;
-            padding: 1.25rem 0;
-            margin-top: 1.75rem;
+            padding: 2rem 0;
+            margin-top: 1rem;
             border-top: 1px solid #eee;
         }
         .main-content {

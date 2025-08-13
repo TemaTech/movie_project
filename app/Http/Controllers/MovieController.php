@@ -165,6 +165,10 @@ class MovieController extends Controller
     public function index()
     {
         try {
+            // クエリ付きのホームアクセスは正規URLへ恒久的リダイレクト
+            if (request()->routeIs('movies.index') && count(request()->query()) > 0) {
+                return redirect()->to(rtrim(config('app.url'), '/') . '/', 301);
+            }
             // データベース接続情報のデバッグ
             \Log::debug('Database Connection Settings:', [
                 'connection' => config('database.default'),

@@ -5,10 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="ムビラン - 最新映画興行収入ランキング。世界と日本の映画売上データをリアルタイムで提供。正確な興行収入データと詳細なジャンル分析を提供。">
     <meta name="keywords" content="映画,興行収入,ランキング,売上,日本映画,世界の映画,最新,ムビラン,ボックスオフィス,映画統計,映画データ,映画売上,興行成績,映画ランキング,最新映画">
+    @if(count(request()->query()) > 0)
+    <meta name="robots" content="noindex, follow">
+    @else
     <meta name="robots" content="index, follow">
+    @endif
     <meta name="author" content="ムビラン">
     <meta name="language" content="ja">
-    <link rel="canonical" href="{{ rtrim(config('app.url'), '/') }}/" />
+    @hasSection('canonical')
+        @yield('canonical')
+    @else
+        <link rel="canonical" href="{{ url()->current() }}" />
+    @endif
     
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">

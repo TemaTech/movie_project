@@ -1,5 +1,9 @@
 @extends('layouts.app')
 
+@section('canonical')
+<link rel="canonical" href="{{ url()->current() }}" />
+@endsection
+
 @section('content')
 <div class="container py-5">
     <h1 class="mb-4">{{ $movie['title'] ?? '映画詳細' }}</h1>

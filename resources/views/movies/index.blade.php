@@ -612,7 +612,7 @@
     }
 </script>
 
-<div class="gradient-bg py-5">
+<div class="gradient-bg py-2">
     <div class="container">
         <h1 class="text-center mb-4">
             <a href="/" class="site-logo">

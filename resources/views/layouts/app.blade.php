@@ -71,8 +71,6 @@
         .navbar-brand {
             font-weight: bold;
             white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
         .navbar {
             background-color: white !important;
@@ -84,7 +82,8 @@
             justify-content: space-between;
         }
         @media (max-width: 576px) {
-            .navbar-brand { max-width: calc(100% - 48px); }
+            /* タイトルとハンバーガーを同一行に収めるためサイズ微調整 */
+            .navbar-brand { font-size: 1rem; }
             .navbar-toggler { padding: .25rem .5rem; margin-left: 8px; }
         }
         .footer {

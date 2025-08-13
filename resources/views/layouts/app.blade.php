@@ -8,7 +8,7 @@
     <meta name="robots" content="index, follow">
     <meta name="author" content="ムビラン">
     <meta name="language" content="ja">
-    <link rel="canonical" href="{{ route('movies.index') }}" />
+    <link rel="canonical" href="{{ rtrim(config('app.url'), '/') }}/" />
     
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
@@ -63,14 +63,14 @@
     <!-- ヘッダー -->
     <nav class="navbar navbar-expand-lg navbar-light">
         <div class="container">
-            <a class="navbar-brand" href="{{ url('/') }}">🎬 ムビラン | 最新映画興行収入ランキング</a>
+            <a class="navbar-brand" href="{{ rtrim(config('app.url'), '/') }}/">🎬 ムビラン | 最新映画興行収入ランキング</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url('/') }}">ホーム</a>
+                        <a class="nav-link" href="{{ rtrim(config('app.url'), '/') }}/">ホーム</a>
                     </li>
                 </ul>
             </div>
@@ -90,7 +90,7 @@
                         "@type": "ListItem",
                         "position": 1,
                         "item": {
-                            "@id": "{{ url('/') }}",
+                             "@id": "{{ rtrim(config('app.url'), '/') }}/",
                             "name": "ホーム"
                         }
                     }
@@ -106,12 +106,12 @@
                 "name": "ムビラン - 最新映画興行収入ランキング",
                 "alternateName": "Movie Ranking",
                 "description": "世界と日本の映画興行収入・統計データ",
-                "url": "{{ url('/') }}",
+                 "url": "{{ rtrim(config('app.url'), '/') }}/",
                 "logo": "{{ asset('images/android-chrome-512x512.png') }}",
                 "sameAs": [],
                 "potentialAction": {
                     "@type": "SearchAction",
-                    "target": "{{ url('/') }}?search={search_term_string}",
+                     "target": "{{ rtrim(config('app.url'), '/') }}/?search={search_term_string}",
                     "query-input": "required name=search_term_string"
                 }
             }
@@ -125,7 +125,7 @@
                 "name": "ムビラン",
                 "alternateName": "Movie Ranking",
                 "description": "映画興行収入ランキングサイト",
-                "url": "{{ url('/') }}",
+                 "url": "{{ rtrim(config('app.url'), '/') }}/",
                 "logo": "{{ asset('images/android-chrome-512x512.png') }}",
                 "sameAs": []
             }
@@ -146,10 +146,10 @@
                 <div class="col-md-4">
                     <h5>リンク</h5>
                     <ul class="list-unstyled">
-                        <li><a href="{{ url('/') }}" class="text-decoration-none">ホーム</a></li>
-                        <li><a href="{{ url('/') }}?tab=global" class="text-decoration-none">世界興行収入ランキング</a></li>
-                        <li><a href="{{ url('/') }}?tab=japan" class="text-decoration-none">日本興行収入ランキング</a></li>
-                        <li><a href="{{ url('/sitemap.xml') }}" class="text-decoration-none">サイトマップ</a></li>
+                        <li><a href="{{ rtrim(config('app.url'), '/') }}/" class="text-decoration-none">ホーム</a></li>
+                        <li><a href="{{ rtrim(config('app.url'), '/') }}/?tab=global" class="text-decoration-none">世界興行収入ランキング</a></li>
+                        <li><a href="{{ rtrim(config('app.url'), '/') }}/?tab=japan" class="text-decoration-none">日本興行収入ランキング</a></li>
+                        <li><a href="{{ rtrim(config('app.url'), '/') }}/sitemap.xml" class="text-decoration-none">サイトマップ</a></li>
                     </ul>
                 </div>
             </div>

@@ -405,19 +405,28 @@
     }
 
     @media (max-width: 768px) {
-        /* モバイルではジャンル列を非表示にして横スクロール不要へ */
-        .col-genre { display: none !important; }
+        /* モバイルではジャンル・制作費を非表示にし、横スクロール不要へ */
+        .col-genre, .col-budget { display: none !important; }
 
-        .table-responsive { margin: 0; padding: 0; width: 100%; }
+        /* カードの白背景レイヤーを削除して余白を確保 */
+        .custom-card { background: transparent; box-shadow: none; border-radius: 0; }
+        .custom-card .card-body { padding: 0; }
 
-        .table thead th { padding: 10px 6px; font-size: 0.85rem; }
-        .table td { padding: 10px 6px; font-size: 0.85rem; }
+        /* テーブルは画面幅にフィットさせ、横スクロールを抑止 */
+        .table-responsive { margin: 0; padding: 0; width: 100%; overflow-x: hidden; background: transparent; border-radius: 0; }
+        .table { table-layout: fixed; }
+        .table thead th { padding: 8px 6px; font-size: 0.8rem; }
+        .table td { padding: 8px 6px; font-size: 0.8rem; }
+        .table th, .table td { min-width: 0 !important; }
 
-        /* 列幅の最適化 */
-        .col-rank { width: 56px; white-space: nowrap; }
-        .col-title { max-width: 100%; }
-        .col-boxoffice, .col-budget { white-space: nowrap; }
-        .col-year { width: 64px; white-space: nowrap; }
+        /* 列幅の最適化（合計100%） */
+        .col-rank { width: 13%; white-space: nowrap; }
+        .col-title { width: 49%; max-width: 100%; white-space: normal; word-break: break-word; hyphens: auto; }
+        .col-boxoffice { width: 25%; white-space: nowrap; }
+        .col-year { width: 13%; white-space: nowrap; }
+
+        /* 追加情報（円換算）の小さな文字はモバイルでは非表示にして圧縮 */
+        .col-boxoffice small { display: none; }
 
         #filterForm {
             flex-direction: column;
@@ -675,7 +684,7 @@
                                                 @endif
                                             </td>
                                             <td class="text-end col-boxoffice">
-                                                {{ number_format($movie->box_office / 100000000, 2) }}億ドル<br>
+                                                {{ number_format($movie->box_office / 100000000, 2) }}億ドル
                                                 <small class="text-muted">({{ $movie->box_office_billion }}億円)</small>
                                             </td>
                                             <td class="text-end col-budget">
@@ -989,8 +998,7 @@
                     </td>
                     <td class="text-end col-boxoffice">
                         ${activeTab === 'global' ? 
-                            `${(movie.box_office / 100000000).toFixed(2)}億ドル<br>
-                            <small class="text-muted">(${movie.box_office_billion}億円)</small>` :
+                            `${(movie.box_office / 100000000).toFixed(2)}億ドル <small class="text-muted">(${movie.box_office_billion}億円)</small>` :
                             `${movie.box_office_billion}億円`
                         }
                     </td>

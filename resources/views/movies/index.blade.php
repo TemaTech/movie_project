@@ -418,8 +418,9 @@
 
         /* テーブルはコンテナ幅に合わせ、内側スクロールを完全に無効化。
            上部のフォーム（プルダウン/絞り込みボタン）と左右の揃えを一致させる */
-        .table-edge-wrap { margin: 0 24px; }
-        @media (min-width: 576px) { .table-edge-wrap { margin: 0 32px; } }
+        /* 上部UIと左右を完全一致させる（コンテナの内側余白に任せる） */
+        .table-edge-wrap { margin: 0; }
+        @media (min-width: 576px) { .table-edge-wrap { margin: 0; } }
         .table-responsive {
             margin: 0;
             padding: 0;

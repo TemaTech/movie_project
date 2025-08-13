@@ -405,47 +405,19 @@
     }
 
     @media (max-width: 768px) {
-        .table-responsive {
-            margin: 0 -10px;
-            padding: 0 10px;
-            width: calc(100% + 20px);
-        }
+        /* モバイルではジャンル列を非表示にして横スクロール不要へ */
+        .col-genre { display: none !important; }
 
-        .table-responsive::-webkit-scrollbar {
-            height: 4px;
-        }
+        .table-responsive { margin: 0; padding: 0; width: 100%; }
 
-        .table-responsive::-webkit-scrollbar-thumb {
-            background-color: rgba(0, 0, 0, 0.2);
-            border-radius: 2px;
-        }
+        .table thead th { padding: 10px 6px; font-size: 0.85rem; }
+        .table td { padding: 10px 6px; font-size: 0.85rem; }
 
-        .table thead th {
-            padding: 10px 5px;
-            font-size: 0.8rem;
-        }
-
-        .table td {
-            padding: 10px 5px;
-            font-size: 0.8rem;
-        }
-
-        .badge {
-            font-size: 0.7rem;
-            padding: 2px 6px;
-        }
-
-        .table td:nth-child(2),
-        .table td:nth-child(3) {
-            min-width: 120px;
-            max-width: 200px;
-        }
-
-        .table th:nth-child(4),
-        .table th:nth-child(5),
-        .table th:nth-child(6) {
-            min-width: auto;
-        }
+        /* 列幅の最適化 */
+        .col-rank { width: 56px; white-space: nowrap; }
+        .col-title { max-width: 100%; }
+        .col-boxoffice, .col-budget { white-space: nowrap; }
+        .col-year { width: 64px; white-space: nowrap; }
 
         #filterForm {
             flex-direction: column;
@@ -658,12 +630,12 @@
                             <table class="table table-hover">
                                 <thead class="table-dark">
                                     <tr>
-                                        <th class="text-center">順位</th>
-                                        <th>タイトル</th>
-                                        <th>ジャンル</th>
-                                        <th class="text-end">興行収入</th>
-                                        <th class="text-end">制作費</th>
-                                        <th class="text-center">公開年</th>
+                                        <th class="text-center col-rank">順位</th>
+                                        <th class="col-title">タイトル</th>
+                                        <th class="d-none d-md-table-cell col-genre">ジャンル</th>
+                                        <th class="text-end col-boxoffice">興行収入</th>
+                                        <th class="text-end col-budget">制作費</th>
+                                        <th class="text-center col-year">公開年</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -677,8 +649,8 @@
                                         @foreach ($globalMovies as $movie)
                                         <tr itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
                                             <meta itemprop="position" content="{{ $movie->rank }}">
-                                            <td class="text-center fw-bold" itemprop="position">{{ $movie->rank }}</td>
-                                            <td>
+                                            <td class="text-center fw-bold col-rank" itemprop="position">{{ $movie->rank }}</td>
+                                            <td class="col-title">
                                                 @php
                                                     $tmdbId = null;
                                                     if (isset($movie->movie_id) && is_string($movie->movie_id) && str_starts_with($movie->movie_id, 'global_')) {
@@ -693,7 +665,7 @@
                                                     <span itemprop="name">{{ $movie->title }}</span>
                                                 @endif
                                             </td>
-                                            <td>
+                                            <td class="d-none d-md-table-cell col-genre">
                                                 @if($movie->genres && is_array($movie->genres) && count($movie->genres) > 0)
                                                     @foreach($movie->genres as $genre)
                                                         <span class="badge" data-genre="{{ $genre }}">{{ $genre }}</span>
@@ -702,15 +674,15 @@
                                                     <span class="text-muted">-</span>
                                                 @endif
                                             </td>
-                                            <td class="text-end">
+                                            <td class="text-end col-boxoffice">
                                                 {{ number_format($movie->box_office / 100000000, 2) }}億ドル<br>
                                                 <small class="text-muted">({{ $movie->box_office_billion }}億円)</small>
                                             </td>
-                                            <td class="text-end">
+                                            <td class="text-end col-budget">
                                                 {{ number_format($movie->budget / 100000000, 2) }}億ドル<br>
                                                 <small class="text-muted">({{ $movie->budget_billion ? $movie->budget_billion . '億円' : '-' }})</small>
                                             </td>
-                                            <td class="text-center">{{ \Carbon\Carbon::parse($movie->release_date)->format('Y') }}年</td>
+                                            <td class="text-center col-year">{{ \Carbon\Carbon::parse($movie->release_date)->format('Y') }}年</td>
                                         </tr>
                                         @endforeach
                                     @endif
@@ -732,12 +704,12 @@
                             <table class="table table-hover">
                                 <thead class="table-dark">
                                     <tr>
-                                        <th class="text-center">順位</th>
-                                        <th>タイトル</th>
-                                        <th>ジャンル</th>
-                                        <th class="text-end">興行収入</th>
-                                        <th class="text-end">制作費</th>
-                                        <th class="text-center">公開年</th>
+                                        <th class="text-center col-rank">順位</th>
+                                        <th class="col-title">タイトル</th>
+                                        <th class="d-none d-md-table-cell col-genre">ジャンル</th>
+                                        <th class="text-end col-boxoffice">興行収入</th>
+                                        <th class="text-end col-budget">制作費</th>
+                                        <th class="text-center col-year">公開年</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -751,11 +723,11 @@
                                         @foreach ($japanMovies as $movie)
                                         <tr itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
                                             <meta itemprop="position" content="{{ $movie->rank }}">
-                                            <td class="text-center fw-bold" itemprop="position">{{ $movie->rank }}</td>
-                                            <td>
+                                            <td class="text-center fw-bold col-rank" itemprop="position">{{ $movie->rank }}</td>
+                                            <td class="col-title">
                                                 <span itemprop="name">{{ $movie->title }}</span>
                                             </td>
-                                            <td>
+                                            <td class="d-none d-md-table-cell col-genre">
                                                 @if($movie->genres && is_array($movie->genres) && count($movie->genres) > 0)
                                                     @foreach($movie->genres as $genre)
                                                         <span class="badge" data-genre="{{ $genre }}">{{ $genre }}</span>
@@ -764,11 +736,11 @@
                                                     <span class="text-muted">-</span>
                                                 @endif
                                             </td>
-                                            <td class="text-end">
+                                            <td class="text-end col-boxoffice">
                                                 {{ $movie->box_office_billion }}億円
                                             </td>
-                                            <td class="text-end">{{ $movie->budget_billion === '0.0' || !$movie->budget_billion ? '-' : $movie->budget_billion . '億円' }}</td>
-                                            <td class="text-center">{{ \Carbon\Carbon::parse($movie->release_date)->format('Y') }}年</td>
+                                            <td class="text-end col-budget">{{ $movie->budget_billion === '0.0' || !$movie->budget_billion ? '-' : $movie->budget_billion . '億円' }}</td>
+                                            <td class="text-center col-year">{{ \Carbon\Carbon::parse($movie->release_date)->format('Y') }}年</td>
                                         </tr>
                                         @endforeach
                                     @endif
@@ -1001,12 +973,12 @@
                 const filteredRank = movie.rank;
                 const originalRank = movie.original_rank;
                 row.innerHTML = `
-                    <td class="text-center fw-bold">
+                    <td class="text-center fw-bold col-rank">
                         ${filteredRank}
                         ${isFiltered && originalRank ? `<br><small class="text-muted">(${originalRank})</small>` : ''}
                     </td>
-                    <td>${movie.title}</td>
-                    <td>
+                    <td class="col-title">${movie.title}</td>
+                    <td class="d-none d-md-table-cell col-genre">
                         ${movie.genres && movie.genres.length > 0 ? 
                             movie.genres.map(genre => {
                                 const backgroundColor = genreColors[genre] || '#f8f9fa';
@@ -1015,21 +987,21 @@
                             '<span class="text-muted">-</span>'
                         }
                     </td>
-                    <td class="text-end">
+                    <td class="text-end col-boxoffice">
                         ${activeTab === 'global' ? 
                             `${(movie.box_office / 100000000).toFixed(2)}億ドル<br>
                             <small class="text-muted">(${movie.box_office_billion}億円)</small>` :
                             `${movie.box_office_billion}億円`
                         }
                     </td>
-                    <td class="text-end">
+                    <td class="text-end col-budget">
                         ${activeTab === 'global' ? 
                             `${(movie.budget / 100000000).toFixed(2)}億ドル<br>
                             <small class="text-muted">(${movie.budget_billion ? movie.budget_billion + '億円' : '-'})</small>` :
                             `${!movie.budget_billion || movie.budget_billion === '0.0' ? '-' : movie.budget_billion + '億円'}`
                         }
                     </td>
-                    <td class="text-center">${movie.release_date ? new Date(movie.release_date).getFullYear() : '未定'}年</td>
+                    <td class="text-center col-year">${movie.release_date ? new Date(movie.release_date).getFullYear() : '未定'}年</td>
                 `;
                 tableBody.appendChild(row);
             });

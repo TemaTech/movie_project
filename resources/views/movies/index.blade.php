@@ -13,7 +13,7 @@
 @endphp
 @section('title', $fullTitle)
 @section('meta_description', $metaDesc)
-@section('meta_keywords', '映画,興行収入,ランキング,世界,日本,最新,ボックスオフィス,映画データ')
+@section('meta_keywords', '映画,興行収入,ランキング,世界,日本,最新,ボックスオフィス,映画データ,興行収入ランキング,映画興行収入,映画ランキング')
 @section('canonical')
 <link rel="canonical" href="{{ url()->current() }}" />
 @endsection
@@ -605,17 +605,22 @@
 
 <div class="gradient-bg py-5">
     <div class="container">
-        <h1 class="text-center mb-2">{{ $baseTitle }}</h1>
-        <p class="text-center text-muted mb-4">{{ $isJapan ? '日本の興行収入ランキングをジャンル別に分析' : ($isGlobal ? '世界の興行収入ランキングをジャンル別に分析' : '世界・日本の興行収入ランキングをまとめて比較') }}</p>
-        <div class="text-center mb-4">
-            <a href="{{ rtrim(config('app.url'), '/') }}/global" class="me-3">世界興行収入ランキング</a>
-            <a href="{{ rtrim(config('app.url'), '/') }}/japan">日本興行収入ランキング</a>
+        <h1 class="text-center mb-4">
+            <a href="/" class="site-logo">
+                ムビラン
+                <small class="fs-5 text-muted">{{ $baseTitle }}</small>
+            </a>
+        </h1>
+        <div class="text-center mb-3">
+            <a href="/?tab=global" class="me-3" title="世界興行収入ランキング（世界の映画興行収入を一覧）">世界興行収入ランキング</a>
+            <a href="/?tab=japan" title="日本興行収入ランキング（日本の映画興行収入を一覧）">日本興行収入ランキング</a>
         </div>
         
         <div class="mb-4">
-            <div class="d-flex justify-content-center align-items-center gap-2" id="filterForm">
+            <div class="d-flex justify-content-center align-items-center gap-2" id="filterForm" aria-label="映画ランキングの絞り込み">
                 <input type="hidden" name="tab" value="{{ request()->get('tab', 'global') }}" id="currentTab">
-                <select name="genre" class="form-select" style="max-width: 200px;" id="genreSelect">
+                <label for="genreSelect" class="visually-hidden">ジャンル</label>
+                <select name="genre" class="form-select" style="max-width: 200px;" id="genreSelect" aria-label="ジャンルを選択">
                     <option value="">すべてのジャンル</option>
                     @foreach($availableGenres as $genre)
                         <option value="{{ $genre }}" {{ $selectedGenre == $genre ? 'selected' : '' }}>
@@ -623,8 +628,8 @@
                         </option>
                     @endforeach
                 </select>
-                <button type="button" class="btn btn-primary" id="filterButton">絞り込み</button>
-                <button type="button" class="btn btn-outline-secondary" id="clearFilter" style="display: none;">
+                <button type="button" class="btn btn-primary" id="filterButton" aria-label="選択したジャンルで絞り込む">絞り込み</button>
+                <button type="button" class="btn btn-outline-secondary" id="clearFilter" style="display: none;" aria-label="絞り込みをクリア">
                     クリア
                 </button>
             </div>
@@ -647,7 +652,8 @@
 
         <div class="tab-content">
             <div class="tab-pane fade show active" id="global" role="tabpanel">
-                <div class="custom-card">
+            <div class="custom-card" itemscope itemtype="https://schema.org/ItemList">
+                <meta itemprop="name" content="世界映画興行収入ランキング">
                     <div class="card-body p-4">
                         <div class="table-responsive">
                             <table class="table table-hover">
@@ -670,8 +676,9 @@
                                         </tr>
                                     @else
                                         @foreach ($globalMovies as $movie)
-                                        <tr>
-                                            <td class="text-center fw-bold">{{ $movie->rank }}</td>
+                                        <tr itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+                                            <meta itemprop="position" content="{{ $movie->rank }}">
+                                            <td class="text-center fw-bold" itemprop="position">{{ $movie->rank }}</td>
                                             <td>
                                                 @php
                                                     $tmdbId = null;
@@ -680,9 +687,11 @@
                                                     }
                                                 @endphp
                                                 @if($tmdbId)
-                                                    <a href="{{ rtrim(config('app.url'), '/') }}/movies/{{ $tmdbId }}" class="text-decoration-none">{{ $movie->title }}</a>
+                                                    <a href="{{ rtrim(config('app.url'), '/') }}/movies/{{ $tmdbId }}" class="text-decoration-none" itemprop="url">
+                                                        <span itemprop="name">{{ $movie->title }}</span>
+                                                    </a>
                                                 @else
-                                                    {{ $movie->title }}
+                                                    <span itemprop="name">{{ $movie->title }}</span>
                                                 @endif
                                             </td>
                                             <td>
@@ -717,7 +726,8 @@
             </div>
 
             <div class="tab-pane fade" id="japan" role="tabpanel">
-                <div class="custom-card">
+            <div class="custom-card" itemscope itemtype="https://schema.org/ItemList">
+                <meta itemprop="name" content="日本映画興行収入ランキング">
                     <div class="card-body p-4">
                         <div class="table-responsive">
                             <table class="table table-hover">
@@ -740,22 +750,11 @@
                                         </tr>
                                     @else
                                         @foreach ($japanMovies as $movie)
-                                        <tr>
-                                            <td class="text-center fw-bold">{{ $movie->rank }}</td>
+                                        <tr itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+                                            <meta itemprop="position" content="{{ $movie->rank }}">
+                                            <td class="text-center fw-bold" itemprop="position">{{ $movie->rank }}</td>
                                             <td>
-                                                @php
-                                                    $tmdbId = null;
-                                                    if (isset($movie->movie_id) && is_string($movie->movie_id)) {
-                                                        if (str_starts_with($movie->movie_id, 'global_')) {
-                                                            $tmdbId = str_replace('global_', '', $movie->movie_id);
-                                                        }
-                                                    }
-                                                @endphp
-                                                @if($tmdbId)
-                                                    <a href="{{ rtrim(config('app.url'), '/') }}/movies/{{ $tmdbId }}" class="text-decoration-none">{{ $movie->title }}</a>
-                                                @else
-                                                    {{ $movie->title }}
-                                                @endif
+                                                <span itemprop="name">{{ $movie->title }}</span>
                                             </td>
                                             <td>
                                                 @if($movie->genres && is_array($movie->genres) && count($movie->genres) > 0)
@@ -939,7 +938,7 @@
         if (filterButton) {
             filterButton.addEventListener('click', function(e) {
                 e.preventDefault();
-                console.log('Filter button clicked');
+                    console.log('Filter button clicked');
                 const genre = genreSelect.value;
                 const activeTab = currentTab.value;
                 

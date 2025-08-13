@@ -49,6 +49,7 @@
         <meta property="og:type" content="website">
         <meta property="og:url" content="{{ url()->current() }}">
         <meta property="og:image" content="{{ asset('images/android-chrome-512x512.png') }}">
+        <meta property="og:locale" content="ja_JP">
         <meta property="og:site_name" content="ムビラン - 最新映画興行収入ランキング">
     @endif
 
@@ -113,12 +114,6 @@
                 <ul class="navbar-nav">
                     <li class="nav-item">
                         <a class="nav-link" href="{{ rtrim(config('app.url'), '/') }}/">ホーム</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ rtrim(config('app.url'), '/') }}/global">世界興行収入ランキング</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ rtrim(config('app.url'), '/') }}/japan">日本興行収入ランキング</a>
                     </li>
                 </ul>
             </div>
@@ -199,8 +194,9 @@
                     <h5>リンク</h5>
                     <ul class="list-unstyled">
                         <li><a href="{{ rtrim(config('app.url'), '/') }}/" class="text-decoration-none">ホーム</a></li>
-                        <li><a href="{{ rtrim(config('app.url'), '/') }}/global" class="text-decoration-none">世界興行収入ランキング</a></li>
-                        <li><a href="{{ rtrim(config('app.url'), '/') }}/japan" class="text-decoration-none">日本興行収入ランキング</a></li>
+                        <li><a href="{{ rtrim(config('app.url'), '/') }}/?tab=global" class="text-decoration-none">世界興行収入ランキング</a></li>
+                        <li><a href="{{ rtrim(config('app.url'), '/') }}/?tab=japan" class="text-decoration-none">日本興行収入ランキング</a></li>
+                        <li><a href="{{ rtrim(config('app.url'), '/') }}/sitemap.xml" class="text-decoration-none">サイトマップ</a></li>
                     </ul>
                 </div>
             </div>

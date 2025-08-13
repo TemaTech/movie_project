@@ -412,21 +412,33 @@
         .custom-card { background: transparent; box-shadow: none; border-radius: 0; }
         .custom-card .card-body { padding: 0; }
 
-        /* テーブルは画面幅にフィットさせ、横スクロールを抑止 */
-        .table-responsive { margin: 0; padding: 0; width: 100%; overflow-x: hidden; background: transparent; border-radius: 0; }
+        /* テーブルは画面幅にフィットさせ、横スクロールを抑止。左右の余白も最大活用 */
+        .table-responsive {
+            margin: 0 -16px;
+            padding: 0 16px;
+            width: calc(100% + 32px);
+            overflow-x: hidden;
+            background: transparent;
+            border-radius: 0;
+            touch-action: auto; /* テーブル上での縦スクロールを許可 */
+            -webkit-overflow-scrolling: auto;
+        }
         .table { table-layout: fixed; }
-        .table thead th { padding: 8px 6px; font-size: 0.8rem; }
-        .table td { padding: 8px 6px; font-size: 0.8rem; }
+        .table thead th { padding: 8px 4px; font-size: 0.78rem; }
+        .table td { padding: 8px 4px; font-size: 0.78rem; }
         .table th, .table td { min-width: 0 !important; }
 
         /* 列幅の最適化（合計100%） */
-        .col-rank { width: 13%; white-space: nowrap; }
-        .col-title { width: 49%; max-width: 100%; white-space: normal; word-break: break-word; hyphens: auto; }
-        .col-boxoffice { width: 25%; white-space: nowrap; }
-        .col-year { width: 13%; white-space: nowrap; }
+        .col-rank { width: 12%; white-space: nowrap; }
+        .col-title { width: 50%; max-width: 100%; white-space: normal; word-break: break-word; hyphens: auto; }
+        .col-boxoffice { width: 26%; white-space: nowrap; }
+        .col-year { width: 12%; white-space: nowrap; }
 
         /* 追加情報（円換算）の小さな文字はモバイルでは非表示にして圧縮 */
         .col-boxoffice small { display: none; }
+
+        /* テーブル上のタッチ操作で縦スクロールを阻害しない */
+        table, thead, tbody, tr, th, td { touch-action: pan-y manipulation; }
 
         #filterForm {
             flex-direction: column;

@@ -414,9 +414,12 @@
         .custom-card:focus,
         .custom-card:focus-within { box-shadow: none !important; transform: none !important; }
         .custom-card, .custom-card * { -webkit-tap-highlight-color: transparent; }
-        .custom-card .card-body { padding: 0; }
+        .custom-card .card-body { padding: 0 !important; }
 
-        /* テーブルはコンテナ幅に合わせ、内側スクロールを完全に無効化 */
+        /* テーブルはコンテナ幅に合わせ、内側スクロールを完全に無効化。
+           上部のフォーム（プルダウン/絞り込みボタン）と左右の揃えを一致させる */
+        .table-edge-wrap { margin: 0 24px; }
+        @media (min-width: 576px) { .table-edge-wrap { margin: 0 32px; } }
         .table-responsive {
             margin: 0;
             padding: 0;
@@ -435,7 +438,7 @@
         /* 公開年の表記は数値のみにして、行内の末尾で '年' を疑似要素で表示
            → 行の折返しでも文字がはみ出さないように調整 */
         .col-year { position: relative; padding-right: 0.6em; }
-        .col-year::after { content: '年'; margin-left: 0.1em; }
+        .table td.col-year::after { content: '年'; margin-left: 0.1em; }
 
         /* 列幅の最適化（合計100%） */
         .col-rank { width: 12%; white-space: nowrap; }
@@ -656,6 +659,7 @@
             <div class="custom-card" itemscope itemtype="https://schema.org/ItemList">
                 <meta itemprop="name" content="世界映画興行収入ランキング">
                     <div class="card-body p-4">
+                        <div class="table-edge-wrap">
                         <div class="table-responsive">
                             <table class="table table-hover">
                                 <thead class="table-dark">
@@ -719,6 +723,7 @@
                                 </tbody>
                             </table>
                         </div>
+                        </div>
                         <div class="text-center mt-3">
                             <small class="text-muted">最終更新: {{ $globalLastUpdated }}</small>
                         </div>
@@ -730,6 +735,7 @@
             <div class="custom-card" itemscope itemtype="https://schema.org/ItemList">
                 <meta itemprop="name" content="日本映画興行収入ランキング">
                     <div class="card-body p-4">
+                        <div class="table-edge-wrap">
                         <div class="table-responsive">
                             <table class="table table-hover">
                                 <thead class="table-dark">
@@ -776,6 +782,7 @@
                                     @endif
                                 </tbody>
                             </table>
+                        </div>
                         </div>
                         <div class="text-center mt-3">
                             <small class="text-muted">最終更新: {{ $japanLastUpdated }}</small>

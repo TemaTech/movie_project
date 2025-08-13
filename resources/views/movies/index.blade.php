@@ -339,9 +339,9 @@
         text-decoration: none !important;
     }
 
-    .table-responsive {
-        background: white;
-        border-radius: 12px;
+        .table-responsive {
+            background: white;
+            border-radius: 12px;
         /* PCでは必要に応じて横スクロール。縦はページに委譲 */
         overflow-y: visible;
         overflow-x: auto;
@@ -349,11 +349,14 @@
         margin: 0;
         height: auto;
         max-height: none;
+            border: none; /* 下線の発生源を排除 */
     }
 
-    .table {
-        margin-bottom: 0;
-    }
+        .table {
+            margin-bottom: 0;
+            border-collapse: separate; /* Bootstrapのボーダー連結による線を回避 */
+            border-spacing: 0; /* 不要な隙間を防ぐ */
+        }
 
         .table thead {
             position: sticky;
@@ -435,6 +438,7 @@
         .table th, .table td { min-width: 0 !important; }
         /* 見出しのstickyはモバイルでは無効化（スクロール親の誤判定を避ける） */
         .table thead, .table thead th { position: static !important; top: auto; }
+        .table thead::after { display: none !important; }
 
         /* 公開年の表記は数値のみにして、行内の末尾で '年' を疑似要素で表示
            → 行の折返しでも文字がはみ出さないように調整 */
@@ -456,6 +460,12 @@
 
         /* attributionの上に見える線を消す（影・背景を無効化） */
         .attribution { box-shadow: none; background: transparent; padding: 0; }
+
+        /* 念のため、テーブル周辺の枠線・影を完全に無効化 */
+        .custom-card, .custom-card .card-body, .table-responsive, .table {
+            border: none !important;
+            box-shadow: none !important;
+        }
 
         /* テーブル上のタッチ操作で縦スクロールを阻害しない */
         table, thead, tbody, tr, th, td { touch-action: pan-y; }

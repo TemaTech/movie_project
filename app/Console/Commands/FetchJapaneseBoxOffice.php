@@ -281,34 +281,47 @@ class FetchJapaneseBoxOffice extends Command
                     
                     // 映画データの追加
                     if ($currentRank !== null && !empty($title) && $boxOffice > 0) {
-                        // TMDBから追加情報を取得
-                        $tmdbDetails = $this->fetchTMDBMovieDetails($title, $releaseYear);
-                        
+                        // Wikidataから追加情報を取得（QID解決→詳細取得）
+                        $wikidataGenres = [];
+                        $wikidataBudgetYen = 0;
+                        $wikidataReleaseDate = $releaseYear;
+
+                        $qid = $this->getWikidataIdFromWikipediaTitle($title);
+                        if ($qid) {
+                            // レート配慮
+                            usleep(300000);
+                            $wd = $this->fetchWikidataMovieDetailsByQid($qid);
+                            if ($wd) {
+                                $wikidataGenres = $wd['genres'] ?? [];
+                                // 予算はUSD想定→円換算（1 USD = 150 JPY）
+                                if (!empty($wd['budget'])) {
+                                    $wikidataBudgetYen = (int) round($wd['budget'] * 150);
+                                }
+                                if (!empty($wd['release_date'])) {
+                                    $wikidataReleaseDate = $wd['release_date'];
+                                }
+                                $this->info(sprintf(
+                                    'Wikidata情報取得成功: タイトル=%s, ジャンル=%s, 制作費(円)=%.1f億, 公開日=%s',
+                                    $title,
+                                    implode(', ', $wikidataGenres),
+                                    $wikidataBudgetYen / 100000000,
+                                    $wikidataReleaseDate ?? '-'
+                                ));
+                            }
+                        }
+
                         $movieData = [
-                            'movie_id' => $this->createMovieId($currentRank, $title, $distributor, $releaseYear),
+                            'movie_id' => $this->createMovieId($currentRank, $title, $distributor, $wikidataReleaseDate),
                             'title' => $title,
                             'box_office' => $boxOffice,
                             'rank' => $currentRank,
                             'production_country' => $productionCountry,
                             'distributor' => $distributor,
-                            'release_date' => $releaseYear,
+                            'release_date' => $wikidataReleaseDate,
                             'last_updated' => now(),
-                            'genres' => json_encode($tmdbDetails['genres']),
-                            'budget' => $tmdbDetails['budget']
+                            'genres' => json_encode($wikidataGenres),
+                            'budget' => $wikidataBudgetYen
                         ];
-
-                        // TMDBからの追加情報があれば更新
-                        if ($tmdbDetails) {
-                            $movieData['genres'] = json_encode($tmdbDetails['genres']);
-                            $movieData['budget'] = $tmdbDetails['budget'];
-                            
-                            $this->info(sprintf(
-                                'TMDB情報取得成功: タイトル=%s, ジャンル=%s, 制作費=%.1f億円',
-                                $title,
-                                implode(', ', $tmdbDetails['genres']),
-                                $tmdbDetails['budget'] / 100000000
-                            ));
-                        }
 
                         $movies[] = $movieData;
                         
@@ -414,72 +427,117 @@ class FetchJapaneseBoxOffice extends Command
         return "jp_{$rankPart}_{$titleHash}";
     }
 
-    private function fetchTMDBMovieDetails($title, $releaseYear = null)
+    // MediaWiki: Wikipediaのページタイトルから Wikidata QID を取得
+    private function getWikidataIdFromWikipediaTitle(string $title): ?string
     {
-        $apiKey = config('services.tmdb.api_key');
-        
         try {
-            // 映画を検索（日本語で検索）
-            $searchResponse = Http::get('https://api.themoviedb.org/3/search/movie', [
-                'api_key' => $apiKey,
-                'query' => $title,
-                'language' => 'ja-JP',
-                'region' => 'JP'  // 日本の結果を優先
+            $res = Http::wikimedia()->get('https://ja.wikipedia.org/w/api.php', [
+                'action' => 'query',
+                'prop' => 'pageprops',
+                'ppprop' => 'wikibase_item',
+                'titles' => $title,
+                'format' => 'json'
             ]);
-
-            if ($searchResponse->successful() && !empty($searchResponse->json()['results'])) {
-                $results = $searchResponse->json()['results'];
-                $bestMatch = null;
-                $highestSimilarity = 0;
-
-                foreach ($results as $result) {
-                    // similar_text関数を使用して類似度を計算
-                    similar_text($title, $result['title'], $percent);
-                    
-                    // 公開年の取得と比較
-                    $tmdbYear = substr($result['release_date'], 0, 4);
-                    $wikiYear = substr($releaseYear, 0, 4);
-
-                    // 公開年が一致し、かつ類似度が10%以上の場合にマッチとみなす
-                    if ($wikiYear === $tmdbYear && $percent >= 10) {
-                        if ($percent > $highestSimilarity) {
-                            $highestSimilarity = $percent;
-                            $bestMatch = $result;
-                        }
-                    }
-                }
-
-                if ($bestMatch) {
-                    $detailsResponse = Http::get("https://api.themoviedb.org/3/movie/{$bestMatch['id']}", [
-                        'api_key' => $apiKey,
-                        'language' => 'ja-JP'
-                    ]);
-
-                    if ($detailsResponse->successful()) {
-                        $details = $detailsResponse->json();
-                        
-                        $this->info(sprintf(
-                            'タイトルマッチ: %s (類似度: %.2f%%, 公開年: %s)',
-                            $bestMatch['title'],
-                            $highestSimilarity,
-                            $tmdbYear
-                        ));
-                        
-                        return [
-                            'genres' => collect($details['genres'])->pluck('name')->toArray(),
-                            'budget' => $details['budget'],
-                            'release_date' => $details['release_date']
-                        ];
-                    }
-                } else {
-                    $this->warn("タイトルの一致度が低いためスキップ: {$title} (最高類似度: {$highestSimilarity}%)");
-                }
+            usleep(300000);
+            if (!$res->successful()) return null;
+            $pages = data_get($res->json(), 'query.pages', []);
+            foreach ($pages as $page) {
+                $qid = data_get($page, 'pageprops.wikibase_item');
+                if (!empty($qid)) return $qid;
             }
         } catch (\Exception $e) {
-            $this->error("TMDB API エラー - {$title}: " . $e->getMessage());
+            $this->warn("Wikidata QID取得に失敗: {$title} - " . $e->getMessage());
         }
-
         return null;
+    }
+
+    // Wikidata: QIDから作品詳細（ジャンル日本語・予算USD・公開日）を取得
+    private function fetchWikidataMovieDetailsByQid(string $qid): ?array
+    {
+        try {
+            $res = Http::wikimedia()->get('https://www.wikidata.org/w/api.php', [
+                'action' => 'wbgetentities',
+                'ids' => $qid,
+                'props' => 'claims|labels',
+                'languages' => 'ja',
+                'format' => 'json'
+            ]);
+            usleep(300000);
+            if (!$res->successful()) return null;
+
+            $entity = data_get($res->json(), "entities.$qid");
+            if (!$entity) return null;
+
+            $claims = data_get($entity, 'claims', []);
+            $budgetUsd = null;
+            $releaseDate = null;
+            $genreQids = [];
+
+            // 予算 P2130（通貨はUSD想定。他通貨は未変換）
+            foreach ((array) data_get($claims, 'P2130', []) as $claim) {
+                $amount = data_get($claim, 'mainsnak.datavalue.value.amount');
+                if ($amount !== null) {
+                    $budgetUsd = (float) $amount;
+                    break;
+                }
+            }
+
+            // 公開日 P577
+            foreach ((array) data_get($claims, 'P577', []) as $claim) {
+                $time = data_get($claim, 'mainsnak.datavalue.value.time');
+                if ($time) {
+                    $releaseDate = substr($time, 1, 10); // +YYYY-MM-DD → YYYY-MM-DD
+                    break;
+                }
+            }
+
+            // ジャンル P136
+            foreach ((array) data_get($claims, 'P136', []) as $claim) {
+                $gid = data_get($claim, 'mainsnak.datavalue.value.id');
+                if ($gid) $genreQids[] = $gid;
+            }
+
+            $genresJa = $this->resolveWikidataLabels($genreQids, 'ja');
+
+            return [
+                'genres' => $genresJa,
+                'budget' => $budgetUsd,
+                'release_date' => $releaseDate,
+            ];
+        } catch (\Exception $e) {
+            $this->warn("Wikidata詳細取得に失敗: {$qid} - " . $e->getMessage());
+            return null;
+        }
+    }
+
+    // Wikidata: QID配列を日本語ラベルに解決
+    private function resolveWikidataLabels(array $qids, string $lang = 'ja'): array
+    {
+        $qids = array_values(array_unique(array_filter($qids)));
+        if (empty($qids)) return [];
+
+        try {
+            $res = Http::wikimedia()->get('https://www.wikidata.org/w/api.php', [
+                'action' => 'wbgetentities',
+                'ids' => implode('|', $qids),
+                'props' => 'labels',
+                'languages' => $lang,
+                'format' => 'json'
+            ]);
+            usleep(300000);
+            if (!$res->successful()) return [];
+
+            $entities = data_get($res->json(), 'entities', []);
+            $labels = [];
+            foreach ($qids as $qid) {
+                $label = data_get($entities, "$qid.labels.$lang.value");
+                if ($label) $labels[] = $label;
+            }
+            return $labels;
+        } catch (\Exception $e) {
+            $this->warn('Wikidataラベル解決に失敗: ' . $e->getMessage());
+            return [];
+        }
     }
 
     private function createMovieData($movie, $tmdbDetails, $now)

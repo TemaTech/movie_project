@@ -41,13 +41,15 @@ class FetchJapaneseBoxOffice extends Command
             
             $this->info('Wikipediaからデータ取得を開始...');
             
-            $response = Http::get('https://ja.wikipedia.org/w/api.php', [
+            $response = Http::wikimedia()->get('https://ja.wikipedia.org/w/api.php', [
                 'action' => 'parse',
                 'page' => '日本歴代興行成績上位の映画一覧',
                 'prop' => 'wikitext',
                 'format' => 'json',
                 'redirects' => 'true'
             ]);
+            // Wikimediaのレートリミット配慮
+            usleep(500000); // 0.5秒待機
 
             if ($response->successful()) {
                 $this->info('Wikipediaからのレスポンス取得成功');

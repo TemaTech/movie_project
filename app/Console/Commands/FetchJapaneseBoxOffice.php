@@ -298,7 +298,7 @@ class FetchJapaneseBoxOffice extends Command
                                     $wikidataBudgetYen = (int) round($wd['budget'] * 150);
                                 }
                                 if (!empty($wd['release_date'])) {
-                                    $wikidataReleaseDate = $wd['release_date'];
+                                    $wikidataReleaseDate = $this->sanitizeReleaseDate($wd['release_date'], $releaseYear);
                                 }
                                 $this->info(sprintf(
                                     'Wikidata情報取得成功: タイトル=%s, ジャンル=%s, 制作費(円)=%.1f億, 公開日=%s',
@@ -486,7 +486,7 @@ class FetchJapaneseBoxOffice extends Command
             foreach ((array) data_get($claims, 'P577', []) as $claim) {
                 $time = data_get($claim, 'mainsnak.datavalue.value.time');
                 if ($time) {
-                    $releaseDate = substr($time, 1, 10); // +YYYY-MM-DD → YYYY-MM-DD
+                    $releaseDate = substr($time, 1, 10); // +YYYY-MM-DD → YYYY-MM-DD（0埋めは後で正規化）
                     break;
                 }
             }
@@ -538,6 +538,33 @@ class FetchJapaneseBoxOffice extends Command
             $this->warn('Wikidataラベル解決に失敗: ' . $e->getMessage());
             return [];
         }
+    }
+
+    // 不正な日付（YYYY-00-00 / YYYY-MM-00 など）をMySQLで扱える形に正規化
+    private function sanitizeReleaseDate(?string $date, ?string $fallbackYearDate = null): ?string
+    {
+        if (empty($date)) {
+            return $fallbackYearDate;
+        }
+
+        // 期待形式: YYYY-MM-DD
+        if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $date, $m)) {
+            // 不明形式はフォールバック
+            return $fallbackYearDate;
+        }
+
+        $y = (int) $m[1];
+        $mo = (int) $m[2];
+        $d = (int) $m[3];
+
+        if ($mo <= 0 || $mo > 12) {
+            $mo = 1;
+        }
+        if ($d <= 0 || $d > 31) {
+            $d = 1;
+        }
+
+        return sprintf('%04d-%02d-%02d', $y, $mo, $d);
     }
 
     private function createMovieData($movie, $tmdbDetails, $now)

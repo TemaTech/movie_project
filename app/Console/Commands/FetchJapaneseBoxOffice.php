@@ -288,25 +288,10 @@ class FetchJapaneseBoxOffice extends Command
                         $wikidataReleaseDate = $releaseYear;
                         $tmdbGenres = [];
 
-                        $qid = $this->getWikidataIdFromWikipediaTitle($title);
-                        if ($qid) {
-                            // レート配慮
-                            usleep(300000);
-                            $wd = $this->fetchWikidataMovieDetailsByQid($qid);
-                            if ($wd) {
-                                $wikidataGenres = $wd['genres'] ?? [];
-                                // 予算は使用しない（TMDBのみ使用）
-                                if (!empty($wd['release_date'])) {
-                                    $wikidataReleaseDate = $this->sanitizeReleaseDate($wd['release_date'], $releaseYear);
-                                }
-                                $this->info(sprintf(
-                                    'Wikidata情報取得成功: タイトル=%s, ジャンル=%s, 公開日=%s',
-                                    $title,
-                                    implode(', ', $wikidataGenres),
-                                    $wikidataReleaseDate ?? '-'
-                                ));
-                            }
-                        }
+                        // パフォーマンス最適化のため、Wikidata呼び出しはスキップ
+                        // 公開年はWikipediaテーブルから抽出した値を正規化して使用
+                        $wikidataGenres = [];
+                        $wikidataReleaseDate = $this->sanitizeReleaseDate($releaseYear, $releaseYear);
 
                         // TMDBからジャンルを優先取得（公開年があれば精度向上）
                         $tmdbGenres = $this->fetchTMDBGenres($title, $wikidataReleaseDate);
@@ -335,7 +320,7 @@ class FetchJapaneseBoxOffice extends Command
                             'distributor' => $distributor,
                             'release_date' => $wikidataReleaseDate,
                             'last_updated' => now(),
-                            'genres' => $genresToSave,
+                            'genres' => json_encode($genresToSave),
                             'budget' => $budgetToSave
                         ];
 

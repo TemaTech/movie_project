@@ -577,11 +577,18 @@ class FetchJapaneseBoxOffice extends Command
         }
 
         try {
+            $wikiYear = $releaseDate ? substr($releaseDate, 0, 4) : null;
+            if (!$wikiYear) {
+                $this->warn('TMDBジャンル取得スキップ: 公開年不明のため年一致を満たせません');
+                return [];
+            }
+
             $searchResponse = Http::get('https://api.themoviedb.org/3/search/movie', [
                 'api_key' => $apiKey,
                 'query' => $title,
                 'language' => 'ja-JP',
-                'region' => 'JP'
+                'region' => 'JP',
+                'year' => $wikiYear,
             ]);
             usleep(200000);
 
@@ -591,28 +598,37 @@ class FetchJapaneseBoxOffice extends Command
 
             $results = $searchResponse->json()['results'];
             $bestMatch = null;
-            $highestSimilarity = -1;
-            $wikiYear = $releaseDate ? substr($releaseDate, 0, 4) : null;
+            $highestSimilarity = -1.0;
+            $normalizedQuery = $this->normalizeTitle($title);
 
             foreach ($results as $result) {
                 $candidateTitle = $result['title'] ?? '';
                 if ($candidateTitle === '') continue;
-                similar_text($title, $candidateTitle, $percent);
                 $candidateYear = isset($result['release_date']) && $result['release_date']
                     ? substr($result['release_date'], 0, 4)
                     : null;
 
-                // 年が分かっていれば年一致を優先
-                $yearMatches = $wikiYear && $candidateYear && $wikiYear === $candidateYear;
-                $score = ($yearMatches ? 100 : 0) + $percent; // 年一致にボーナス
+                // 年一致必須
+                if ($candidateYear !== $wikiYear) {
+                    continue;
+                }
 
-                if ($score > $highestSimilarity) {
-                    $highestSimilarity = $score;
+                // タイトル類似度（0..1）
+                $similarity = $this->calculateSimilarity($normalizedQuery, $this->normalizeTitle($candidateTitle));
+                if ($similarity < 0.6) { // 閾値（調整可）
+                    continue;
+                }
+
+                if ($similarity > $highestSimilarity) {
+                    $highestSimilarity = $similarity;
                     $bestMatch = $result;
                 }
             }
 
-            if (!$bestMatch) return [];
+            if (!$bestMatch) {
+                $this->info("TMDBジャンル取得: 年一致か類似度閾値を満たす候補なし ({$title}, {$wikiYear})");
+                return [];
+            }
 
             $detailsResponse = Http::get("https://api.themoviedb.org/3/movie/{$bestMatch['id']}", [
                 'api_key' => $apiKey,
@@ -641,11 +657,18 @@ class FetchJapaneseBoxOffice extends Command
         }
 
         try {
+            $wikiYear = $releaseDate ? substr($releaseDate, 0, 4) : null;
+            if (!$wikiYear) {
+                $this->warn('TMDB制作費取得スキップ: 公開年不明のため年一致を満たせません');
+                return 0;
+            }
+
             $searchResponse = Http::get('https://api.themoviedb.org/3/search/movie', [
                 'api_key' => $apiKey,
                 'query' => $title,
                 'language' => 'ja-JP',
-                'region' => 'JP'
+                'region' => 'JP',
+                'year' => $wikiYear,
             ]);
             usleep(200000);
 
@@ -655,27 +678,36 @@ class FetchJapaneseBoxOffice extends Command
 
             $results = $searchResponse->json()['results'];
             $bestMatch = null;
-            $highestSimilarity = -1;
-            $wikiYear = $releaseDate ? substr($releaseDate, 0, 4) : null;
+            $highestSimilarity = -1.0;
+            $normalizedQuery = $this->normalizeTitle($title);
 
             foreach ($results as $result) {
                 $candidateTitle = $result['title'] ?? '';
                 if ($candidateTitle === '') continue;
-                similar_text($title, $candidateTitle, $percent);
                 $candidateYear = isset($result['release_date']) && $result['release_date']
                     ? substr($result['release_date'], 0, 4)
                     : null;
 
-                $yearMatches = $wikiYear && $candidateYear && $wikiYear === $candidateYear;
-                $score = ($yearMatches ? 100 : 0) + $percent;
+                // 年一致必須
+                if ($candidateYear !== $wikiYear) {
+                    continue;
+                }
 
-                if ($score > $highestSimilarity) {
-                    $highestSimilarity = $score;
+                $similarity = $this->calculateSimilarity($normalizedQuery, $this->normalizeTitle($candidateTitle));
+                if ($similarity < 0.6) {
+                    continue;
+                }
+
+                if ($similarity > $highestSimilarity) {
+                    $highestSimilarity = $similarity;
                     $bestMatch = $result;
                 }
             }
 
-            if (!$bestMatch) return 0;
+            if (!$bestMatch) {
+                $this->info("TMDB制作費取得: 年一致か類似度閾値を満たす候補なし ({$title}, {$wikiYear})");
+                return 0;
+            }
 
             $detailsResponse = Http::get("https://api.themoviedb.org/3/movie/{$bestMatch['id']}", [
                 'api_key' => $apiKey,

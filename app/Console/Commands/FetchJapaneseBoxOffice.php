@@ -162,9 +162,9 @@ class FetchJapaneseBoxOffice extends Command
             $currentRank = null;
             $rankBoxOfficeMap = []; // 順位ごとの興行収入を保存
 
-            // 総合ランキングのテーブルを抽出
-            if (preg_match('/==\s*総合ランキング.*?{\\| class="wikitable.*?\|\}/s', $pageContent, $match)) {
-                $tableContent = $match[0];
+            // 総合ランキングのテーブルを抽出（見出し直後の最初のwikitableのみ）
+            $tableContent = $this->extractSogoFirstTable($pageContent);
+            if ($tableContent !== null) {
                 $this->info('総合ランキングのテーブルを検出しました');
                 
                 // 最初にテーブル全体から順位と興行収入のマッピングを作成
@@ -271,10 +271,8 @@ class FetchJapaneseBoxOffice extends Command
                         }
                     }
                     
-                    // 100位までに制限
-                    if ($currentRank > 100) {
-                        break;
-                    }
+                    // 100位までに制限（安全弁）
+                    if ($currentRank > 100) break;
                     
                     // 順位に対応する興行収入を取得
                     $boxOffice = $rankBoxOfficeMap[$currentRank] ?? 0;
@@ -335,6 +333,9 @@ class FetchJapaneseBoxOffice extends Command
                             $distributor,
                             $releaseYear ?? '-'
                         ));
+
+                        // 100件に達したら打ち切り（別表の混入防止）
+                        if (count($movies) >= 100) break;
                     }
                 }
             } else {
@@ -403,17 +404,60 @@ class FetchJapaneseBoxOffice extends Command
             }
         }
         
-        // 順位100のデータが欠落している場合の補完
-        if (!isset($rankBoxOfficeMap[100])) {
-            $rankBoxOfficeMap[100] = 73.4 * 100000000; // ファンタスティック・ビーストと魔法使いの旅: 73.4億円
-            $this->info('順位 100 の興行収入を補完設定: 73.4億円');
-        }
-        
         // デバッグ: 全ての順位と興行収入のマッピングを表示
         $this->info('順位と興行収入のマッピング:');
         foreach ($rankBoxOfficeMap as $rank => $boxOffice) {
             $this->info(sprintf('順位 %d: %.1f億円', $rank, $boxOffice / 100000000));
         }
+    }
+
+    /**
+     * 「総合ランキング」見出し直後の最初のwikitableだけを厳密に抽出
+     */
+    private function extractSogoFirstTable(string $pageContent): ?string
+    {
+        // 見出し位置を探す（空白の有無を許容）
+        $headingPatterns = [
+            "==総合ランキング==",
+            "== 総合ランキング ==",
+            "==\t総合ランキング\t==",
+        ];
+        $headingPos = false;
+        foreach ($headingPatterns as $pat) {
+            $pos = strpos($pageContent, $pat);
+            if ($pos !== false) {
+                $headingPos = $pos;
+                break;
+            }
+        }
+        if ($headingPos === false) {
+            return null;
+        }
+
+        // 見出し以降で最初のwikitable開始を探す
+        $tableStart = strpos($pageContent, '{|', $headingPos);
+        while ($tableStart !== false) {
+            // "wikitable" を含む開始行のみ採用
+            $lineEnd = strpos($pageContent, "\n", $tableStart);
+            $line = $lineEnd === false
+                ? substr($pageContent, $tableStart)
+                : substr($pageContent, $tableStart, $lineEnd - $tableStart);
+            if (stripos($line, 'wikitable') !== false) {
+                break;
+            }
+            $tableStart = strpos($pageContent, '{|', $tableStart + 2);
+        }
+        if ($tableStart === false) {
+            return null;
+        }
+
+        // 対応する終了マーカー "|}" を見つける（最初のテーブルのみ）
+        $tableEnd = strpos($pageContent, '|}', $tableStart);
+        if ($tableEnd === false) {
+            return null;
+        }
+
+        return substr($pageContent, $tableStart, $tableEnd - $tableStart + 2);
     }
 
     private function createMovieId($rank, $title, $distributor = '', $releaseYear = '')

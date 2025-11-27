@@ -290,9 +290,54 @@
                 margin-left: 0 !important;
             }
             
-            .top-rankings { flex-direction: column; align-items: center; }
-            .top-card { width: 90%; max-width: 300px; } /* 幅を少し縮小 */
-            .top-card.rank-1 { order: 1; width: 90%; max-width: 320px; } /* モバイルでは1位を一番上に */
+            .top-rankings { 
+                flex-direction: row; 
+                flex-wrap: wrap; 
+                justify-content: center; 
+                align-items: stretch;
+                gap: 10px;
+                margin-bottom: 30px;
+            }
+            .top-card { 
+                width: calc(50% - 5px); 
+                max-width: none; 
+                padding: 10px;
+            } 
+            .top-card.rank-1 { 
+                order: 1; 
+                width: 100%; 
+                max-width: 400px; 
+                padding: 15px;
+                display: grid;
+                grid-template-columns: 100px 1fr;
+                align-items: center;
+                text-align: left;
+                gap: 15px;
+            } 
+            /* Rank 1 Layout Adjustments for Mobile */
+            .top-card.rank-1 .poster-placeholder {
+                margin-bottom: 0;
+                height: 150px;
+                width: 100px;
+            }
+            .top-card.rank-1 .rank-badge {
+                position: absolute;
+                top: -10px;
+                left: -10px;
+                font-size: 3rem;
+                z-index: 10;
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            }
+            .top-card.rank-1 .movie-title { font-size: 1.2rem; }
+            .top-card.rank-1 .revenue-main { font-size: 1.2rem; }
+
+            /* Rank 2 & 3 Adjustments */
+            .top-card.rank-2 { order: 2; }
+            .top-card.rank-3 { order: 3; }
+            .top-card .rank-badge { font-size: 2rem; margin-bottom: 5px; }
+            .top-card .movie-title { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .top-card .revenue-main { font-size: 1rem; }
+            .top-card .revenue-sub { font-size: 0.7rem; }
             
             .list-item {
                 grid-template-columns: 40px 50px 1fr; /* Revenueを下に落とすなどの調整が必要かも */

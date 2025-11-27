@@ -46,7 +46,8 @@ class FetchGlobalBoxOffice extends Command
                                 'language' => 'ja'
                             ])->json();
 
-                            // 興行収入が0または丁度10億ドルの場合はスキップ
+                            // データ品質チェック
+                            // 1. 興行収入が0または丁度10億ドルの場合はスキップ
                             if (empty($movieDetails['revenue']) || $movieDetails['revenue'] === 1000000000) {
                                 $this->info(sprintf(
                                     'スキップ: %s (興行収入: $%s - 信頼性の低いデータ)',
@@ -54,6 +55,39 @@ class FetchGlobalBoxOffice extends Command
                                     number_format($movieDetails['revenue'])
                                 ));
                                 continue;
+                            }
+
+                            // 2. 興行収入が30億ドル以上の場合はスキップ（Avatarの最高記録は約29億ドル）
+                            if ($movieDetails['revenue'] > 3000000000) {
+                                $this->info(sprintf(
+                                    'スキップ: %s (興行収入: $%s - 異常に高い値)',
+                                    $movie['title'],
+                                    number_format($movieDetails['revenue'])
+                                ));
+                                continue;
+                            }
+
+                            // 3. 投票数が少なすぎる映画はスキップ（信頼性が低い）
+                            if (isset($movie['vote_count']) && $movie['vote_count'] < 100) {
+                                $this->info(sprintf(
+                                    'スキップ: %s (投票数: %d - データの信頼性が低い)',
+                                    $movie['title'],
+                                    $movie['vote_count']
+                                ));
+                                continue;
+                            }
+
+                            // 4. リリース年が1970年より前の映画はスキップ（データの信頼性が低い）
+                            if (!empty($movie['release_date'])) {
+                                $releaseYear = (int)substr($movie['release_date'], 0, 4);
+                                if ($releaseYear < 1970) {
+                                    $this->info(sprintf(
+                                        'スキップ: %s (公開年: %d - 古すぎるデータ)',
+                                        $movie['title'],
+                                        $releaseYear
+                                    ));
+                                    continue;
+                                }
                             }
 
                             $totalMovies++;

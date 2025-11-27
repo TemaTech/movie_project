@@ -54,7 +54,55 @@ class MovieController extends Controller
 
     public function show($id)
     {
-        // 数値でないIDは404
+        // 日本映画のID（jp_で始まる）の場合
+        if (str_starts_with($id, 'jp_')) {
+            $movie = JapaneseMovie::where('movie_id', $id)->first();
+            
+            if (!$movie) {
+                abort(404);
+            }
+
+            // ビューで使いやすいようにデータを整形
+            $movieData = $movie->toArray();
+            
+            // ジャンルの変換（JSON文字列または配列を配列に統一）
+            if (is_string($movieData['genres'])) {
+                $movieData['genres'] = json_decode($movieData['genres'], true) ?? [];
+            }
+            
+            // ジャンル名の変換マップ
+            $genreMap = [
+                'アニメーション' => 'アニメ',
+                'サイエンスフィクション' => 'SF',
+                'アニメ' => 'アニメーション',
+                'SF' => 'サイエンスフィクション',
+                '謎' => 'ミステリー',
+                'ミステリー' => '謎',
+                '犯罪' => 'サスペンス',
+                'サスペンス' => '犯罪',
+                '履歴' => '歴史',
+                '歴史' => '履歴'
+            ];
+            
+            if (!empty($movieData['genres'])) {
+                $movieData['genres'] = array_map(function($genre) use ($genreMap) {
+                    return $genreMap[$genre] ?? $genre;
+                }, $movieData['genres']);
+            }
+
+            // 予算のフォーマット（数値の場合のみ）
+            if (isset($movieData['budget']) && is_numeric($movieData['budget'])) {
+                $movieData['budget_billion'] = number_format($movieData['budget'] / 100000000, 1);
+            }
+
+            // TMDB互換のキーを追加
+            $movieData['id'] = $movie->movie_id;
+            $movieData['original_title'] = $movie->title; // 日本映画は原題＝タイトルとする
+            
+            return view('movies.show', ['movie' => $movieData]);
+        }
+
+        // 数値でないIDは404（jp_以外）
         if (!ctype_digit((string)$id)) {
             abort(404);
         }

@@ -12,9 +12,8 @@ Route::get('/japan', [MovieController::class, 'index'])->name('movies.japan');
 // 旧 `/movies` 直叩きの正規化（末尾スラッシュやクエリは保持）
 Route::permanentRedirect('/movies', '/');
 
-// 映画詳細ページ（TMDBの数値IDのみ許可）
+// 映画詳細ページ（TMDBの数値ID または 日本映画の文字列ID）
 Route::get('/movies/{id}', [MovieController::class, 'show'])
-    ->whereNumber('id')
     ->name('movies.show');
 
 // 検索結果ページ

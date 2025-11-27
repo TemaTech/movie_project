@@ -2,6 +2,9 @@
 
 @section('title', '映画検索結果 - ムビラン')
 @section('meta_description', '映画タイトルで検索できます。興行収入・公開年などの基本情報も確認。')
+@section('head')
+<meta name="robots" content="noindex">
+@endsection
 @section('canonical')
 <link rel="canonical" href="{{ url()->current() }}" />
 @endsection

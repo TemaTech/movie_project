@@ -145,7 +145,7 @@
                 @endforeach
             </div>
         @endif
-        @endif
+
         <div class="text-center mt-4 mb-5">
             <small style="color: var(--text-secondary);">最終更新: {{ $japanLastUpdated }}</small>
         </div>

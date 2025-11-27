@@ -39,7 +39,7 @@
         @else
             <!-- Top 3 -->
             <div class="top-rankings">
-                @foreach($globalMovies->take(3) as $movie)
+                @foreach($globalMovies->filter(function($movie) { return $movie->rank <= 3; }) as $movie)
                     <div class="top-card rank-{{ $movie->rank }}" onclick="window.location.href='{{ rtrim(config('app.url'), '/') }}/movies/{{ str_replace('global_', '', $movie->movie_id) }}'">
                         <div class="rank-badge">{{ $movie->rank }}</div>
                         <div class="poster-placeholder tmdb-poster" data-title="{{ $movie->title }}" data-type="movie"></div>
@@ -54,7 +54,7 @@
 
             <!-- Rank 4+ -->
             <div class="ranking-list">
-                @foreach($globalMovies->skip(3) as $movie)
+                @foreach($globalMovies->filter(function($movie) { return $movie->rank > 3; }) as $movie)
                     @php
                         // Calculate bar width relative to the top movie (approx 3 billion)
                         $revenueVal = $movie->box_office / 100000000; // in billion
@@ -95,7 +95,7 @@
         @else
             <!-- Top 3 -->
             <div class="top-rankings">
-                @foreach($japanMovies->take(3) as $movie)
+                @foreach($japanMovies->filter(function($movie) { return $movie->rank <= 3; }) as $movie)
                     <div class="top-card rank-{{ $movie->rank }}">
                         <div class="rank-badge">{{ $movie->rank }}</div>
                         <div class="poster-placeholder tmdb-poster" data-title="{{ $movie->title }}" data-type="movie"></div>
@@ -112,7 +112,7 @@
 
             <!-- Rank 4+ -->
             <div class="ranking-list">
-                @foreach($japanMovies->skip(3) as $movie)
+                @foreach($japanMovies->filter(function($movie) { return $movie->rank > 3; }) as $movie)
                     @php
                         // Calculate bar width relative to approx 150 billion yen (top movies) or just relative to max
                         // Japan top is around 400 billion? No, 40 billion.

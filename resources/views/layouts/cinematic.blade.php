@@ -52,6 +52,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap; /* モバイルでの折り返しを許可 */
+            gap: 10px; /* 要素間の隙間 */
         }
 
         .logo {
@@ -264,10 +266,32 @@
         }
 
         /* --- Responsive --- */
+        /* --- Responsive --- */
         @media (max-width: 768px) {
+            header {
+                padding: 0.8rem 1rem;
+                justify-content: center; /* 中央揃え */
+            }
+            .logo {
+                width: 100%;
+                text-align: center;
+                margin-bottom: 10px;
+            }
+            .toggle-container {
+                order: 2;
+                margin-bottom: 10px;
+            }
+            .genre-filter-wrapper {
+                order: 3;
+                width: 100%;
+                display: flex;
+                justify-content: center;
+                margin-left: 0 !important;
+            }
+            
             .top-rankings { flex-direction: column; align-items: center; }
-            .top-card { width: 100%; max-width: 340px; }
-            .top-card.rank-1 { order: 1; } /* モバイルでは1位を一番上に */
+            .top-card { width: 90%; max-width: 300px; } /* 幅を少し縮小 */
+            .top-card.rank-1 { order: 1; width: 90%; max-width: 320px; } /* モバイルでは1位を一番上に */
             
             .list-item {
                 grid-template-columns: 40px 50px 1fr; /* Revenueを下に落とすなどの調整が必要かも */
@@ -320,6 +344,15 @@
 </head>
 <body>
     @yield('content')
+
+    <footer style="text-align: center; padding: 40px 20px; color: var(--text-secondary); border-top: 1px solid var(--glass-border); margin-top: 60px;">
+        <div class="container">
+            <p style="margin-bottom: 10px;">&copy; {{ date('Y') }} MUBIRAN. All rights reserved.</p>
+            <p style="font-size: 0.8rem;">
+                Data provided by <a href="https://www.themoviedb.org/" target="_blank" style="color: var(--accent-blue);">TMDb</a> and <a href="https://ja.wikipedia.org/" target="_blank" style="color: var(--accent-blue);">Wikipedia</a>.
+            </p>
+        </div>
+    </footer>
     
     @yield('scripts')
 </body>

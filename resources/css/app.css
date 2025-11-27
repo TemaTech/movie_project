@@ -1,0 +1,302 @@
+/* --- CSS Variables & Reset --- */
+:root {
+    --bg-main: #0a0a0a; /* 真っ黒に近いダークグレー */
+    --bg-card: #161616; /* カード背景 */
+    --text-primary: #ffffff;
+    --text-secondary: #a0a0a0;
+    --accent-gold: #FFD700; /* 1位や強調用 */
+    --accent-blue: #3b82f6; /* SFなどのジャンル用 */
+    --accent-red: #e50914; /* アクション用 */
+    --glass: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --font-num: 'Oswald', sans-serif;
+    --font-body: 'Inter', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    line-height: 1.5;
+    padding-bottom: 100px;
+}
+
+a { text-decoration: none; color: inherit; }
+
+/* --- Header Area --- */
+header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10, 10, 10, 0.8);
+    backdrop-filter: blur(12px); /* すりガラス効果 */
+    border-bottom: 1px solid var(--glass-border);
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    background: linear-gradient(to right, #fff, #aaa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Toggle Switch Design */
+.toggle-container {
+    background: #222;
+    border-radius: 30px;
+    padding: 4px;
+    display: flex;
+    position: relative;
+}
+.toggle-btn {
+    padding: 8px 24px;
+    border-radius: 24px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
+    color: var(--text-secondary);
+    text-decoration: none !important;
+}
+.toggle-btn:hover {
+    color: #fff;
+}
+.toggle-btn.active {
+    background: #444; /* 実際はJSでハイライト制御 */
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+
+/* --- Main Container --- */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.page-title {
+    text-align: center;
+    margin: 60px 0 40px;
+    font-size: 2.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+/* --- Top 3 Podium (Hero Section) --- */
+.top-rankings {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end; /* 下揃えにして表彰台感を出す */
+    gap: 20px;
+    margin-bottom: 60px;
+    flex-wrap: wrap;
+}
+
+.top-card {
+    background: var(--bg-card);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+    width: 300px;
+    position: relative;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+}
+
+.top-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    border-color: rgba(255,255,255,0.3);
+}
+
+.top-card.rank-1 { order: 2; width: 340px; padding: 30px; border: 1px solid rgba(255, 215, 0, 0.3); background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%); }
+.top-card.rank-2 { order: 1; }
+.top-card.rank-3 { order: 3; }
+
+.rank-badge {
+    font-family: var(--font-num);
+    font-size: 4rem;
+    line-height: 1;
+    font-weight: 700;
+    margin-bottom: 10px;
+    display: block;
+}
+.rank-1 .rank-badge { color: var(--accent-gold); text-shadow: 0 0 20px rgba(255, 215, 0, 0.4); }
+.rank-2 .rank-badge { color: #C0C0C0; }
+.rank-3 .rank-badge { color: #CD7F32; }
+
+.poster-placeholder {
+    width: 100%;
+    aspect-ratio: 2/3;
+    background-color: #333;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    background-size: cover;
+    background-position: center;
+    transition: opacity 0.3s;
+}
+
+/* --- List View (Rank 4+) --- */
+.ranking-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.list-item {
+    display: grid;
+    /* Grid Layout: Rank | Image | Info | Revenue */
+    grid-template-columns: 60px 70px 1fr 220px; 
+    align-items: center;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    padding: 15px 20px;
+    border-radius: 12px;
+    transition: 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+
+.list-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: scale(1.01);
+}
+
+/* Rank Number */
+.list-rank {
+    font-family: var(--font-num);
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-align: center;
+    z-index: 2;
+}
+
+/* Poster Thumb */
+.list-poster {
+    width: 50px;
+    height: 75px;
+    border-radius: 6px;
+    background-color: #333;
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+    z-index: 2;
+}
+
+/* Info Area */
+.list-info {
+    padding-left: 20px;
+    z-index: 2;
+}
+.movie-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: block;
+    color: var(--text-primary);
+}
+.tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.tag {
+    font-size: 0.75rem;
+    padding: 2px 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--text-secondary);
+}
+
+/* Revenue Area */
+.list-revenue {
+    text-align: right;
+    position: relative;
+    z-index: 2;
+}
+.revenue-main {
+    display: block;
+    font-family: var(--font-num);
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.revenue-sub {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+/* Bar Graph Visualization */
+.revenue-bar-bg {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.08) 100%);
+    z-index: 0;
+    border-right: 2px solid rgba(255,255,255,0.1);
+}
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+    .top-rankings { flex-direction: column; align-items: center; }
+    .top-card { width: 100%; max-width: 340px; }
+    .top-card.rank-1 { order: 1; } /* モバイルでは1位を一番上に */
+    
+    .list-item {
+        grid-template-columns: 40px 50px 1fr; /* Revenueを下に落とすなどの調整が必要かも */
+        grid-template-rows: auto auto;
+        gap: 10px;
+    }
+    .list-revenue {
+        grid-column: 1 / -1;
+        text-align: left;
+        padding-left: 90px; /* 画像分ずらす */
+        display: flex;
+        gap: 10px;
+        align-items: baseline;
+    }
+}
+
+/* --- Genre Filter Customization --- */
+.genre-filter-container {
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.genre-select {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--glass-border);
+    padding: 8px 16px;
+    border-radius: 8px;
+    outline: none;
+}
+
+.btn-filter {
+    background: var(--accent-blue);
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: 0.2s;
+}
+.btn-filter:hover {
+    opacity: 0.9;
+}

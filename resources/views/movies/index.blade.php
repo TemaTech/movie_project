@@ -40,7 +40,7 @@
             <!-- Top 3 -->
             <div class="top-rankings">
                 @foreach($globalMovies->filter(function($movie) { return $movie->rank <= 3; }) as $movie)
-                    <div class="top-card rank-{{ $movie->rank }}" onclick="window.location.href='{{ rtrim(config('app.url'), '/') }}/movies/{{ str_replace('global_', '', $movie->movie_id) }}'">
+                    <div class="top-card rank-{{ $movie->rank }}">
                         <div class="rank-badge">{{ $movie->rank }}</div>
                         <div class="poster-placeholder tmdb-poster" data-title="{{ $movie->title }}" data-type="movie"></div>
                         <div class="movie-title" style="font-size: 1.3rem;">{{ $movie->title }}</div>
@@ -61,7 +61,7 @@
                         $maxRevenue = 3.0;
                         $barWidth = min(($revenueVal / $maxRevenue) * 100, 100);
                     @endphp
-                    <div class="list-item" onclick="window.location.href='{{ rtrim(config('app.url'), '/') }}/movies/{{ str_replace('global_', '', $movie->movie_id) }}'" style="cursor: pointer;">
+                    <div class="list-item">
                         <div class="revenue-bar-bg" style="width: {{ $barWidth }}%;"></div>
                         <div class="list-rank">{{ str_pad($movie->rank, 2, '0', STR_PAD_LEFT) }}</div>
                         <div class="list-poster tmdb-poster" data-title="{{ $movie->title }}" data-type="movie"></div>

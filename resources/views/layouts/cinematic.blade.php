@@ -124,7 +124,6 @@
             width: 300px;
             position: relative;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
-            cursor: pointer;
         }
 
         .top-card:hover {

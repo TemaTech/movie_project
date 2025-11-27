@@ -310,15 +310,42 @@
                 padding: 15px;
                 display: grid;
                 grid-template-columns: 100px 1fr;
-                align-items: center;
+                grid-template-rows: auto auto auto; /* Title, Revenue, Budget */
+                align-content: center;
                 text-align: left;
-                gap: 15px;
+                gap: 5px 15px; /* Row gap 5px, Col gap 15px */
             } 
             /* Rank 1 Layout Adjustments for Mobile */
             .top-card.rank-1 .poster-placeholder {
+                grid-row: 1 / span 3;
+                grid-column: 1;
                 margin-bottom: 0;
                 height: 150px;
                 width: 100px;
+            }
+            .top-card.rank-1 .movie-title { 
+                grid-row: 1; 
+                grid-column: 2; 
+                font-size: 1.1rem; 
+                align-self: end;
+                margin-bottom: 5px;
+                /* 折り返し許可 */
+                white-space: normal;
+                display: -webkit-box;
+                -webkit-line-clamp: 3;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+            .top-card.rank-1 .revenue-main { 
+                grid-row: 2; 
+                grid-column: 2; 
+                font-size: 1.3rem; 
+                line-height: 1.2;
+            }
+            .top-card.rank-1 .revenue-sub {
+                grid-row: 3;
+                grid-column: 2;
+                align-self: start;
             }
             .top-card.rank-1 .rank-badge {
                 position: absolute;
@@ -328,14 +355,23 @@
                 z-index: 10;
                 text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
             }
-            .top-card.rank-1 .movie-title { font-size: 1.2rem; }
-            .top-card.rank-1 .revenue-main { font-size: 1.2rem; }
 
             /* Rank 2 & 3 Adjustments */
             .top-card.rank-2 { order: 2; }
             .top-card.rank-3 { order: 3; }
             .top-card .rank-badge { font-size: 2rem; margin-bottom: 5px; }
-            .top-card .movie-title { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .top-card .movie-title { 
+                font-size: 0.85rem; 
+                line-height: 1.3;
+                height: 2.6em; /* 2行分確保 */
+                margin-bottom: 5px;
+                /* 折り返し許可 */
+                white-space: normal;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
             .top-card .revenue-main { font-size: 1rem; }
             .top-card .revenue-sub { font-size: 0.7rem; }
             

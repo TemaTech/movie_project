@@ -1,6 +1,6 @@
 @extends('layouts.cinematic')
 
-@section('title', 'MUBIRAN | Cinematic Data-Scapes')
+@section('title', '歴代映画興行収入ランキング | 世界・日本のヒット作を徹底分析 - MUBIRAN')
 
 @section('content')
 

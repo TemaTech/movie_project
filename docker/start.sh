@@ -52,7 +52,7 @@ done
 
 # マイグレーションを実行
 echo "Running database migrations..."
-php artisan migrate --force
+php artisan migrate --force || true
 
 # Nginxの起動
 echo "Starting Nginx..."

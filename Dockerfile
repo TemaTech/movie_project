@@ -19,7 +19,7 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 
 # 必要なパッケージのインストール
 RUN apt-get update && apt-get install -y \
-    libpq-dev \
+    default-mysql-client \
     nginx \
     git \
     zip \
@@ -27,8 +27,7 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
     procps \
     openssl \
-    && docker-php-ext-configure pgsql -with-pgsql=/usr/local/pgsql \
-    && docker-php-ext-install pdo pdo_pgsql pgsql zip opcache
+    && docker-php-ext-install pdo pdo_mysql zip opcache
 
 # SSL証明書の設定
 RUN mkdir -p /etc/nginx/ssl
@@ -79,9 +78,9 @@ COPY docker/start.sh /usr/local/bin/start.sh
 RUN chmod +x /usr/local/bin/start.sh
 
 # 環境変数の設定を追加
-ENV DB_CONNECTION=pgsql
+ENV DB_CONNECTION=mysql
 ENV DB_HOST=db
-ENV DB_PORT=5432
+ENV DB_PORT=3306
 ENV DB_DATABASE=movie_db
 ENV DB_USERNAME=movie_user
 ENV DB_PASSWORD=movie_password

@@ -8,9 +8,9 @@ services:
     depends_on:
       - db
     environment:
-      DB_CONNECTION: pgsql
+      DB_CONNECTION: mysql
       DB_HOST: ${DB_HOST:-db}
-      DB_PORT: ${DB_PORT:-5432}
+      DB_PORT: ${DB_PORT:-3306}
       DB_DATABASE: ${DB_DATABASE:-movie_db}
       DB_USERNAME: ${DB_USERNAME:-movie_user}
       DB_PASSWORD: ${DB_PASSWORD:-movie_password}
@@ -18,20 +18,22 @@ services:
       - app-network
 
   db:
-    image: postgres:15
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
     environment:
-      POSTGRES_DB: movie_db
-      POSTGRES_USER: movie_user
-      POSTGRES_PASSWORD: movie_password
+      MYSQL_DATABASE: movie_db
+      MYSQL_USER: movie_user
+      MYSQL_PASSWORD: movie_password
+      MYSQL_ROOT_PASSWORD: root_password
     ports:
-      - "5432:5432"
+      - "3306:3306"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
     networks:
       - app-network
 
 volumes:
-  postgres_data:
+  mysql_data:
 
 networks:
   app-network:

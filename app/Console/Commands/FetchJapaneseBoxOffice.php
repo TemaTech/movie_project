@@ -416,17 +416,16 @@ class FetchJapaneseBoxOffice extends Command
      */
     private function extractSogoFirstTable(string $pageContent): ?string
     {
-        // 見出し位置を探す（空白の有無を許容）
+        // 見出し位置を探す（正規表現で柔軟に検索）
+        // "==総合ランキング==" や "===総合ランキング（第1位 - 第100位）===" などに対応
         $headingPatterns = [
-            "==総合ランキング==",
-            "== 総合ランキング ==",
-            "==\t総合ランキング\t==",
+            '/={2,3}\s*総合ランキング.*?\s*={2,3}/u',
         ];
+
         $headingPos = false;
-        foreach ($headingPatterns as $pat) {
-            $pos = strpos($pageContent, $pat);
-            if ($pos !== false) {
-                $headingPos = $pos;
+        foreach ($headingPatterns as $pattern) {
+            if (preg_match($pattern, $pageContent, $matches, PREG_OFFSET_CAPTURE)) {
+                $headingPos = $matches[0][1];
                 break;
             }
         }

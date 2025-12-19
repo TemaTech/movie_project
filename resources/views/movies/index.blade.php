@@ -2,6 +2,10 @@
 
 @section('title', '歴代映画興行収入ランキング | 世界・日本のヒット作を徹底分析 - MUBIRAN')
 
+@section('head')
+    <link rel="stylesheet" href="{{ asset('css/movie-modal.css') }}">
+@endsection
+
 @section('content')
 
 <header>
@@ -40,46 +44,14 @@
             <!-- Top 3 -->
             <div class="top-rankings">
                 @foreach($globalMovies->filter(function($movie) { return $movie->rank <= 3; }) as $movie)
-                    <div class="top-card rank-{{ $movie->rank }}">
-                        <div class="rank-badge">{{ $movie->rank }}</div>
-                        <div class="poster-placeholder tmdb-poster" data-title="{{ $movie->title }}" data-type="movie"></div>
-                        <div class="movie-title" style="font-size: 1.3rem;">{{ $movie->title }}</div>
-                        <div class="revenue-main" style="color: var(--accent-gold);">
-                            {{ number_format($movie->box_office / 100000000, 2) }}億ドル
-                        </div>
-                        <div class="revenue-sub">{{ $movie->box_office_billion }}億円</div>
-                    </div>
+                    @include('movies.partials.card', ['movie' => $movie, 'isJapan' => false])
                 @endforeach
             </div>
 
             <!-- Rank 4+ -->
             <div class="ranking-list">
                 @foreach($globalMovies->filter(function($movie) { return $movie->rank > 3; }) as $movie)
-                    @php
-                        // Calculate bar width relative to the top movie (approx 3 billion)
-                        $revenueVal = $movie->box_office / 100000000; // in billion
-                        $maxRevenue = 3.0;
-                        $barWidth = min(($revenueVal / $maxRevenue) * 100, 100);
-                    @endphp
-                    <div class="list-item">
-                        <div class="revenue-bar-bg" style="width: {{ $barWidth }}%;"></div>
-                        <div class="list-rank">{{ str_pad($movie->rank, 2, '0', STR_PAD_LEFT) }}</div>
-                        <div class="list-poster tmdb-poster" data-title="{{ $movie->title }}" data-type="movie"></div>
-                        <div class="list-info">
-                            <span class="movie-title">{{ $movie->title }}</span>
-                            <div class="tags">
-                                @if($movie->genres && is_array($movie->genres))
-                                    @foreach($movie->genres as $genre)
-                                        <span class="tag">{{ $genre }}</span>
-                                    @endforeach
-                                @endif
-                            </div>
-                        </div>
-                        <div class="list-revenue">
-                            <span class="revenue-main">{{ number_format($movie->box_office / 100000000, 2) }}億ドル</span>
-                            <span class="revenue-sub">{{ $movie->box_office_billion }}億円</span>
-                        </div>
-                    </div>
+                    @include('movies.partials.list-item', ['movie' => $movie, 'isJapan' => false])
                 @endforeach
             </div>
         @endif
@@ -96,52 +68,14 @@
             <!-- Top 3 -->
             <div class="top-rankings">
                 @foreach($japanMovies->filter(function($movie) { return $movie->rank <= 3; }) as $movie)
-                    <div class="top-card rank-{{ $movie->rank }}">
-                        <div class="rank-badge">{{ $movie->rank }}</div>
-                        <div class="poster-placeholder tmdb-poster" data-title="{{ $movie->title }}" data-type="movie"></div>
-                        <div class="movie-title" style="font-size: 1.3rem;">{{ $movie->title }}</div>
-                        <div class="revenue-main" style="color: var(--accent-gold);">
-                            {{ $movie->box_office_billion }}億円
-                        </div>
-                        <div class="revenue-sub">
-                            {{ $movie->budget_billion === '0.0' || !$movie->budget_billion ? '-' : '制作費: ' . $movie->budget_billion . '億円' }}
-                        </div>
-                    </div>
+                    @include('movies.partials.card', ['movie' => $movie, 'isJapan' => true])
                 @endforeach
             </div>
 
             <!-- Rank 4+ -->
             <div class="ranking-list">
                 @foreach($japanMovies->filter(function($movie) { return $movie->rank > 3; }) as $movie)
-                    @php
-                        // Calculate bar width relative to approx 150 billion yen (top movies) or just relative to max
-                        // Japan top is around 400 billion? No, 40 billion.
-                        // Let's say max is 200 (20 billion) for visualization scaling
-                        $revenueVal = (float)str_replace(',', '', $movie->box_office_billion);
-                        $maxRevenue = 150.0; // 150億円
-                        $barWidth = min(($revenueVal / $maxRevenue) * 100, 100);
-                    @endphp
-                    <div class="list-item">
-                        <div class="revenue-bar-bg" style="width: {{ $barWidth }}%;"></div>
-                        <div class="list-rank">{{ str_pad($movie->rank, 2, '0', STR_PAD_LEFT) }}</div>
-                        <div class="list-poster tmdb-poster" data-title="{{ $movie->title }}" data-type="movie"></div>
-                        <div class="list-info">
-                            <span class="movie-title">{{ $movie->title }}</span>
-                            <div class="tags">
-                                @if($movie->genres && is_array($movie->genres))
-                                    @foreach($movie->genres as $genre)
-                                        <span class="tag">{{ $genre }}</span>
-                                    @endforeach
-                                @endif
-                            </div>
-                        </div>
-                        <div class="list-revenue">
-                            <span class="revenue-main">{{ $movie->box_office_billion }}億円</span>
-                            <span class="revenue-sub">
-                                {{ $movie->budget_billion === '0.0' || !$movie->budget_billion ? '-' : '制作費: ' . $movie->budget_billion . '億円' }}
-                            </span>
-                        </div>
-                    </div>
+                    @include('movies.partials.list-item', ['movie' => $movie, 'isJapan' => true])
                 @endforeach
             </div>
         @endif
@@ -152,87 +86,35 @@
     </div>
 </div>
 
-<script>
-    // TMDB API Key (Exposed for demo purposes as requested)
-    const TMDB_API_KEY = '26e7b323fa7ad8630e7c661e3c1def29';
-    const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
-    const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w200';
-    const IMAGE_BASE_URL_LARGE = 'https://image.tmdb.org/t/p/w500';
+@include('movies.partials.modal')
 
-    // Tab Switching Logic
+@endsection
+
+@section('scripts')
+<script>
+    // Tab Switching Logic (Keep here for page-specific UI state)
     function switchTab(tab) {
-        // Update Buttons
         document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
         document.getElementById('btn-' + tab).classList.add('active');
-
-        // Update Containers
         document.getElementById('global-container').style.display = tab === 'global' ? 'block' : 'none';
         document.getElementById('japan-container').style.display = tab === 'japan' ? 'block' : 'none';
-
-        // Update Title
         document.getElementById('page-title').textContent = tab === 'global' ? 'Global Box Office Ranking' : 'Japan Box Office Ranking';
-
-        // Update Form Input
         document.getElementById('tabInput').value = tab;
-
-        // Update URL without reload
         const url = new URL(window.location);
         url.searchParams.set('tab', tab);
         window.history.pushState({}, '', url);
     }
 
-    // Initialize Tab based on URL or default
+    window.TMDB_API_KEY = '26e7b323fa7ad8630e7c661e3c1def29';
+
     document.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
         const tab = urlParams.get('tab') || 'global';
         switchTab(tab);
-
-        // Fetch Images
-        fetchImages();
-    });
-
-    // TMDB Image Fetching
-    async function fetchImages() {
-        const posters = document.querySelectorAll('.tmdb-poster');
-        
-        for (const poster of posters) {
-            const title = poster.dataset.title;
-            if (!title) continue;
-
-            // Check Cache
-            const cachedImage = localStorage.getItem('tmdb_poster_' + title);
-            if (cachedImage) {
-                poster.style.backgroundImage = `url('${cachedImage}')`;
-                continue;
-            }
-
-            try {
-                // Search Movie
-                const searchUrl = `${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(title)}&language=ja-JP`;
-                const response = await fetch(searchUrl);
-                const data = await response.json();
-
-                if (data.results && data.results.length > 0) {
-                    const posterPath = data.results[0].poster_path;
-                    if (posterPath) {
-                        const imageUrl = poster.classList.contains('poster-placeholder') ? 
-                            IMAGE_BASE_URL_LARGE + posterPath : 
-                            IMAGE_BASE_URL + posterPath;
-                        
-                        poster.style.backgroundImage = `url('${imageUrl}')`;
-                        
-                        // Cache it
-                        localStorage.setItem('tmdb_poster_' + title, imageUrl);
-                    }
-                }
-            } catch (error) {
-                console.error('Error fetching image for:', title, error);
-            }
-            
-            
-            // Rate limiting (removed for speed as requested)
-            // await new Promise(r => setTimeout(r, 100));
+        if (typeof fetchImages === 'function') {
+            fetchImages();
         }
-    }
+    });
 </script>
+<script src="{{ asset('js/movie-modal.js') }}"></script>
 @endsection

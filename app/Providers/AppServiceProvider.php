@@ -23,7 +23,11 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         if (app()->environment('production')) {
-            URL::forceScheme('https');
+            // ローカル環境（localhostなど）での動作を妨げないよう、特定のホスト以外でHTTPSを強制
+            $host = request()->getHost();
+            if ($host !== 'localhost' && $host !== '127.0.0.1' && !str_ends_with($host, '.test')) {
+                URL::forceScheme('https');
+            }
         }
 
         // Wikimedia（Wikipedia / Wikidata）向けのHTTPクライアントマクロ

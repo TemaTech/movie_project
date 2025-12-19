@@ -22,11 +22,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // 生成するURLを正規ドメインに固定し、常にHTTPSを使用
-        if (config('app.url')) {
-            URL::forceRootUrl(rtrim(config('app.url'), '/'));
-        }
-        if (app()->environment(['production', 'staging'])) {
+        if (app()->environment('production')) {
             URL::forceScheme('https');
         }
 

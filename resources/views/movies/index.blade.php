@@ -15,7 +15,7 @@
 
     <!-- Genre Filter (Integrated into Header for style) -->
     <div class="genre-filter-wrapper" style="margin-left: 20px;">
-        <form action="{{ url()->current() }}" method="GET" id="genreForm" style="display: flex; gap: 10px;">
+        <form action="" method="GET" id="genreForm" style="display: flex; gap: 10px;">
             <input type="hidden" name="tab" id="tabInput" value="{{ request('tab', 'global') }}">
             <select name="genre" class="genre-select" onchange="document.getElementById('genreForm').submit()">
                 <option value="">すべてのジャンル</option>

@@ -172,8 +172,8 @@ class FetchJapaneseBoxOffice extends Command
             $currentRank = null;
             $rankBoxOfficeMap = []; // 順位ごとの興行収入を保存
 
-            // 総合ランキングのテーブルを抽出（見出し直後の最初のwikitableのみ）
-            $tableContent = $this->extractSogoFirstTable($pageContent);
+            // 総合ランキングのテーブルを抽出（1-100位と101-200位の両方を取得）
+            $tableContent = $this->extractRankingTables($pageContent);
             if ($tableContent !== null) {
                 $this->info('総合ランキングのテーブルを検出しました');
                 
@@ -281,8 +281,8 @@ class FetchJapaneseBoxOffice extends Command
                         }
                     }
                     
-                    // 100位までに制限（安全弁）
-                    if ($currentRank > 100) break;
+                    // 200位までに制限（安全弁）
+                    if ($currentRank > 200) break;
                     
                     // 順位に対応する興行収入を取得
                     $boxOffice = $rankBoxOfficeMap[$currentRank] ?? 0;
@@ -301,16 +301,18 @@ class FetchJapaneseBoxOffice extends Command
                         $wikidataGenres = [];
                         $wikidataReleaseDate = $this->sanitizeReleaseDate($releaseYear, $releaseYear);
 
-                        // TMDBからジャンルを優先取得（公開年があれば精度向上）
-                        $tmdbGenres = $this->fetchTMDBGenres($title, $wikidataReleaseDate);
+                        // TMDBからジャンルと制作費をまとめて取得（APIリクエスト削減）
+                        $tmdbDetails = $this->fetchTMDBDetails($title, $wikidataReleaseDate);
+                        
+                        $tmdbGenres = $tmdbDetails['genres'];
+                        $tmdbBudgetYen = $tmdbDetails['budget'];
+
                         if (!empty($tmdbGenres)) {
                             $this->info(sprintf('TMDBジャンル使用: %s => [%s]', $title, implode(', ', $tmdbGenres)));
                         } elseif (!empty($wikidataGenres)) {
                             $this->info('TMDBジャンル未取得のためWikidataジャンルを使用');
                         }
 
-                        // TMDBから制作費（USD）取得→円換算を優先
-                        $tmdbBudgetYen = $this->fetchTMDBBudgetYen($title, $wikidataReleaseDate);
                         $budgetToSave = $tmdbBudgetYen > 0 ? $tmdbBudgetYen : 0; // TMDBのみ、なければ0
                         if ($tmdbBudgetYen > 0) {
                             $this->info(sprintf('TMDB制作費使用: %s => %.1f億円', $title, $tmdbBudgetYen / 100000000));
@@ -344,8 +346,8 @@ class FetchJapaneseBoxOffice extends Command
                             $releaseYear ?? '-'
                         ));
 
-                        // 100件に達したら打ち切り（別表の混入防止）
-                        if (count($movies) >= 100) break;
+                        // 200件に達したら打ち切り（別表の混入防止）
+                        if (count($movies) >= 200) break;
                     }
                 }
             } else {
@@ -375,6 +377,8 @@ class FetchJapaneseBoxOffice extends Command
                 continue;
             }
             
+            // ダブルパイプ || を改行+パイプ \n| に置換して、1行1セルの形式に正規化
+            $row = str_replace('||', "\n|", $row);
             $lines = explode("\n", $row);
             
             // rowspanの処理
@@ -402,8 +406,12 @@ class FetchJapaneseBoxOffice extends Command
             if ($currentRank !== null && !isset($rankBoxOfficeMap[$currentRank])) {
                 foreach ($lines as $line) {
                     $line = trim($line);
-                    // 興行収入を検出 - 通常の形式とrowspan付きの両方に対応（スペースを許容）
-                    if (preg_match('/^\|\s*(?:rowspan="\d+"\s*\|\s*)?(\d+(?:\.\d+)?)$/', $line, $matches) && 
+                    if ($currentRank == 108) {
+                        $this->info("Rank 108 Line: " . $line);
+                    }
+                    // 興行収入を検出 - 通常の形式とrowspan付きの両方に対応（スペースや参照[1]などを許容）
+                    // 行末の $ を削除し、数字の後の任意の文字列を許容
+                    if (preg_match('/^\|\s*(?:rowspan="\d+"\s*\|\s*)?(\d+(?:\.\d+)?)/', $line, $matches) && 
                         count($matches) > 1 && is_numeric($matches[1])) {
                         $boxOffice = (float)$matches[1] * 100000000; // 億円を円に変換
                         $rankBoxOfficeMap[$currentRank] = $boxOffice;
@@ -422,51 +430,55 @@ class FetchJapaneseBoxOffice extends Command
     }
 
     /**
-     * 「総合ランキング」見出し直後の最初のwikitableだけを厳密に抽出
+     * 総合ランキングのテーブル（1-100位、101-200位）を抽出して連結する
      */
-    private function extractSogoFirstTable(string $pageContent): ?string
+    private function extractRankingTables(string $pageContent): ?string
     {
-        // 見出し位置を探す（正規表現で柔軟に検索）
-        // "==総合ランキング==" や "===総合ランキング（第1位 - 第100位）===" などに対応
-        $headingPatterns = [
-            '/={2,3}\s*総合ランキング.*?\s*={2,3}/u',
+        $tables = [];
+        
+        // 取得したい見出しのパターン（順不同でも処理できるよう配慮、ただし基本は上から順）
+        // Wikipediaの記述揺れに対応
+        $targetPatterns = [
+            // 1-100位: "総合ランキング" または "総合ランキング（第1位 - 第100位）"
+            '/={2,3}\s*総合ランキング(?:（第1位 - 第100位）)?\s*={2,3}/u',
+            // 101-200位
+            '/={2,3}\s*総合ランキング（第101位 - 第200位）\s*={2,3}/u',
         ];
 
-        $headingPos = false;
-        foreach ($headingPatterns as $pattern) {
+        foreach ($targetPatterns as $pattern) {
             if (preg_match($pattern, $pageContent, $matches, PREG_OFFSET_CAPTURE)) {
                 $headingPos = $matches[0][1];
-                break;
+                
+                // 見出し以降で最初のwikitable開始を探す
+                $tableStart = strpos($pageContent, '{|', $headingPos);
+                
+                // 見出しから離れすぎている場合は誤検知の可能性があるのでスキップ（例: 2000文字以内）
+                if ($tableStart === false || ($tableStart - $headingPos) > 5000) {
+                    continue;
+                }
+
+                // 対応する終了マーカー "|}" を見つける
+                // ネストされたテーブルがある場合は考慮が必要だが、ランキング表は通常フラット
+                $tableEnd = strpos($pageContent, '|}', $tableStart);
+                if ($tableEnd === false) {
+                    continue;
+                }
+
+                // wikitableクラスを持つか確認
+                $tableStr = substr($pageContent, $tableStart, $tableEnd - $tableStart + 2);
+                if (stripos($tableStr, 'wikitable') !== false) {
+                    $tables[] = $tableStr;
+                    $this->info("テーブルを抽出しました: " . trim($matches[0][0]));
+                }
             }
         }
-        if ($headingPos === false) {
+
+        if (empty($tables)) {
             return null;
         }
 
-        // 見出し以降で最初のwikitable開始を探す
-        $tableStart = strpos($pageContent, '{|', $headingPos);
-        while ($tableStart !== false) {
-            // "wikitable" を含む開始行のみ採用
-            $lineEnd = strpos($pageContent, "\n", $tableStart);
-            $line = $lineEnd === false
-                ? substr($pageContent, $tableStart)
-                : substr($pageContent, $tableStart, $lineEnd - $tableStart);
-            if (stripos($line, 'wikitable') !== false) {
-                break;
-            }
-            $tableStart = strpos($pageContent, '{|', $tableStart + 2);
-        }
-        if ($tableStart === false) {
-            return null;
-        }
-
-        // 対応する終了マーカー "|}" を見つける（最初のテーブルのみ）
-        $tableEnd = strpos($pageContent, '|}', $tableStart);
-        if ($tableEnd === false) {
-            return null;
-        }
-
-        return substr($pageContent, $tableStart, $tableEnd - $tableStart + 2);
+        // 複数のテーブルを改行で連結して返す
+        return implode("\n\n", $tables);
     }
 
     private function createMovieId($rank, $title, $distributor = '', $releaseYear = '')
@@ -621,21 +633,23 @@ class FetchJapaneseBoxOffice extends Command
         return sprintf('%04d-%02d-%02d', $y, $mo, $d);
     }
 
-    // TMDBから日本語ジャンル名を取得
-    private function fetchTMDBGenres(string $title, ?string $releaseDate = null): array
+    // TMDBから作品詳細（ジャンル、制作費）を一括取得
+    private function fetchTMDBDetails(string $title, ?string $releaseDate = null): array
     {
+        $defaultResult = ['genres' => [], 'budget' => 0];
         $apiKey = config('services.tmdb.api_key');
         if (empty($apiKey)) {
-            return [];
+            return $defaultResult;
         }
 
         try {
             $wikiYear = $releaseDate ? substr($releaseDate, 0, 4) : null;
             if (!$wikiYear) {
-                $this->warn('TMDBジャンル取得スキップ: 公開年不明のため年一致を満たせません');
-                return [];
+                $this->warn('TMDB詳細取得スキップ: 公開年不明のため年一致を満たせません');
+                return $defaultResult;
             }
 
+            // 1. 検索
             $searchResponse = Http::get('https://api.themoviedb.org/3/search/movie', [
                 'api_key' => $apiKey,
                 'query' => $title,
@@ -643,90 +657,11 @@ class FetchJapaneseBoxOffice extends Command
                 'region' => 'JP',
                 'year' => $wikiYear,
             ]);
-            usleep(200000);
+            // レートリミット考慮 (以前より緩和しても良いが安全策)
+            usleep(100000);
 
             if (!$searchResponse->successful() || empty($searchResponse->json()['results'])) {
-                return [];
-            }
-
-            $results = $searchResponse->json()['results'];
-            $bestMatch = null;
-            $highestSimilarity = -1.0;
-            $normalizedQuery = $this->normalizeTitle($title);
-
-            foreach ($results as $result) {
-                $candidateTitle = $result['title'] ?? '';
-                if ($candidateTitle === '') continue;
-                $candidateYear = isset($result['release_date']) && $result['release_date']
-                    ? substr($result['release_date'], 0, 4)
-                    : null;
-
-                // 年一致必須
-                if ($candidateYear !== $wikiYear) {
-                    continue;
-                }
-
-                // タイトル類似度（0..1）
-                $similarity = $this->calculateSimilarity($normalizedQuery, $this->normalizeTitle($candidateTitle));
-                if ($similarity < 0.6) { // 閾値（調整可）
-                    continue;
-                }
-
-                if ($similarity > $highestSimilarity) {
-                    $highestSimilarity = $similarity;
-                    $bestMatch = $result;
-                }
-            }
-
-            if (!$bestMatch) {
-                $this->info("TMDBジャンル取得: 年一致か類似度閾値を満たす候補なし ({$title}, {$wikiYear})");
-                return [];
-            }
-
-            $detailsResponse = Http::get("https://api.themoviedb.org/3/movie/{$bestMatch['id']}", [
-                'api_key' => $apiKey,
-                'language' => 'ja-JP'
-            ]);
-            usleep(200000);
-
-            if (!$detailsResponse->successful()) return [];
-            $details = $detailsResponse->json();
-            if (empty($details['genres'])) return [];
-
-            return collect($details['genres'])->pluck('name')->filter()->values()->all();
-
-        } catch (\Exception $e) {
-            $this->warn('TMDBジャンル取得に失敗: ' . $e->getMessage());
-            return [];
-        }
-    }
-
-    // TMDBから制作費（USD）を取得し円換算して返す
-    private function fetchTMDBBudgetYen(string $title, ?string $releaseDate = null): int
-    {
-        $apiKey = config('services.tmdb.api_key');
-        if (empty($apiKey)) {
-            return 0;
-        }
-
-        try {
-            $wikiYear = $releaseDate ? substr($releaseDate, 0, 4) : null;
-            if (!$wikiYear) {
-                $this->warn('TMDB制作費取得スキップ: 公開年不明のため年一致を満たせません');
-                return 0;
-            }
-
-            $searchResponse = Http::get('https://api.themoviedb.org/3/search/movie', [
-                'api_key' => $apiKey,
-                'query' => $title,
-                'language' => 'ja-JP',
-                'region' => 'JP',
-                'year' => $wikiYear,
-            ]);
-            usleep(200000);
-
-            if (!$searchResponse->successful() || empty($searchResponse->json()['results'])) {
-                return 0;
+                return $defaultResult;
             }
 
             $results = $searchResponse->json()['results'];
@@ -758,25 +693,40 @@ class FetchJapaneseBoxOffice extends Command
             }
 
             if (!$bestMatch) {
-                $this->info("TMDB制作費取得: 年一致か類似度閾値を満たす候補なし ({$title}, {$wikiYear})");
-                return 0;
+                return $defaultResult;
             }
 
+            // 2. 詳細取得
             $detailsResponse = Http::get("https://api.themoviedb.org/3/movie/{$bestMatch['id']}", [
                 'api_key' => $apiKey,
                 'language' => 'ja-JP'
             ]);
-            usleep(200000);
+            usleep(100000);
 
-            if (!$detailsResponse->successful()) return 0;
+            if (!$detailsResponse->successful()) return $defaultResult;
             $details = $detailsResponse->json();
+            
+            // ジャンル抽出
+            $genres = [];
+            if (!empty($details['genres'])) {
+                $genres = collect($details['genres'])->pluck('name')->filter()->values()->all();
+            }
+
+            // 予算抽出と円換算
+            $budgetYen = 0;
             $budgetUsd = (int) ($details['budget'] ?? 0);
-            if ($budgetUsd <= 0) return 0;
-            return (int) round($budgetUsd * 150);
+            if ($budgetUsd > 0) {
+                $budgetYen = (int) round($budgetUsd * 150);
+            }
+
+            return [
+                'genres' => $genres,
+                'budget' => $budgetYen
+            ];
 
         } catch (\Exception $e) {
-            $this->warn('TMDB制作費取得に失敗: ' . $e->getMessage());
-            return 0;
+            $this->warn('TMDB詳細取得に失敗: ' . $e->getMessage());
+            return $defaultResult;
         }
     }
 

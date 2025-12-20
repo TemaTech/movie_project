@@ -8,10 +8,10 @@
     }
     $barWidth = min(($revenueVal / $maxRevenue) * 100, 100);
 @endphp
-<div class="list-item" onclick="openModal('{{ addslashes($movie->title) }}')">
+<div class="list-item" onclick="openModal('{{ addslashes($movie->title) }}', '{{ $movie->movie_id }}')">
     <div class="revenue-bar-bg" style="width: {{ $barWidth }}%;"></div>
     <div class="list-rank">{{ str_pad($movie->rank, 2, '0', STR_PAD_LEFT) }}</div>
-    <div class="list-poster tmdb-poster" data-title="{{ $movie->title }}" data-type="movie"></div>
+    <div class="list-poster tmdb-poster" data-title="{{ $movie->title }}" data-movie-id="{{ $movie->movie_id }}" data-type="movie"></div>
     <div class="list-info">
         <span class="movie-title">{{ $movie->title }}</span>
         <div class="tags">

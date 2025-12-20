@@ -3,6 +3,11 @@ const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w200';
 const IMAGE_BASE_URL_LARGE = 'https://image.tmdb.org/t/p/w500';
 
+// Cache Configuration
+const CACHE_PREFIX_POSTER = 'tmdb_poster_id_';
+const CACHE_PREFIX_DETAIL = 'tmdb_detail_id_';
+const LEGACY_CACHE_PREFIX = 'tmdb_poster_';
+
 // Localization Mapping
 const COUNTRY_MAP = {
     'United States of America': 'アメリカ合衆国',
@@ -33,7 +38,7 @@ function getModalElements() {
     };
 }
 
-function openModal(title) {
+function openModal(title, movieId = null) {
     const { modal, modalBody, modalLoading } = getModalElements();
     if (!modal) {
         console.error('Modal element not found');
@@ -45,7 +50,7 @@ function openModal(title) {
     if (modalBody) modalBody.style.display = 'none';
     if (modalLoading) modalLoading.style.display = 'flex';
     
-    fetchMovieDetails(title);
+    fetchMovieDetails(title, movieId);
 }
 
 function closeModal(event) {
@@ -67,33 +72,69 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-async function fetchMovieDetails(title) {
+async function fetchMovieDetails(title, movieId = null) {
     const apiKey = window.TMDB_API_KEY;
     if (!apiKey) {
         console.error('TMDB_API_KEY is not defined');
         return;
     }
-    try {
-        // 1. Search for the movie ID
-        const searchUrl = `${TMDB_BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(title)}&language=ja-JP`;
-        const searchRes = await fetch(searchUrl);
-        const searchData = await searchRes.json();
 
-        if (!searchData.results || searchData.results.length === 0) {
-            // Handle no results
-            showError('映画情報が見つかりませんでした。');
-            return;
+    const cacheKey = movieId ? CACHE_PREFIX_DETAIL + movieId : null;
+    
+    // Check Cache
+    if (cacheKey) {
+        const cachedData = localStorage.getItem(cacheKey);
+        if (cachedData) {
+            try {
+                const data = JSON.parse(cachedData);
+                populateModal(data);
+                return;
+            } catch (e) {
+                console.error('Error parsing cached detail data:', e);
+                localStorage.removeItem(cacheKey);
+            }
+        }
+    }
+
+    try {
+        let movieData = null;
+
+        // 1. Try to use TMDB ID from movieId if available (for global movies)
+        if (movieId && movieId.startsWith('global_')) {
+            const parts = movieId.split('_');
+            const tmdbId = parts[parts.length - 1];
+            if (tmdbId && !isNaN(tmdbId)) {
+                const detailsUrl = `${TMDB_BASE_URL}/movie/${tmdbId}?api_key=${apiKey}&language=ja-JP&append_to_response=credits,keywords,release_dates`;
+                const detailRes = await fetch(detailsUrl);
+                if (detailRes.ok) {
+                    movieData = await detailRes.json();
+                }
+            }
         }
 
-        const movie = searchData.results[0];
-        const movieId = movie.id;
+        // 2. Fallback to title search if ID search failed or was not possible
+        if (!movieData) {
+            const searchUrl = `${TMDB_BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(title)}&language=ja-JP`;
+            const searchRes = await fetch(searchUrl);
+            const searchData = await searchRes.json();
 
-        // 2. Fetch full details including credits and release dates
-        const detailsUrl = `${TMDB_BASE_URL}/movie/${movieId}?api_key=${apiKey}&language=ja-JP&append_to_response=credits,keywords,release_dates`;
-        const detailRes = await fetch(detailsUrl);
-        const data = await detailRes.json();
+            if (!searchData.results || searchData.results.length === 0) {
+                showError('映画情報が見つかりませんでした。');
+                return;
+            }
 
-        populateModal(data);
+            const movie = searchData.results[0];
+            const detailsUrl = `${TMDB_BASE_URL}/movie/${movie.id}?api_key=${apiKey}&language=ja-JP&append_to_response=credits,keywords,release_dates`;
+            const detailRes = await fetch(detailsUrl);
+            movieData = await detailRes.json();
+        }
+
+        // Save to Cache
+        if (cacheKey && movieData) {
+            localStorage.setItem(cacheKey, JSON.stringify(movieData));
+        }
+
+        populateModal(movieData);
     } catch (error) {
         console.error('Error fetching details:', error);
         showError('情報の取得中にエラーが発生しました。');
@@ -195,12 +236,24 @@ function showError(msg) {
 async function fetchImages() {
     const posters = document.querySelectorAll('.tmdb-poster');
     
+    // Cleanup legacy title-based cache
+    Object.keys(localStorage).forEach(key => {
+        if (key.startsWith(LEGACY_CACHE_PREFIX) && !key.startsWith(CACHE_PREFIX_POSTER)) {
+            localStorage.removeItem(key);
+        }
+    });
+
     for (const poster of posters) {
         const title = poster.dataset.title;
-        if (!title) continue;
+        const movieId = poster.dataset.movieId;
+        if (!title && !movieId) continue;
 
+        // Use movieId as cache key if available, fallback to title (though title is not recommended for ID-based management)
+        const cacheKey = movieId ? CACHE_PREFIX_POSTER + movieId : (title ? LEGACY_CACHE_PREFIX + title : null);
+        if (!cacheKey) continue;
+        
         // Check Cache
-        const cachedImage = localStorage.getItem('tmdb_poster_' + title);
+        const cachedImage = localStorage.getItem(cacheKey);
         if (cachedImage) {
             poster.style.backgroundImage = `url('${cachedImage}')`;
             continue;
@@ -210,26 +263,45 @@ async function fetchImages() {
             const apiKey = window.TMDB_API_KEY;
             if (!apiKey) continue;
 
-            // Search Movie
-            const searchUrl = `${TMDB_BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(title)}&language=ja-JP`;
-            const response = await fetch(searchUrl);
-            const data = await response.json();
+            let posterPath = null;
 
-            if (data.results && data.results.length > 0) {
-                const posterPath = data.results[0].poster_path;
-                if (posterPath) {
-                    const imageUrl = poster.classList.contains('poster-placeholder') ? 
-                        IMAGE_BASE_URL_LARGE + posterPath : 
-                        IMAGE_BASE_URL + posterPath;
-                    
-                    poster.style.backgroundImage = `url('${imageUrl}')`;
-                    
-                    // Cache it
-                    localStorage.setItem('tmdb_poster_' + title, imageUrl);
+            // 1. Try to fetch by ID if possible
+            if (movieId && movieId.startsWith('global_')) {
+                const parts = movieId.split('_');
+                const tmdbId = parts[parts.length - 1];
+                if (tmdbId && !isNaN(tmdbId)) {
+                    const detailsUrl = `${TMDB_BASE_URL}/movie/${tmdbId}?api_key=${apiKey}&language=ja-JP`;
+                    const res = await fetch(detailsUrl);
+                    if (res.ok) {
+                        const data = await res.json();
+                        posterPath = data.poster_path;
+                    }
                 }
             }
+
+            // 2. Fallback to title search
+            if (!posterPath && title) {
+                const searchUrl = `${TMDB_BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(title)}&language=ja-JP`;
+                const response = await fetch(searchUrl);
+                const data = await response.json();
+
+                if (data.results && data.results.length > 0) {
+                    posterPath = data.results[0].poster_path;
+                }
+            }
+
+            if (posterPath) {
+                const imageUrl = poster.classList.contains('poster-placeholder') ? 
+                    IMAGE_BASE_URL_LARGE + posterPath : 
+                    IMAGE_BASE_URL + posterPath;
+                
+                poster.style.backgroundImage = `url('${imageUrl}')`;
+                
+                // Cache it
+                localStorage.setItem(cacheKey, imageUrl);
+            }
         } catch (error) {
-            console.error('Error fetching image for:', title, error);
+            console.error('Error fetching image for:', title || movieId, error);
         }
     }
 }

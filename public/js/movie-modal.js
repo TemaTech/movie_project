@@ -38,7 +38,7 @@ function getModalElements() {
     };
 }
 
-function openModal(title, movieId = null) {
+function openModal(title, movieId = null, releaseYear = null) {
     const { modal, modalBody, modalLoading } = getModalElements();
     if (!modal) {
         console.error('Modal element not found');
@@ -50,7 +50,7 @@ function openModal(title, movieId = null) {
     if (modalBody) modalBody.style.display = 'none';
     if (modalLoading) modalLoading.style.display = 'flex';
     
-    fetchMovieDetails(title, movieId);
+    fetchMovieDetails(title, movieId, releaseYear);
 }
 
 function closeModal(event) {
@@ -72,7 +72,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-async function fetchMovieDetails(title, movieId = null) {
+async function fetchMovieDetails(title, movieId = null, releaseYear = null) {
     const apiKey = window.TMDB_API_KEY;
     if (!apiKey) {
         console.error('TMDB_API_KEY is not defined');
@@ -114,17 +114,35 @@ async function fetchMovieDetails(title, movieId = null) {
 
         // 2. Fallback to title search if ID search failed or was not possible
         if (!movieData) {
-            const searchUrl = `${TMDB_BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(title)}&language=ja-JP`;
+            // 公開年がある場合は年指定で精度を上げる
+            let searchUrl = `${TMDB_BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(title)}&language=ja-JP`;
+            if (releaseYear) {
+                searchUrl += `&year=${releaseYear}`;
+            }
             const searchRes = await fetch(searchUrl);
             const searchData = await searchRes.json();
 
-            if (!searchData.results || searchData.results.length === 0) {
+            let selectedMovie = null;
+            if (searchData.results && searchData.results.length > 0) {
+                // 公開年が指定されている場合、その年に一致するものを優先
+                if (releaseYear) {
+                    selectedMovie = searchData.results.find(m => {
+                        const movieYear = m.release_date ? m.release_date.split('-')[0] : null;
+                        return movieYear === String(releaseYear);
+                    });
+                }
+                // 見つからなければ最初の結果を使用
+                if (!selectedMovie) {
+                    selectedMovie = searchData.results[0];
+                }
+            }
+
+            if (!selectedMovie) {
                 showError('映画情報が見つかりませんでした。');
                 return;
             }
 
-            const movie = searchData.results[0];
-            const detailsUrl = `${TMDB_BASE_URL}/movie/${movie.id}?api_key=${apiKey}&language=ja-JP&append_to_response=credits,keywords,release_dates`;
+            const detailsUrl = `${TMDB_BASE_URL}/movie/${selectedMovie.id}?api_key=${apiKey}&language=ja-JP&append_to_response=credits,keywords,release_dates`;
             const detailRes = await fetch(detailsUrl);
             movieData = await detailRes.json();
         }
@@ -262,6 +280,7 @@ async function fetchImages() {
     for (const poster of posters) {
         const title = poster.dataset.title;
         const movieId = poster.dataset.movieId;
+        const releaseYear = poster.dataset.releaseYear;
         if (!title && !movieId) continue;
 
         // Use movieId as cache key if available, fallback to title (though title is not recommended for ID-based management)
@@ -295,14 +314,28 @@ async function fetchImages() {
                 }
             }
 
-            // 2. Fallback to title search
+            // 2. Fallback to title search with year filtering
             if (!posterPath && title) {
-                const searchUrl = `${TMDB_BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(title)}&language=ja-JP`;
+                let searchUrl = `${TMDB_BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(title)}&language=ja-JP`;
+                if (releaseYear) {
+                    searchUrl += `&year=${releaseYear}`;
+                }
                 const response = await fetch(searchUrl);
                 const data = await response.json();
 
                 if (data.results && data.results.length > 0) {
-                    posterPath = data.results[0].poster_path;
+                    // 公開年が指定されている場合、その年に一致するものを優先
+                    let selectedResult = null;
+                    if (releaseYear) {
+                        selectedResult = data.results.find(m => {
+                            const movieYear = m.release_date ? m.release_date.split('-')[0] : null;
+                            return movieYear === String(releaseYear);
+                        });
+                    }
+                    if (!selectedResult) {
+                        selectedResult = data.results[0];
+                    }
+                    posterPath = selectedResult.poster_path;
                 }
             }
 

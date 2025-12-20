@@ -283,6 +283,12 @@
                 padding: 0.8rem 1rem;
                 justify-content: center; /* 中央揃え */
             }
+            .page-title {
+                font-size: 1.6rem; /* スマホ向けに縮小 */
+                margin: 30px 0 20px; /* 余白も調整 */
+                padding: 0 10px;
+                line-height: 1.2;
+            }
             .logo {
                 width: 100%;
                 text-align: center;

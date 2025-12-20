@@ -14,6 +14,7 @@
                 </div>
                 <div class="modal-title-section">
                     <h2 id="modalTitle" class="modal-title">Movie Title</h2>
+                    <div id="modalTitleEn" class="modal-title-en" style="display: none;"></div>
                     <div class="modal-meta">
                         <span id="modalYear" class="meta-tag year">202X</span>
                         <span id="modalRuntime" class="meta-tag runtime">120分</span>

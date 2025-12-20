@@ -216,7 +216,7 @@
             z-index: 2;
         }
         .movie-title {
-            font-size: 1.1rem;
+            font-size: 1.6rem;
             font-weight: 700;
             margin-bottom: 4px;
             display: block;

@@ -9,7 +9,7 @@
 @section('content')
 
 <header>
-    <div class="logo">MUBIRAN</div>
+    <a href="/" class="logo">MUBIRAN</a>
     
     <!-- Toggle Switch -->
     <div class="toggle-container">

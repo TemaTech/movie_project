@@ -104,6 +104,16 @@
     -webkit-text-fill-color: transparent;
 }
 
+.modal-title-en {
+    font-size: 1.1rem;
+    font-style: italic;
+    color: var(--text-secondary);
+    opacity: 0.8;
+    margin-top: -5px;
+    margin-bottom: 15px;
+    font-weight: 500;
+}
+
 .modal-tagline {
     font-style: italic;
     color: #aaa;

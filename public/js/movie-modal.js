@@ -144,6 +144,22 @@ async function fetchMovieDetails(title, movieId = null) {
 function populateModal(data) {
     // Basics
     document.getElementById('modalTitle').textContent = data.title;
+    
+    // original_titleの表示ロジック
+    const titleEnEl = document.getElementById('modalTitleEn');
+    if (titleEnEl) {
+        // 日本映画かどうかをチェック (iso_3166_1: 'JP' を探す)
+        const isJapanese = data.production_countries && data.production_countries.some(c => c.iso_3166_1 === 'JP' || c.name === 'Japan');
+        const originalTitle = data.original_title;
+        
+        if (originalTitle && originalTitle !== data.title && !isJapanese) {
+            titleEnEl.textContent = originalTitle;
+            titleEnEl.style.display = 'block';
+        } else {
+            titleEnEl.style.display = 'none';
+        }
+    }
+
     document.getElementById('modalTagline').textContent = data.tagline || '';
     document.getElementById('modalOverview').textContent = data.overview || 'あらすじ情報は現在ありません。';
     document.getElementById('modalPoster').src = data.poster_path ? IMAGE_BASE_URL_LARGE + data.poster_path : '';

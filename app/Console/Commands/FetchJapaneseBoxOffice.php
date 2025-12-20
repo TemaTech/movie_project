@@ -324,6 +324,7 @@ class FetchJapaneseBoxOffice extends Command
                         $movieData = [
                             'movie_id' => $this->createMovieId($currentRank, $title, $distributor, $wikidataReleaseDate),
                             'title' => $title,
+                            'original_title' => $tmdbDetails['original_title'] ?? null,
                             'box_office' => $boxOffice,
                             'rank' => $currentRank,
                             'production_country' => $productionCountry,
@@ -636,7 +637,7 @@ class FetchJapaneseBoxOffice extends Command
     // TMDBから作品詳細（ジャンル、制作費）を一括取得
     private function fetchTMDBDetails(string $title, ?string $releaseDate = null): array
     {
-        $defaultResult = ['genres' => [], 'budget' => 0];
+        $defaultResult = ['genres' => [], 'budget' => 0, 'original_title' => null];
         $apiKey = config('services.tmdb.api_key');
         if (empty($apiKey)) {
             return $defaultResult;
@@ -721,7 +722,8 @@ class FetchJapaneseBoxOffice extends Command
 
             return [
                 'genres' => $genres,
-                'budget' => $budgetYen
+                'budget' => $budgetYen,
+                'original_title' => $details['original_title'] ?? null
             ];
 
         } catch (\Exception $e) {

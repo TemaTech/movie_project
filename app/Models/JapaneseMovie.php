@@ -19,6 +19,7 @@ class JapaneseMovie extends Model
     protected $fillable = [
         'movie_id',
         'title',
+        'original_title',
         'box_office',
         'budget',
         'release_date',

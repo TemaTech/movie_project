@@ -14,6 +14,9 @@
     <div class="list-poster tmdb-poster" data-title="{{ $movie->title }}" data-movie-id="{{ $movie->movie_id }}" data-type="movie"></div>
     <div class="list-info">
         <span class="movie-title">{{ $movie->title }}</span>
+        @if(!empty($movie->original_title) && $movie->original_title !== $movie->title && ($movie->production_country ?? '') !== 'JP')
+            <span class="movie-title-en">{{ $movie->original_title }}</span>
+        @endif
     </div>
     <div class="list-revenue">
         @if(isset($isJapan) && $isJapan)

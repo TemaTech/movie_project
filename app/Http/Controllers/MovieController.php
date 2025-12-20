@@ -280,9 +280,13 @@ class MovieController extends Controller
             $globalMovies->through(function ($movie) use ($genreMap, &$rank, $titleMap) {
                 $movie->rank = $rank++;
                 // タイトルの変換を追加
-                $originalTitle = $movie->title;
-                $movie->title = $titleMap[$originalTitle] ?? $originalTitle;
-                $movie->original_title = $originalTitle;
+                $dbTitle = $movie->title;
+                $movie->title = $titleMap[$dbTitle] ?? $dbTitle;
+                // original_titleがデータベースにない、またはタイトルと同じ場合のみ、
+                // 必要に応じて代入するようにする（既に正しい値がある場合は保持）
+                if (empty($movie->original_title)) {
+                    $movie->original_title = $dbTitle;
+                }
                 // ドルから円への換算（1ドル = 約150円で計算）
                 $movie->box_office_billion = number_format($movie->box_office * 150 / 100000000, 1);
                 $movie->budget_billion = number_format($movie->budget * 150 / 100000000, 1);
@@ -436,10 +440,12 @@ class MovieController extends Controller
 
             // データの変換処理
             $transformedData = collect($movies->items())->map(function ($movie, $index) use ($titleMap, $tab, $page, $perPage, $genreMap) {
-                // タイトルの変換（ここを修正）
-                $originalTitle = $movie->title;
-                $movie->title = $titleMap[$originalTitle] ?? $originalTitle;
-                $movie->original_title = $originalTitle;  // 元のタイトルも保持
+                // タイトルの変換
+                $dbTitle = $movie->title;
+                $movie->title = $titleMap[$dbTitle] ?? $dbTitle;
+                if (empty($movie->original_title)) {
+                    $movie->original_title = $dbTitle;
+                }
 
                 // ジャンルの変換
                 if (!is_array($movie->genres)) {

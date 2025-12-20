@@ -48,6 +48,12 @@ class FetchGlobalBoxOffice extends Command
                                 'language' => 'ja'
                             ])->json();
 
+                            // 英語のタイトルを別途取得（original_titleが非英語の場合や確実に英語名が欲しい場合のため）
+                            $englishDetails = Http::get("https://api.themoviedb.org/3/movie/{$movie['id']}", [
+                                'api_key' => $api_key,
+                                'language' => 'en-US'
+                            ])->json();
+
                             // データ品質チェック
                             // 1. 興行収入が0または丁度10億ドルの場合はスキップ
                             if (empty($movieDetails['revenue']) || $movieDetails['revenue'] === 1000000000) {
@@ -102,7 +108,8 @@ class FetchGlobalBoxOffice extends Command
 
                             $movies[] = [
                                 'movie_id' => 'global_' . sprintf('%03d', $rank) . '_' . $movie['id'],
-                                'title' => $movie['title'],
+                                'title' => $movieDetails['title'] ?? $movie['title'],
+                                'original_title' => $englishDetails['title'] ?? ($movieDetails['original_title'] ?? null),
                                 'box_office' => $movieDetails['revenue'] ?? 0,
                                 'budget' => $movieDetails['budget'] ?? 0,
                                 'release_date' => !empty($movie['release_date']) ? $movie['release_date'] : null,

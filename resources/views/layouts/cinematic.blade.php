@@ -218,9 +218,19 @@
         .movie-title {
             font-size: 1.1rem;
             font-weight: 700;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
             display: block;
             color: var(--text-primary);
+        }
+        .movie-title-en {
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 8px;
+            display: block;
+            color: var(--text-secondary);
+            font-style: italic;
+            opacity: 0.8;
+            line-height: 1.2;
         }
         .tags {
             display: flex;
@@ -396,12 +406,16 @@
                 min-width: 0; /* 折り返しを有効にするため */
             }
             .list-item .movie-title {
-                margin-bottom: 0;
+                margin-bottom: 2px;
                 font-size: 0.95rem;
-                line-height: 1.4;
+                line-height: 1.3;
                 white-space: normal;
                 word-break: break-all;
                 display: block;
+            }
+            .list-item .movie-title-en {
+                font-size: 0.75rem;
+                margin-bottom: 0;
             }
             .list-revenue {
                 text-align: right;

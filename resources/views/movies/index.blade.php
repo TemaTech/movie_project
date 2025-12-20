@@ -34,7 +34,7 @@
 </header>
 
 <div class="container">
-    <h1 class="page-title" id="page-title">Global Box Office Ranking</h1>
+    <h1 class="page-title" id="page-title">世界興行収入ランキング</h1>
 
     <!-- Global Ranking Container -->
     <div id="global-container" style="display: block;">
@@ -98,7 +98,7 @@
         document.getElementById('btn-' + tab).classList.add('active');
         document.getElementById('global-container').style.display = tab === 'global' ? 'block' : 'none';
         document.getElementById('japan-container').style.display = tab === 'japan' ? 'block' : 'none';
-        document.getElementById('page-title').textContent = tab === 'global' ? 'Global Box Office Ranking' : 'Japan Box Office Ranking';
+        document.getElementById('page-title').textContent = tab === 'global' ? '世界興行収入ランキング' : '日本興行収入ランキング';
         document.getElementById('tabInput').value = tab;
         const url = new URL(window.location);
         url.searchParams.set('tab', tab);

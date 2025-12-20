@@ -333,7 +333,7 @@
             } 
             /* Rank 1 Layout Adjustments for Mobile */
             .top-card.rank-1 .poster-placeholder {
-                grid-row: 1 / span 3;
+                grid-row: 1 / span 4;
                 grid-column: 1;
                 margin-bottom: 0;
                 height: 150px;
@@ -344,22 +344,29 @@
                 grid-column: 2; 
                 font-size: 1.1rem; 
                 align-self: end;
-                margin-bottom: 5px;
+                margin-bottom: 2px;
                 /* 折り返し許可 */
                 white-space: normal;
                 display: -webkit-box;
-                -webkit-line-clamp: 3;
+                -webkit-line-clamp: 2;
                 -webkit-box-orient: vertical;
                 overflow: hidden;
             }
+            .top-card.rank-1 .movie-title-en {
+                grid-row: 2;
+                grid-column: 2;
+                font-size: 0.75rem;
+                margin-bottom: 4px;
+                align-self: start;
+            }
             .top-card.rank-1 .revenue-main { 
-                grid-row: 2; 
+                grid-row: 3; 
                 grid-column: 2; 
                 font-size: 1.3rem; 
                 line-height: 1.2;
             }
             .top-card.rank-1 .revenue-sub {
-                grid-row: 3;
+                grid-row: 4;
                 grid-column: 2;
                 align-self: start;
             }

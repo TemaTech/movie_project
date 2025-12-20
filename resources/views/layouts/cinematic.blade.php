@@ -376,31 +376,43 @@
             .top-card .revenue-sub { font-size: 0.7rem; }
             
             .list-item {
-                grid-template-columns: 40px 50px 1fr;
-                gap: 10px;
-                padding: 12px 15px; /* 少しパディングを詰める */
+                grid-template-columns: 35px 50px 1fr auto; /* 4カラムに変更: 順位, ポスター, 情報, 金額 */
+                gap: 12px;
+                padding: 12px 15px;
+                align-items: center;
+            }
+            .list-rank {
+                font-size: 1.2rem; /* 少し小さくしてスペース確保 */
+                width: 35px;
+                text-align: center;
+            }
+            .list-poster {
+                width: 45px;
+                height: 68px;
             }
             .list-info {
-                padding-left: 10px; /* 余白を調整 */
-                display: flex;
-                align-items: center; /* タイトルを中央に */
+                padding-left: 0;
+                display: block;
+                min-width: 0; /* 折り返しを有効にするため */
             }
             .list-item .movie-title {
                 margin-bottom: 0;
-                font-size: 1rem;
+                font-size: 0.95rem;
+                line-height: 1.4;
+                white-space: normal;
+                word-break: break-all;
+                display: block;
             }
             .list-revenue {
-                grid-column: 3; /* タイトルの右側に配置 */
-                grid-row: 1;
                 text-align: right;
-                padding-left: 0;
                 display: flex;
                 flex-direction: column;
                 justify-content: center;
                 gap: 2px;
+                min-width: 80px; /* 金額エリアの最低幅確保 */
             }
             .list-revenue .revenue-main {
-                font-size: 1.1rem;
+                font-size: 1rem;
             }
             .list-revenue .revenue-sub {
                 font-size: 0.65rem;

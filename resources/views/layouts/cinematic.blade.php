@@ -376,17 +376,35 @@
             .top-card .revenue-sub { font-size: 0.7rem; }
             
             .list-item {
-                grid-template-columns: 40px 50px 1fr; /* Revenueを下に落とすなどの調整が必要かも */
-                grid-template-rows: auto auto;
+                grid-template-columns: 40px 50px 1fr;
                 gap: 10px;
+                padding: 12px 15px; /* 少しパディングを詰める */
+            }
+            .list-info {
+                padding-left: 10px; /* 余白を調整 */
+                display: flex;
+                align-items: center; /* タイトルを中央に */
+            }
+            .list-item .movie-title {
+                margin-bottom: 0;
+                font-size: 1rem;
             }
             .list-revenue {
-                grid-column: 1 / -1;
-                text-align: left;
-                padding-left: 90px; /* 画像分ずらす */
+                grid-column: 3; /* タイトルの右側に配置 */
+                grid-row: 1;
+                text-align: right;
+                padding-left: 0;
                 display: flex;
-                gap: 10px;
-                align-items: baseline;
+                flex-direction: column;
+                justify-content: center;
+                gap: 2px;
+            }
+            .list-revenue .revenue-main {
+                font-size: 1.1rem;
+            }
+            .list-revenue .revenue-sub {
+                font-size: 0.65rem;
+                margin-top: 0;
             }
         }
 

@@ -9,11 +9,9 @@
             {{ number_format($movie->box_office / 100000000, 2) }}億ドル
         @endif
     </div>
-    <div class="revenue-sub">
-        @if(isset($isJapan) && $isJapan)
-            {{ $movie->budget_billion === '0.0' || !$movie->budget_billion ? '-' : '制作費: ' . $movie->budget_billion . '億円' }}
-        @else
+    @if(!(isset($isJapan) && $isJapan))
+        <div class="revenue-sub">
             {{ $movie->box_office_billion }}億円
-        @endif
-    </div>
+        </div>
+    @endif
 </div>

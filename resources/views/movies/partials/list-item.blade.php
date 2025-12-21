@@ -8,7 +8,7 @@
     }
     $barWidth = min(($revenueVal / $maxRevenue) * 100, 100);
 @endphp
-<div class="list-item" onclick="openModal('{{ addslashes($movie->title) }}', '{{ $movie->movie_id }}', {{ $movie->release_date ? \Carbon\Carbon::parse($movie->release_date)->year : 'null' }}, {{ $movie->tmdb_id ?? 'null' }})">
+<div class="list-item" onclick="openModal('{{ addslashes($movie->title) }}', '{{ $movie->movie_id }}', {{ $movie->release_date ? \Carbon\Carbon::parse($movie->release_date)->year : 'null' }}, {{ $movie->tmdb_id ?? 'null' }}, '{{ $movie->box_office_billion ?? null }}')">
     <div class="revenue-bar-bg" style="width: {{ $barWidth }}%;"></div>
     <div class="list-rank">{{ str_pad($movie->rank, 2, '0', STR_PAD_LEFT) }}</div>
     <div class="list-poster tmdb-poster {{ $movie->poster_path ? '' : 'poster-placeholder' }}" 

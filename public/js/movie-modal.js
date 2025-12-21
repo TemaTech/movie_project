@@ -38,7 +38,7 @@ function getModalElements() {
     };
 }
 
-function openModal(title, movieId = null, releaseYear = null, tmdbId = null) {
+function openModal(title, movieId = null, releaseYear = null, tmdbId = null, revenue = null) {
     const { modal, modalBody, modalLoading } = getModalElements();
     if (!modal) {
         console.error('Modal element not found');
@@ -50,7 +50,7 @@ function openModal(title, movieId = null, releaseYear = null, tmdbId = null) {
     if (modalBody) modalBody.style.display = 'none';
     if (modalLoading) modalLoading.style.display = 'flex';
     
-    fetchMovieDetails(title, movieId, releaseYear, tmdbId);
+    fetchMovieDetails(title, movieId, releaseYear, tmdbId, revenue);
 }
 
 function closeModal(event) {
@@ -72,7 +72,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-async function fetchMovieDetails(title, movieId = null, releaseYear = null, tmdbId = null) {
+async function fetchMovieDetails(title, movieId = null, releaseYear = null, tmdbId = null, revenue = null) {
     const apiKey = window.TMDB_API_KEY;
     if (!apiKey) {
         console.error('TMDB_API_KEY is not defined');
@@ -87,7 +87,7 @@ async function fetchMovieDetails(title, movieId = null, releaseYear = null, tmdb
         if (cachedData) {
             try {
                 const data = JSON.parse(cachedData);
-                populateModal(data);
+                populateModal(data, revenue);
                 return;
             } catch (e) {
                 console.error('Error parsing cached detail data:', e);
@@ -161,14 +161,14 @@ async function fetchMovieDetails(title, movieId = null, releaseYear = null, tmdb
             localStorage.setItem(cacheKey, JSON.stringify(movieData));
         }
 
-        populateModal(movieData);
+        populateModal(movieData, revenue);
     } catch (error) {
         console.error('Error fetching details:', error);
         showError('情報の取得中にエラーが発生しました。');
     }
 }
 
-function populateModal(data) {
+function populateModal(data, revenue = null) {
     // Basics
     document.getElementById('modalTitle').textContent = data.title;
     
@@ -204,7 +204,11 @@ function populateModal(data) {
     };
 
     document.getElementById('modalBudget').textContent = toYen(data.budget);
-    document.getElementById('modalRevenue').textContent = toYen(data.revenue);
+    if (revenue) {
+        document.getElementById('modalRevenue').textContent = revenue + '億円';
+    } else {
+        document.getElementById('modalRevenue').textContent = toYen(data.revenue);
+    }
     
     // Country mapping with fallback
     const countryNames = data.production_countries ? 

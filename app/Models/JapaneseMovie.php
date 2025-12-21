@@ -30,7 +30,8 @@ class JapaneseMovie extends Model
         'distributor',
         'data_source',
         'data_source_url',
-        'last_updated'
+        'last_updated',
+        'is_active'
     ];
 
     protected $casts = [
@@ -39,7 +40,8 @@ class JapaneseMovie extends Model
         'box_office' => 'integer',
         'budget' => 'integer',
         'last_updated' => 'datetime',
-        'tmdb_id' => 'integer'
+        'tmdb_id' => 'integer',
+        'is_active' => 'boolean'
     ];
 
     protected $attributes = [

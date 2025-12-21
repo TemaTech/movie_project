@@ -201,6 +201,18 @@ class FetchJapaneseBoxOffice extends Command
                     $distributor = '';
                     $releaseYear = null;
                     
+                    // 背景色の検出（公開中の映画判定）
+                    // 例: style="background:#ccffcc" や style="background-color:#90ee90" など
+                    $isActive = false;
+                    if (preg_match('/(?:style="[^"]*background(?:-color)?:\s*#([0-9a-fA-F]{3,6})|bgcolor=["\']?#(?:[0-9a-fA-F]{3,6}))/', $row, $bgMatches)) {
+                        // 緑系の背景色かどうかを簡易チェック（今のところ背景色があればActiveとする）
+                        $isActive = true;
+                        $this->info("Active movie detected (Background Color): Row $rowIndex");
+                    }
+                    if (strpos($row, 'background:#ccffcc') !== false || strpos($row, 'background:#90ee90') !== false || strpos($row, 'background:#dfd') !== false) {
+                         $isActive = true;
+                    }
+                    
                     // rowspanの処理
                     if ($rowspanRank > 0) {
                         // 前の行の順位を継続使用
@@ -333,7 +345,8 @@ class FetchJapaneseBoxOffice extends Command
                             'release_date' => $wikidataReleaseDate,
                             'last_updated' => now(),
                             'genres' => json_encode($genresToSave),
-                            'budget' => $budgetToSave
+                            'budget' => $budgetToSave,
+                            'is_active' => $isActive
                         ];
 
                         $movies[] = $movieData;

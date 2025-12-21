@@ -477,6 +477,52 @@
         .btn-filter:hover {
             opacity: 0.9;
         }
+        /* --- Active Movie Highlight --- */
+        /* Active Movie (Green) - Unified for both Global and Japan */
+        .active-movie {
+            border: 1px solid rgba(46, 204, 113, 0.6) !important; /* Green */
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.15);
+            position: relative;
+            background: rgba(46, 204, 113, 0.05) !important;
+        }
+
+        .active-badge {
+            display: inline-block;
+            background: #2ecc71; /* Green */
+            color: #000; /* Black text for visibility */
+            font-size: 0.6rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 6px;
+            font-weight: 700;
+            vertical-align: middle;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            animation: pulse-badge 2s infinite;
+        }
+        
+        .active-badge-card {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #2ecc71; /* Green */
+            color: #000;
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-weight: 700;
+            z-index: 10;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            animation: pulse-badge 2s infinite;
+        }
+
+        @keyframes pulse-badge {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.9; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
     </style>
     
     @yield('head')

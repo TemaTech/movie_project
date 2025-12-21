@@ -8,10 +8,16 @@
     }
     $barWidth = min(($revenueVal / $maxRevenue) * 100, 100);
 @endphp
-<div class="list-item" onclick="openModal('{{ addslashes($movie->title) }}', '{{ $movie->movie_id }}', {{ $movie->release_date ? \Carbon\Carbon::parse($movie->release_date)->year : 'null' }})">
+<div class="list-item" onclick="openModal('{{ addslashes($movie->title) }}', '{{ $movie->movie_id }}', {{ $movie->release_date ? \Carbon\Carbon::parse($movie->release_date)->year : 'null' }}, {{ $movie->tmdb_id ?? 'null' }})">
     <div class="revenue-bar-bg" style="width: {{ $barWidth }}%;"></div>
     <div class="list-rank">{{ str_pad($movie->rank, 2, '0', STR_PAD_LEFT) }}</div>
-    <div class="list-poster tmdb-poster" data-title="{{ $movie->title }}" data-movie-id="{{ $movie->movie_id }}" data-release-year="{{ $movie->release_date ? \Carbon\Carbon::parse($movie->release_date)->year : '' }}" data-type="movie"></div>
+    <div class="list-poster tmdb-poster {{ $movie->poster_path ? '' : 'poster-placeholder' }}" 
+         style="{{ $movie->poster_path ? 'background-image: url(https://image.tmdb.org/t/p/w200' . $movie->poster_path . ')' : '' }}"
+         data-title="{{ $movie->title }}" 
+         data-movie-id="{{ $movie->movie_id }}" 
+         data-tmdb-id="{{ $movie->tmdb_id ?? '' }}"
+         data-release-year="{{ $movie->release_date ? \Carbon\Carbon::parse($movie->release_date)->year : '' }}" 
+         data-type="movie"></div>
     <div class="list-info">
         <span class="movie-title">{{ $movie->title }}</span>
         @if(!empty($movie->original_title) && $movie->original_title !== $movie->title && ($movie->production_country ?? '') !== 'JP')

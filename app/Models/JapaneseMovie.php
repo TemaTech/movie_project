@@ -18,8 +18,10 @@ class JapaneseMovie extends Model
 
     protected $fillable = [
         'movie_id',
+        'tmdb_id',
         'title',
         'original_title',
+        'poster_path',
         'box_office',
         'budget',
         'release_date',
@@ -36,7 +38,8 @@ class JapaneseMovie extends Model
         'release_date' => 'date',
         'box_office' => 'integer',
         'budget' => 'integer',
-        'last_updated' => 'datetime'
+        'last_updated' => 'datetime',
+        'tmdb_id' => 'integer'
     ];
 
     protected $attributes = [

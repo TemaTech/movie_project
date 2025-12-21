@@ -190,7 +190,8 @@ class FetchJapaneseBoxOffice extends Command
                     if (strpos($row, '{|') !== false || strpos($row, '|}') !== false) {
                         continue;
                     }
-    
+
+
                     // 各行のデータを抽出
                     $lines = explode("\n", $row);
                     
@@ -426,6 +427,7 @@ class FetchJapaneseBoxOffice extends Command
         // デバッグ: 全ての順位と興行収入のマッピングを表示
         $this->info('順位と興行収入のマッピング:');
         foreach ($rankBoxOfficeMap as $rank => $boxOffice) {
+            if ($rank != 15 && $rank != 99) continue; // Debug: Only process target ranks
             $this->info(sprintf('順位 %d: %.1f億円', $rank, $boxOffice / 100000000));
         }
     }
@@ -637,7 +639,7 @@ class FetchJapaneseBoxOffice extends Command
     // TMDBから作品詳細（ジャンル、制作費）を一括取得
     private function fetchTMDBDetails(string $title, ?string $releaseDate = null): array
     {
-        $defaultResult = ['genres' => [], 'budget' => 0, 'original_title' => null];
+        $defaultResult = ['genres' => [], 'budget' => 0, 'original_title' => null, 'tmdb_id' => null, 'poster_path' => null];
         $apiKey = config('services.tmdb.api_key');
         if (empty($apiKey)) {
             return $defaultResult;
@@ -655,7 +657,7 @@ class FetchJapaneseBoxOffice extends Command
                 'api_key' => $apiKey,
                 'query' => $title,
                 'language' => 'ja-JP',
-                'region' => 'JP',
+                // 'region' => 'JP', // Wikipediaの年は本国公開年のことが多いため、地域指定を外す
                 'year' => $wikiYear,
             ]);
             // レートリミット考慮 (以前より緩和しても良いが安全策)
@@ -672,17 +674,28 @@ class FetchJapaneseBoxOffice extends Command
 
             foreach ($results as $result) {
                 $candidateTitle = $result['title'] ?? '';
+                if ($title === 'アバター' || $title === 'ズートピア') {
+                    $this->info("Checking candidate: " . $candidateTitle . " (" . ($result['release_date'] ?? 'No Date') . ")");
+                }
+
                 if ($candidateTitle === '') continue;
                 $candidateYear = isset($result['release_date']) && $result['release_date']
                     ? substr($result['release_date'], 0, 4)
                     : null;
 
-                // 年一致必須
-                if ($candidateYear !== $wikiYear) {
+                // 年一致 (±1年を許容)
+                if (abs((int)$candidateYear - (int)$wikiYear) > 1) {
+                    if ($title === 'アバター' || $title === 'ズートピア') {
+                        $this->info("Year mismatch: Wiki=$wikiYear vs TMDB=$candidateYear");
+                    }
                     continue;
                 }
 
                 $similarity = $this->calculateSimilarity($normalizedQuery, $this->normalizeTitle($candidateTitle));
+                if ($title === 'アバター' || $title === 'ズートピア') {
+                     $this->info("Similarity: $similarity");
+                }
+
                 if ($similarity < 0.6) {
                     continue;
                 }
@@ -693,10 +706,11 @@ class FetchJapaneseBoxOffice extends Command
                 }
             }
 
-            if (!$bestMatch) {
-                return $defaultResult;
-            }
+                if (!$bestMatch) {
+                    return $defaultResult;
+                }
 
+            
             // 2. 詳細取得
             $detailsResponse = Http::get("https://api.themoviedb.org/3/movie/{$bestMatch['id']}", [
                 'api_key' => $apiKey,
@@ -723,7 +737,9 @@ class FetchJapaneseBoxOffice extends Command
             return [
                 'genres' => $genres,
                 'budget' => $budgetYen,
-                'original_title' => $details['original_title'] ?? null
+                'original_title' => $details['original_title'] ?? null,
+                'tmdb_id' => $details['id'],
+                'poster_path' => $details['poster_path']
             ];
 
         } catch (\Exception $e) {
@@ -758,7 +774,11 @@ class FetchJapaneseBoxOffice extends Command
             // genres は配列のまま保存（json_encodeは不要）
             $data['genres'] = $tmdbDetails['genres'];  // 変更点：json_encodeを削除
             $data['budget'] = $tmdbDetails['budget'];
-            $data['release_date'] = $tmdbDetails['release_date'];
+            $data['release_date'] = $tmdbDetails['release_date'] ?? $data['release_date']; 
+            
+            // 新規追加フィールド
+            $data['tmdb_id'] = $tmdbDetails['tmdb_id'] ?? null;
+            $data['poster_path'] = $tmdbDetails['poster_path'] ?? null;
             
             // デバッグ情報
             $this->info("\nTMDBデータの統合結果:");
@@ -799,9 +819,11 @@ class FetchJapaneseBoxOffice extends Command
         if ($len1 === 0) return $len2 === 0 ? 1.0 : 0.0;
         if ($len2 === 0) return 0.0;
 
-        $distance = levenshtein($str1, $str2);
-        $maxLength = max($len1, $len2);
+        // $distance = levenshtein($str1, $str2);
+        // $maxLength = max($len1, $len2);
+        // return 1 - ($distance / $maxLength);
         
-        return 1 - ($distance / $maxLength);
+        similar_text($str1, $str2, $percent);
+        return $percent / 100;
     }
 }

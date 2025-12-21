@@ -38,7 +38,7 @@ function getModalElements() {
     };
 }
 
-function openModal(title, movieId = null, releaseYear = null) {
+function openModal(title, movieId = null, releaseYear = null, tmdbId = null) {
     const { modal, modalBody, modalLoading } = getModalElements();
     if (!modal) {
         console.error('Modal element not found');
@@ -50,7 +50,7 @@ function openModal(title, movieId = null, releaseYear = null) {
     if (modalBody) modalBody.style.display = 'none';
     if (modalLoading) modalLoading.style.display = 'flex';
     
-    fetchMovieDetails(title, movieId, releaseYear);
+    fetchMovieDetails(title, movieId, releaseYear, tmdbId);
 }
 
 function closeModal(event) {
@@ -72,7 +72,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-async function fetchMovieDetails(title, movieId = null, releaseYear = null) {
+async function fetchMovieDetails(title, movieId = null, releaseYear = null, tmdbId = null) {
     const apiKey = window.TMDB_API_KEY;
     if (!apiKey) {
         console.error('TMDB_API_KEY is not defined');
@@ -99,12 +99,21 @@ async function fetchMovieDetails(title, movieId = null, releaseYear = null) {
     try {
         let movieData = null;
 
-        // 1. Try to use TMDB ID from movieId if available (for global movies)
-        if (movieId && movieId.startsWith('global_')) {
+        // 1. Try to use TMDB ID directly (Most reliable)
+        if (tmdbId) {
+            const detailsUrl = `${TMDB_BASE_URL}/movie/${tmdbId}?api_key=${apiKey}&language=ja-JP&append_to_response=credits,keywords,release_dates`;
+            const detailRes = await fetch(detailsUrl);
+            if (detailRes.ok) {
+                movieData = await detailRes.json();
+            }
+        }
+        
+        // 2. Try to use global TMDB ID from movieId if available
+        if (!movieData && movieId && movieId.startsWith('global_')) {
             const parts = movieId.split('_');
-            const tmdbId = parts[parts.length - 1];
-            if (tmdbId && !isNaN(tmdbId)) {
-                const detailsUrl = `${TMDB_BASE_URL}/movie/${tmdbId}?api_key=${apiKey}&language=ja-JP&append_to_response=credits,keywords,release_dates`;
+            const tId = parts[parts.length - 1];
+            if (tId && !isNaN(tId)) {
+                const detailsUrl = `${TMDB_BASE_URL}/movie/${tId}?api_key=${apiKey}&language=ja-JP&append_to_response=credits,keywords,release_dates`;
                 const detailRes = await fetch(detailsUrl);
                 if (detailRes.ok) {
                     movieData = await detailRes.json();
@@ -280,10 +289,18 @@ async function fetchImages() {
     for (const poster of posters) {
         const title = poster.dataset.title;
         const movieId = poster.dataset.movieId;
+        const tmdbId = poster.dataset.tmdbId; // New: Get TMDB ID directly
         const releaseYear = poster.dataset.releaseYear;
-        if (!title && !movieId) continue;
+        
+        if (!title && !movieId && !tmdbId) continue;
 
-        // Use movieId as cache key if available, fallback to title (though title is not recommended for ID-based management)
+        // If we already have the image set via PHP (server-side), skip fetching (unless we want to cache it?)
+        // The server-side rendering sets the style attribute, so we can check that.
+        if (poster.style.backgroundImage && poster.style.backgroundImage !== 'none' && !poster.classList.contains('poster-placeholder')) {
+            continue;
+        }
+
+        // Use movieId as cache key if available
         const cacheKey = movieId ? CACHE_PREFIX_POSTER + movieId : (title ? LEGACY_CACHE_PREFIX + title : null);
         if (!cacheKey) continue;
         
@@ -300,12 +317,21 @@ async function fetchImages() {
 
             let posterPath = null;
 
-            // 1. Try to fetch by ID if possible
-            if (movieId && movieId.startsWith('global_')) {
+            // 1. Try to fetch by TMDB ID (Most reliable)
+            if (tmdbId) {
+                const detailsUrl = `${TMDB_BASE_URL}/movie/${tmdbId}?api_key=${apiKey}&language=ja-JP`;
+                const res = await fetch(detailsUrl);
+                if (res.ok) {
+                    const data = await res.json();
+                    posterPath = data.poster_path;
+                }
+            }
+            // 2. Try to fetch by generic ID if possible
+            else if (movieId && movieId.startsWith('global_')) {
                 const parts = movieId.split('_');
-                const tmdbId = parts[parts.length - 1];
-                if (tmdbId && !isNaN(tmdbId)) {
-                    const detailsUrl = `${TMDB_BASE_URL}/movie/${tmdbId}?api_key=${apiKey}&language=ja-JP`;
+                const tId = parts[parts.length - 1];
+                if (tId && !isNaN(tId)) {
+                    const detailsUrl = `${TMDB_BASE_URL}/movie/${tId}?api_key=${apiKey}&language=ja-JP`;
                     const res = await fetch(detailsUrl);
                     if (res.ok) {
                         const data = await res.json();
@@ -314,7 +340,7 @@ async function fetchImages() {
                 }
             }
 
-            // 2. Fallback to title search with year filtering
+            // 3. Fallback to title search with year filtering
             if (!posterPath && title) {
                 let searchUrl = `${TMDB_BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(title)}&language=ja-JP`;
                 if (releaseYear) {

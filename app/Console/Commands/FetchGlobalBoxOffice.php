@@ -25,8 +25,8 @@ class FetchGlobalBoxOffice extends Command
             $page = 1;
             $totalMovies = 0;
 
-            // 100件になるまでページングして取得
-            while ($totalMovies < 100) {
+            // 200件になるまでページングして取得
+            while ($totalMovies < 200) {
                 $response = Http::get('https://api.themoviedb.org/3/discover/movie', [
                     'api_key' => $api_key,
                     'sort_by' => 'revenue.desc',
@@ -125,14 +125,14 @@ class FetchGlobalBoxOffice extends Command
                             ];
 
                             $this->info(sprintf(
-                                'データ取得完了 [%d/100]: %s (興行収入: $%s)',
+                                'データ取得完了 [%d/200]: %s (興行収入: $%s)',
                                 $rank,
                                 $movie['title'],
                                 number_format($movieDetails['revenue'])
                             ));
 
-                            // 100件に達したら終了
-                            if ($totalMovies >= 100) {
+                            // 200件に達したら終了
+                            if ($totalMovies >= 200) {
                                 break;
                             }
                         } catch (\Exception $e) {

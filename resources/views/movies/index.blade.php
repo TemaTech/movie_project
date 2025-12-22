@@ -58,6 +58,9 @@
         <div class="text-center mt-4 mb-5">
             <small style="color: var(--text-secondary);">最終更新: {{ $globalLastUpdated }}</small>
         </div>
+        <div class="d-flex justify-content-center mt-4">
+            {{ $globalMovies->appends(['tab' => 'global', 'genre' => $selectedGenre])->links('vendor.pagination.simple-cinematic') }}
+        </div>
     </div>
 
     <!-- Japan Ranking Container -->
@@ -82,6 +85,9 @@
 
         <div class="text-center mt-4 mb-5">
             <small style="color: var(--text-secondary);">最終更新: {{ $japanLastUpdated }}</small>
+        </div>
+        <div class="d-flex justify-content-center mt-4">
+            {{ $japanMovies->appends(['tab' => 'japan', 'genre' => $selectedGenre])->links('vendor.pagination.simple-cinematic') }}
         </div>
     </div>
 </div>

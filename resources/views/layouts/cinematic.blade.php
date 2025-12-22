@@ -523,6 +523,44 @@
             100% { transform: scale(1); opacity: 1; }
         }
 
+        /* Pagination Styles */
+        .cinematic-pagination {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            align-items: center;
+            margin-top: 30px;
+        }
+
+        .pagination-btn {
+            display: inline-block;
+            padding: 10px 24px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 30px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .pagination-btn:hover:not(.disabled) {
+            background: #fff;
+            color: #000;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+        }
+
+        .pagination-btn.disabled {
+            opacity: 0.5;
+            cursor: default;
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.05);
+            pointer-events: none;
+        }
+
     </style>
     
     @yield('head')

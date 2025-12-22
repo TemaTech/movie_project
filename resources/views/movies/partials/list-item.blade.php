@@ -19,12 +19,21 @@
     } else {
         $isActive = $releaseDate && $releaseDate->diffInMonths(now()) <= 6;
     }
+
+    $posterUrl = '';
+    if ($movie->poster_path) {
+        if (str_starts_with($movie->poster_path, 'posters/')) {
+             $posterUrl = asset('storage/' . $movie->poster_path);
+        } else {
+             $posterUrl = 'https://image.tmdb.org/t/p/w200' . $movie->poster_path;
+        }
+    }
 @endphp
 <div class="list-item {{ $isActive ? 'active-movie' : '' }} {{ isset($isJapan) && $isJapan ? 'is-japan' : '' }}" onclick="openModal('{{ addslashes($movie->title) }}', '{{ $movie->movie_id }}', {{ $releaseDate ? $releaseDate->year : 'null' }}, {{ $movie->tmdb_id ?? 'null' }}, '{{ $movie->box_office_billion ?? null }}')">
     <div class="revenue-bar-bg" style="width: {{ $barWidth }}%;"></div>
     <div class="list-rank">{{ str_pad($movie->rank, 2, '0', STR_PAD_LEFT) }}</div>
-    <div class="list-poster tmdb-poster {{ $movie->poster_path ? '' : 'poster-placeholder' }}" 
-         style="{{ $movie->poster_path ? 'background-image: url(https://image.tmdb.org/t/p/w200' . $movie->poster_path . ')' : '' }}"
+    <div class="list-poster tmdb-poster {{ $posterUrl ? '' : 'poster-placeholder' }}" 
+         style="{{ $posterUrl ? 'background-image: url(' . $posterUrl . ')' : '' }}"
          data-title="{{ $movie->title }}" 
          data-movie-id="{{ $movie->movie_id }}" 
          data-tmdb-id="{{ $movie->tmdb_id ?? '' }}"

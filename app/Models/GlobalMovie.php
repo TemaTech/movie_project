@@ -19,8 +19,10 @@ class GlobalMovie extends Model
 
     protected $fillable = [
         'movie_id',
+        'tmdb_id',
         'title',
         'original_title',
+        'poster_path',
         'box_office',
         'budget',
         'release_date',

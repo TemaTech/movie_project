@@ -10,13 +10,24 @@
     } else {
         $isActive = $releaseDate && $releaseDate->diffInMonths(now()) <= 6;
     }
+
+    $posterUrl = '';
+    if (isset($movie->poster_path) && $movie->poster_path) {
+        if (str_starts_with($movie->poster_path, 'posters/')) {
+             $posterUrl = asset('storage/' . $movie->poster_path);
+        } else {
+             $posterUrl = 'https://image.tmdb.org/t/p/w200' . $movie->poster_path;
+        }
+    }
 @endphp
 <div class="top-card rank-{{ $movie->rank }} {{ $isActive ? 'active-movie' : '' }}" onclick="openModal('{{ addslashes($movie->title) }}', '{{ $movie->movie_id }}', {{ $releaseDate ? $releaseDate->year : 'null' }}, {{ $movie->tmdb_id ?? 'null' }}, '{{ $movie->box_office_billion ?? null }}')">
     @if($isActive)
         <div class="active-badge-card">公開中</div>
     @endif
     <div class="rank-badge">{{ $movie->rank }}</div>
-    <div class="poster-placeholder tmdb-poster" data-title="{{ $movie->title }}" data-movie-id="{{ $movie->movie_id }}" data-release-year="{{ $releaseDate ? $releaseDate->year : '' }}" data-type="movie"></div>
+    <div class="tmdb-poster {{ $posterUrl ? '' : 'poster-placeholder' }}" 
+         style="{{ $posterUrl ? 'background-image: url(' . $posterUrl . ')' : '' }}"
+         data-title="{{ $movie->title }}" data-movie-id="{{ $movie->movie_id }}" data-release-year="{{ $releaseDate ? $releaseDate->year : '' }}" data-type="movie"></div>
     <div class="movie-title" style="font-size: 1.3rem; margin-bottom: 2px;">{{ $movie->title }}</div>
     @if(!empty($movie->original_title) && $movie->original_title !== $movie->title && ($movie->production_country ?? '') !== 'JP')
         <div class="movie-title-en">{{ $movie->original_title }}</div>

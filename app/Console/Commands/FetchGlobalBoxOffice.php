@@ -9,9 +9,12 @@ use App\Models\GlobalMovie;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\BoxOfficeFetchError;
+use App\Console\Traits\SavesMovieImages;
 
 class FetchGlobalBoxOffice extends Command
 {
+    use SavesMovieImages;
+
     protected $signature = 'movies:fetch-global-boxoffice';
     protected $description = '世界の映画興行収入データを取得・更新します（日本を除く）';
 
@@ -106,10 +109,22 @@ class FetchGlobalBoxOffice extends Command
                                 ? json_encode(collect($movieDetails['genres'])->pluck('name')->toArray())
                                 : json_encode([]);
 
+                            // ポスター画像の保存処理
+                            $localPosterPath = null;
+                            if (!empty($movieDetails['poster_path'])) {
+                                $filenameBase = 'global_' . sprintf('%03d', $rank) . '_' . $movie['id'];
+                                $localPosterPath = $this->downloadAndSaveImage($movieDetails['poster_path'], $filenameBase);
+                                if ($localPosterPath) {
+                                    $this->info("ポスター画像を保存しました: {$localPosterPath}");
+                                }
+                            }
+
                             $movies[] = [
                                 'movie_id' => 'global_' . sprintf('%03d', $rank) . '_' . $movie['id'],
+                                'tmdb_id' => $movie['id'],
                                 'title' => $movieDetails['title'] ?? $movie['title'],
                                 'original_title' => $englishDetails['title'] ?? ($movieDetails['original_title'] ?? null),
+                                'poster_path' => $localPosterPath,
                                 'box_office' => $movieDetails['revenue'] ?? 0,
                                 'budget' => $movieDetails['budget'] ?? 0,
                                 'release_date' => !empty($movie['release_date']) ? $movie['release_date'] : null,
@@ -234,4 +249,5 @@ class FetchGlobalBoxOffice extends Command
             }
         }
     }
-} 
+}
+ 

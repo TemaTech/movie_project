@@ -11,9 +11,12 @@ use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\BoxOfficeFetchError;
+use App\Console\Traits\SavesMovieImages;
 
 class FetchJapaneseBoxOffice extends Command
 {
+    use SavesMovieImages;
+
     /**
      * The name and signature of the console command.
      *
@@ -334,10 +337,22 @@ class FetchJapaneseBoxOffice extends Command
                         }
 
                         $genresToSave = !empty($tmdbGenres) ? $tmdbGenres : $wikidataGenres;
+                        
+                        $localPosterPath = null;
+                        if (!empty($tmdbDetails['poster_path'])) {
+                             $filenameBase = 'jp_' . sprintf('%03d', $currentRank) . '_' . ($tmdbDetails['tmdb_id'] ?? 'unknown');
+                             $localPosterPath = $this->downloadAndSaveImage($tmdbDetails['poster_path'], $filenameBase);
+                             if ($localPosterPath) {
+                                 $this->info("ポスター画像を保存しました: {$localPosterPath}");
+                             }
+                        }
+
                         $movieData = [
                             'movie_id' => $this->createMovieId($currentRank, $title, $distributor, $wikidataReleaseDate),
+                            'tmdb_id' => $tmdbDetails['tmdb_id'] ?? null,
                             'title' => $title,
                             'original_title' => $tmdbDetails['original_title'] ?? null,
+                            'poster_path' => $localPosterPath,
                             'box_office' => $boxOffice,
                             'rank' => $currentRank,
                             'production_country' => $productionCountry,

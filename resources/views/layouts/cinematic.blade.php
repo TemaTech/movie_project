@@ -151,7 +151,7 @@
         .rank-2 .rank-badge { color: #C0C0C0; }
         .rank-3 .rank-badge { color: #CD7F32; }
 
-        .poster-placeholder {
+        .poster-placeholder, .card-poster {
             width: 100%;
             aspect-ratio: 2/3;
             background-color: #333;
@@ -332,7 +332,7 @@
                 gap: 5px 15px; /* Row gap 5px, Col gap 15px */
             } 
             /* Rank 1 Layout Adjustments for Mobile */
-            .top-card.rank-1 .poster-placeholder {
+            .top-card.rank-1 .poster-placeholder, .top-card.rank-1 .card-poster {
                 grid-row: 1 / span 4;
                 grid-column: 1;
                 margin-bottom: 0;

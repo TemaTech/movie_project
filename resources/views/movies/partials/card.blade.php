@@ -25,7 +25,7 @@
         <div class="active-badge-card">公開中</div>
     @endif
     <div class="rank-badge">{{ $movie->rank }}</div>
-    <div class="tmdb-poster {{ $posterUrl ? '' : 'poster-placeholder' }}" 
+    <div class="card-poster tmdb-poster {{ $posterUrl ? '' : 'poster-placeholder' }}"  
          style="{{ $posterUrl ? 'background-image: url(' . $posterUrl . ')' : '' }}"
          data-title="{{ $movie->title }}" data-movie-id="{{ $movie->movie_id }}" data-release-year="{{ $releaseDate ? $releaseDate->year : '' }}" data-type="movie"></div>
     <div class="movie-title" style="font-size: 1.3rem; margin-bottom: 2px;">{{ $movie->title }}</div>

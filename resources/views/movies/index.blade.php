@@ -3,7 +3,7 @@
 @section('title', '歴代映画興行収入ランキング | 世界・日本のヒット作を徹底分析 - MUBIRAN')
 
 @section('head')
-    <link rel="stylesheet" href="{{ asset('css/movie-modal.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/movie-modal.css') }}?v={{ time() }}">
 @endsection
 
 @section('content')

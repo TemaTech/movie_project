@@ -307,6 +307,19 @@
         max-height: none;
         transform: translateY(100%);
     }
+
+    .modal-close {
+        position: sticky;
+        top: 15px;
+        right: auto;
+        margin-left: auto;
+        margin-right: 20px;
+        margin-top: 20px;
+        margin-bottom: -56px; /* Overlap content */
+        z-index: 100;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(4px);
+    }
 }
 
 /* Cursor Pointer for cards */

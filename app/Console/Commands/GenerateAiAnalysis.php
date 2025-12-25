@@ -11,7 +11,12 @@ class GenerateAiAnalysis extends Command
      *
      * @var string
      */
-    protected $signature = 'app:generate-ai-analysis';
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
+    protected $signature = 'app:generate-ai-analysis {--type=all : The type of ranking to generate (global/japan/all)}';
 
     /**
      * The console command description.
@@ -25,12 +30,18 @@ class GenerateAiAnalysis extends Command
      */
     public function handle()
     {
+        $type = $this->option('type');
         $this->info('Starting AI Analysis generation...');
         $this->info('DB Connection: ' . \DB::connection()->getDatabaseName());
         $this->info('DB Host: ' . config('database.connections.mysql.host'));
 
-        $this->processTable('global_movies', 'Global Ranking');
-        $this->processTable('japanese_movies', 'Japanese Ranking');
+        if ($type === 'global' || $type === 'all') {
+            $this->processTable('global_movies', 'Global Ranking');
+        }
+        
+        if ($type === 'japan' || $type === 'all') {
+            $this->processTable('japanese_movies', 'Japanese Ranking');
+        }
 
         $this->info('AI Analysis generation completed successfully.');
     }

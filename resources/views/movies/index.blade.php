@@ -4,6 +4,7 @@
 
 @section('head')
     <link rel="stylesheet" href="{{ asset('css/movie-modal.css') }}?v={{ time() }}">
+    <link rel="stylesheet" href="{{ asset('css/ai-analysis.css') }}?v={{ time() }}">
 @endsection
 
 @section('content')
@@ -123,4 +124,5 @@
     });
 </script>
 <script src="{{ asset('js/movie-modal.js') }}"></script>
+<script src="{{ asset('js/ai-analysis.js') }}"></script>
 @endsection

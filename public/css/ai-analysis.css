@@ -1,0 +1,153 @@
+/* AI Button (Sparkle) */
+.ai-trigger-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b; /* slate-500 */
+    transition: all 0.3s ease;
+    border-radius: 50%;
+    margin-left: 8px;
+    position: relative;
+    z-index: 10; /* Ensure clickable above other things */
+}
+
+.ai-trigger-btn:hover {
+    background-color: rgba(139, 92, 246, 0.1);
+    color: #a78bfa; /* violet-400 */
+    transform: scale(1.1);
+}
+
+.ai-trigger-btn.active {
+    color: #a78bfa; /* violet-400 */
+    background-color: rgba(139, 92, 246, 0.2);
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
+}
+
+.ai-sparkle-icon {
+    width: 28px;
+    height: 28px;
+}
+
+/* List Item Drawer */
+/* List Item Drawer */
+.list-item {
+    transition: background-color 0.2s;
+}
+
+.ai-drawer {
+    grid-column: 1 / -1; /* Span all columns in Grid */
+    width: 100%;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    background: rgba(15, 23, 42, 0.3); /* Darker stripe */
+    border-radius: 0 0 8px 8px;
+    margin-top: 0; /* Align perfectly */
+    border-top: 1px solid transparent;
+}
+
+.ai-drawer.open {
+    border-top-color: rgba(255, 255, 255, 0.05);
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.ai-content {
+    padding: 12px 16px 12px 50px; /* Indent to align with title somewhat */
+    color: #e2e8f0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.ai-content-prefix {
+    color: #a78bfa;
+    font-weight: bold;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding-top: 2px;
+}
+
+/* Card Overlay */
+.top-card {
+    position: relative; /* Context for overlay */
+    overflow: hidden; /* Contain overlay */
+}
+
+.top-card .ai-trigger-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    color: #e2e8f0;
+    z-index: 20;
+}
+
+.ai-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: auto;
+    min-height: 40%;
+    background: linear-gradient(to top, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.85));
+    backdrop-filter: blur(8px);
+    padding: 16px;
+    transform: translateY(110%);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 15;
+    border-top: 1px solid rgba(139, 92, 246, 0.3);
+    border-radius: 0 0 12px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.ai-overlay.visible {
+    transform: translateY(0);
+}
+
+.ai-overlay-content {
+    color: #f1f5f9;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.ai-overlay-label {
+    color: #a78bfa;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+    display: block;
+}
+
+/* Animation for the icon */
+@keyframes pulse-soft {
+    0% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 0.8; }
+}
+
+.ai-trigger-btn:hover .ai-sparkle-icon {
+    animation: pulse-soft 2s infinite;
+}
+
+/* Mobile Adjustments */
+@media (max-width: 768px) {
+    .ai-content {
+        padding: 12px; /* Less indentation on mobile */
+    }
+    
+    .ai-drawer.open {
+         width: 100%; /* Ensure full width */
+    }
+}

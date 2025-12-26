@@ -100,6 +100,13 @@ class FetchJapaneseBoxOffice extends Command
                     
                     try {
                         // 既存のデータを一旦全て削除（truncateは暗黙的にコミットするため、トランザクション外で実行）
+                        
+                        // 削除前にAI分析データを退避（タイトルをキーにする）
+                        $existingAnalyses = JapaneseMovie::whereNotNull('ai_analysis')
+                            ->pluck('ai_analysis', 'title')
+                            ->toArray();
+                        $this->info(sprintf('既存のAI分析データを%d件退避しました', count($existingAnalyses)));
+
                         JapaneseMovie::query()->delete();
                         $this->info('既存のデータを削除しました');
                         
@@ -361,7 +368,8 @@ class FetchJapaneseBoxOffice extends Command
                             'last_updated' => now(),
                             'genres' => json_encode($genresToSave),
                             'budget' => $budgetToSave,
-                            'is_active' => $isActive
+                            'is_active' => $isActive,
+                            'ai_analysis' => $existingAnalyses[$title] ?? null
                         ];
 
                         $movies[] = $movieData;

@@ -136,7 +136,8 @@ class FetchGlobalBoxOffice extends Command
                                     : null,
                                 'data_source' => 'TMDb',
                                 'data_source_url' => "https://www.themoviedb.org/movie/{$movie['id']}",
-                                'last_updated' => now()
+                                'last_updated' => now(),
+                                'ai_analysis' => $existingAnalyses[$movie['id']] ?? null
                             ];
 
                             $this->info(sprintf(
@@ -190,6 +191,14 @@ class FetchGlobalBoxOffice extends Command
                 
                 try {
                     // 既存のデータを一旦全て削除（truncateは暗黙的にコミットするため、トランザクション外で実行）
+                    
+                    // 削除前にAI分析データを退避
+                    $existingAnalyses = GlobalMovie::where('region', 'global')
+                        ->whereNotNull('ai_analysis')
+                        ->pluck('ai_analysis', 'tmdb_id')
+                        ->toArray();
+                    $this->info(sprintf('既存のAI分析データを%d件退避しました', count($existingAnalyses)));
+
                     GlobalMovie::where('region', 'global')->delete();
                     $this->info('既存のデータを削除しました');
                     

@@ -505,7 +505,8 @@
         .active-badge-card {
             position: absolute;
             top: 10px;
-            right: 10px;
+            left: 10px;
+            right: auto;
             background: #2ecc71; /* Green */
             color: #000;
             font-size: 0.7rem;

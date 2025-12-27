@@ -19,11 +19,9 @@ if systemctl is-active --quiet mysql; then
     echo "✅ Backup created."
 fi
 
-# 2. 既存サービスの停止
+# 2. 既存サービスの停止 (MySQLのみ停止、Nginxはホスト側で使用するため停止しない)
 echo "🛑 Stopping existing services..."
-sudo systemctl stop nginx || true
 sudo systemctl stop mysql || true
-sudo systemctl disable nginx || true
 sudo systemctl disable mysql || true
 
 # 3. 最新コードの取得

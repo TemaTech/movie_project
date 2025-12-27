@@ -40,6 +40,7 @@ until docker compose -f docker-compose.prod.yml exec app php artisan db:monitor 
 done
 
 echo "⚙️ Running application setup..."
+docker compose -f docker-compose.prod.yml exec app php artisan storage:link
 docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
 docker compose -f docker-compose.prod.yml exec app php artisan config:cache
 docker compose -f docker-compose.prod.yml exec app php artisan route:cache

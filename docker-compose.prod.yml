@@ -1,0 +1,44 @@
+services:
+  app:
+    build: .
+    restart: always
+    ports:
+      - "80:8080"
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - db
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-movie_db}
+      DB_USERNAME: ${DB_USERNAME:-movie_user}
+      DB_PASSWORD: ${DB_PASSWORD:-movie_password}
+      APP_ENV: production
+      APP_DEBUG: false
+    networks:
+      - app-network
+
+  db:
+    image: mysql:8.0
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-movie_db}
+      MYSQL_USER: ${DB_USERNAME:-movie_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-movie_password}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - app-network
+
+volumes:
+  mysql_data:
+
+networks:
+  app-network:
+    driver: bridge

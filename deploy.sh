@@ -5,6 +5,12 @@ set -e
 
 echo "🚀 Starting Deployment Process..."
 
+# .envファイルの読み込み
+if [ -f .env ]; then
+    echo "📄 Loading environment variables from .env..."
+    export $(grep -v '^#' .env | xargs)
+fi
+
 # 1. データベースのバックアップ (既存のMySQLが動いている場合)
 if systemctl is-active --quiet mysql; then
     echo "📦 Backing up existing database..."

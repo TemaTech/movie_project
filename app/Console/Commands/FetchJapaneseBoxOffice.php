@@ -46,6 +46,12 @@ class FetchJapaneseBoxOffice extends Command
             
             $this->info('Wikipediaからデータ取得を開始...');
             
+            // 既存のAI分析データを事前に退避（DB接続タイムアウト回避のため早期に取得）
+            $existingAnalyses = JapaneseMovie::whereNotNull('ai_analysis')
+                ->pluck('ai_analysis', 'title')
+                ->toArray();
+            $this->info(sprintf('既存のAI分析データを%d件保持しています', count($existingAnalyses)));
+
             $response = Http::wikimedia()->get('https://ja.wikipedia.org/w/api.php', [
                 'action' => 'parse',
                 'page' => '日本歴代興行成績上位の映画一覧',
@@ -69,7 +75,7 @@ class FetchJapaneseBoxOffice extends Command
                     $this->info('テーブル抽出結果:');
                     $this->info(substr($match[0], 0, 500) . '...');
                 } else {
-                    $this->error('テーブルが見つかりませんでした');
+                    $this->info('（簡易チェック）テーブルが見つかりませんでしたが、詳細解析を続行します');
                 }
                 
                 $moviesData = $this->parseWikipediaResponse($response->json());
@@ -86,7 +92,18 @@ class FetchJapaneseBoxOffice extends Command
                             $movie['title'],
                             $movie['box_office'] / 100000000
                         ));
+                        // 退避したAI分析データを適用
+                        if (isset($existingAnalyses[$movie['title']])) {
+                            $movie['ai_analysis'] = $existingAnalyses[$movie['title']];
+                        }
                     }
+                    // すべてのデータにAI分析を再適用
+                    foreach ($moviesData as &$m) {
+                        if (isset($existingAnalyses[$m['title']])) {
+                            $m['ai_analysis'] = $existingAnalyses[$m['title']];
+                        }
+                    }
+                    unset($m);
 
                     // 既存のトランザクションがあれば終了
                     try {
@@ -95,18 +112,19 @@ class FetchJapaneseBoxOffice extends Command
                             $this->info('既存のトランザクションをロールバックしました');
                         }
                     } catch (\Exception $e) {
-                        // 既存のトランザクションがない場合は無視
+                         // 無視
                     }
                     
                     try {
-                        // 既存のデータを一旦全て削除（truncateは暗黙的にコミットするため、トランザクション外で実行）
-                        
-                        // 削除前にAI分析データを退避（タイトルをキーにする）
-                        $existingAnalyses = JapaneseMovie::whereNotNull('ai_analysis')
-                            ->pluck('ai_analysis', 'title')
-                            ->toArray();
-                        $this->info(sprintf('既存のAI分析データを%d件退避しました', count($existingAnalyses)));
+                        // 長時間の処理後に再接続を試みる
+                        try {
+                            DB::reconnect();
+                            $this->info('データベース接続をリフレッシュしました');
+                        } catch (\Exception $e) {
+                            $this->warn('データベース再接続に失敗しましたが、続行します: ' . $e->getMessage());
+                        }
 
+                        // 既存のデータを一旦全て削除
                         JapaneseMovie::query()->delete();
                         $this->info('既存のデータを削除しました');
                         
@@ -129,7 +147,6 @@ class FetchJapaneseBoxOffice extends Command
                             'trace' => $e->getTraceAsString()
                         ]);
                         
-                        // トランザクションがアクティブかチェックしてからロールバック
                         if (DB::transactionLevel() > 0) {
                             DB::rollBack();
                             $this->info('トランザクションをロールバックしました');

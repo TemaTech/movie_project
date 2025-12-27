@@ -32,14 +32,14 @@ git pull origin features/movie_master
 
 # 4. Dockerコンテナのビルドと起動
 echo "🐳 Building and starting Docker containers..."
-sudo docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml up -d --build
 
 # 5. アプリケーションのセットアップ
 echo "⚙️ Running application setup..."
-sudo docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
-sudo docker compose -f docker-compose.prod.yml exec app php artisan config:cache
-sudo docker compose -f docker-compose.prod.yml exec app php artisan route:cache
-sudo docker compose -f docker-compose.prod.yml exec app php artisan view:cache
+docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
+docker compose -f docker-compose.prod.yml exec app php artisan config:cache
+docker compose -f docker-compose.prod.yml exec app php artisan route:cache
+docker compose -f docker-compose.prod.yml exec app php artisan view:cache
 
 echo "✅ Deployment completed successfully!"
 echo "🌐 Application should be running on port 80"

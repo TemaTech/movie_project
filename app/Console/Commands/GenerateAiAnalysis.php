@@ -98,10 +98,10 @@ class GenerateAiAnalysis extends Command
         ";
 
         $models = [
-            'gemini-2.5-flash',
-            'gemini-2.0-flash',
-            'gemini-flash-latest', 
-            'gemini-pro-latest'
+            'gemini-2.0-flash-lite-preview-02-05', // High speed, potential higher limits
+            'gemini-2.0-flash',          // Standard v2 Flash
+            'gemini-1.5-flash',          // Standard v1.5 Flash (stable)
+            'gemma-2-27b-it'             // High free tier limit fallback (approx 14k req/day)
         ];
 
         try {

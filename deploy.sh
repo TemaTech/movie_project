@@ -35,6 +35,12 @@ echo "🐳 Building and starting Docker containers..."
 docker compose -f docker-compose.prod.yml up -d --build
 
 # 5. アプリケーションのセットアップ
+echo "⏳ Waiting for database connection..."
+until docker compose -f docker-compose.prod.yml exec app php artisan db:monitor > /dev/null 2>&1; do
+    echo "Waiting for database..."
+    sleep 3
+done
+
 echo "⚙️ Running application setup..."
 docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
 docker compose -f docker-compose.prod.yml exec app php artisan config:cache

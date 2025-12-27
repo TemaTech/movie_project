@@ -77,7 +77,7 @@ class GenerateAiAnalysis extends Command
      */
     private function generateAnalysis($movie, $table)
     {
-        $apiKey = env('GEMINI_API_KEY');
+        $apiKey = config('services.gemini.api_key');
         
         if (!$apiKey) {
             $this->error("GEMINI_API_KEY is not set in .env");

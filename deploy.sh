@@ -28,7 +28,7 @@ sudo systemctl disable mysql || true
 
 # 3. 最新コードの取得
 echo "⬇️ Pulling latest code..."
-git pull origin main
+git pull origin features/movie_master
 
 # 4. Dockerコンテナのビルドと起動
 echo "🐳 Building and starting Docker containers..."

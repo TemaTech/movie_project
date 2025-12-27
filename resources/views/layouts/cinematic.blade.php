@@ -330,6 +330,7 @@
                 align-content: center;
                 text-align: left;
                 gap: 5px 15px; /* Row gap 5px, Col gap 15px */
+                overflow: visible !important;
             } 
             /* Rank 1 Layout Adjustments for Mobile */
             .top-card.rank-1 .poster-placeholder, .top-card.rank-1 .card-poster {
@@ -373,7 +374,7 @@
             .top-card.rank-1 .rank-badge {
                 position: absolute;
                 top: -10px;
-                left: -10px;
+                left: -2px;
                 font-size: 3rem;
                 z-index: 10;
                 text-shadow: 2px 2px 4px rgba(0,0,0,0.8);

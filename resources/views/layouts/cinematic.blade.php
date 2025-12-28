@@ -306,145 +306,170 @@
                 margin-left: 0 !important;
             }
             
+            /* --- Top 3 Mobile Optimization (List Style) --- */
             .top-rankings { 
-                flex-direction: row; 
-                flex-wrap: wrap; 
-                justify-content: center; 
-                align-items: stretch;
+                flex-direction: column; 
                 gap: 10px;
-                margin-bottom: 30px;
-            }
-            .top-card { 
-                width: calc(50% - 5px); 
-                max-width: none; 
-                padding: 10px;
-            } 
-            .top-card.rank-1 { 
-                order: 1; 
-                width: 100%; 
-                max-width: 400px; 
-                padding: 15px;
-                display: grid;
-                grid-template-columns: 100px 1fr;
-                grid-template-rows: auto auto auto; /* Title, Revenue, Budget */
-                align-content: center;
-                text-align: left;
-                gap: 5px 15px; /* Row gap 5px, Col gap 15px */
-                overflow: visible !important;
-            } 
-            /* Rank 1 Layout Adjustments for Mobile */
-            .top-card.rank-1 .poster-placeholder, .top-card.rank-1 .card-poster {
-                grid-row: 1 / span 4;
-                grid-column: 1;
-                margin-bottom: 0;
-                height: 150px;
-                width: 100px;
-            }
-            .top-card.rank-1 .movie-title { 
-                grid-row: 1; 
-                grid-column: 2; 
-                font-size: 1.1rem; 
-                align-self: end;
-                margin-bottom: 2px;
-                /* 折り返し許可 */
-                white-space: normal;
-                display: -webkit-box;
-                -webkit-line-clamp: 2;
-                -webkit-box-orient: vertical;
-                overflow: hidden;
-            }
-            .top-card.rank-1 .movie-title-en {
-                grid-row: 2;
-                grid-column: 2;
-                font-size: 0.75rem;
-                margin-bottom: 4px;
-                align-self: start;
-            }
-            .top-card.rank-1 .revenue-main { 
-                grid-row: 3; 
-                grid-column: 2; 
-                font-size: 1.3rem; 
-                line-height: 1.2;
-            }
-            .top-card.rank-1 .revenue-sub {
-                grid-row: 4;
-                grid-column: 2;
-                align-self: start;
-            }
-            .top-card.rank-1 .rank-badge {
-                position: absolute;
-                top: -10px;
-                left: -2px;
-                font-size: 3rem;
-                z-index: 10;
-                text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+                margin-bottom: 20px;
+                align-items: stretch;
             }
 
-            /* Rank 2 & 3 Adjustments */
-            .top-card.rank-2 { order: 2; }
-            .top-card.rank-3 { order: 3; }
-            .top-card .rank-badge { font-size: 2rem; margin-bottom: 5px; }
-            .top-card .movie-title { 
-                font-size: 0.85rem; 
-                line-height: 1.3;
-                height: 2.6em; /* 2行分確保 */
-                margin-bottom: 5px;
-                /* 折り返し許可 */
-                white-space: normal;
-                display: -webkit-box;
-                -webkit-line-clamp: 2;
-                -webkit-box-orient: vertical;
-                overflow: hidden;
-            }
-            .top-card .revenue-main { font-size: 1rem; }
-            .top-card .revenue-sub { font-size: 0.7rem; }
-            
-            .list-item {
-                grid-template-columns: 35px 50px 1fr auto; /* 4カラムに変更: 順位, ポスター, 情報, 金額 */
-                gap: 12px;
-                padding: 12px 15px;
+            .top-card {
+                width: 100%;
+                max-width: none;
+                padding: 10px 15px; /* Match list-item padding */
+                display: grid;
+                /* Grid Layout EXACT match to list-item: Rank | Image | Info | Revenue */
+                /* list-item is: 35px 50px 1fr auto */
+                grid-template-columns: 35px 50px 1fr auto; 
+                grid-template-rows: auto;
                 align-items: center;
+                gap: 12px;
+                text-align: left;
+                order: unset !important;
+                overflow: hidden;
+                min-height: auto; /* Remove fixed min-height */
+            }
+            
+            /* Reset specific styles for ranks to share common list layout */
+            .top-card.rank-1, .top-card.rank-2, .top-card.rank-3 {
+                border-width: 1px;
+                margin-bottom: 0;
+            }
+            
+            /* Rank 1 Specifics for List View */
+            .top-card.rank-1 {
+                order: 1 !important;
+                background: linear-gradient(90deg, rgba(255, 215, 0, 0.1) 0%, rgba(10, 10, 10, 1) 100%);
+                border-color: rgba(255, 215, 0, 0.4);
+            }
+            .top-card.rank-2 {
+                order: 2 !important;
+                background: linear-gradient(90deg, rgba(192, 192, 192, 0.1) 0%, rgba(10, 10, 10, 1) 100%);
+                border-color: rgba(192, 192, 192, 0.4);
+            }
+            .top-card.rank-3 {
+                order: 3 !important;
+                background: linear-gradient(90deg, rgba(205, 127, 50, 0.1) 0%, rgba(10, 10, 10, 1) 100%);
+                border-color: rgba(205, 127, 50, 0.4);
+            }
+
+            /* Elements within Top Card (Mobile List View) */
+            
+            /* Rank Badge */
+            .top-card .rank-badge {
+                grid-column: 1;
+                grid-row: 1;
+                font-size: 1.2rem; /* Match list-rank size */
+                margin-bottom: 0;
+                text-shadow: none;
+                text-align: center;
+                position: static;
+                width: 35px; /* Match list-rank width */
+            }
+
+            /* Poster */
+            .top-card .poster-placeholder, .top-card .card-poster {
+                grid-column: 2;
+                grid-row: 1;
+                width: 45px; /* Match list-poster width */
+                height: 68px; /* Match list-poster height */
+                margin-bottom: 0;
+            }
+
+            /* Title */
+            .top-card .movie-title {
+                grid-column: 3;
+                grid-row: 1;
+                /* Base font size set by utility classes */
+                line-height: 1.3;
+                margin-bottom: 0;
+                display: block; 
+                white-space: normal; 
+                overflow: visible; 
+                align-self: center;
+                padding-right: 5px;
+            }
+            
+            /* Dynamic Font Sizes for Mobile */
+            .top-card .movie-title, .list-item .movie-title {
+                transition: font-size 0.2s;
+            }
+            .top-card .movie-title.title-short { font-size: 0.95rem; }
+            .top-card .movie-title.title-medium { font-size: 0.85rem; }
+            .top-card .movie-title.title-long { font-size: 0.75rem; }
+            
+            /* Fallback/Default if class missing */
+            .top-card .movie-title:not([class*="title-"]) { font-size: 0.95rem; }
+            
+            .top-card .movie-title-en {
+                display: none; 
+            }
+            
+            .top-card .revenue-main {
+                grid-column: 4;
+                grid-row: 1;
+                font-size: 1rem; /* Match list-revenue revenue-main */
+                text-align: right;
+                align-self: center;
+                white-space: nowrap;
+            }
+            .top-card .revenue-sub {
+                grid-column: 4;
+                grid-row: 1;
+                font-size: 0.65rem; /* Match list-revenue revenue-sub */
+                text-align: right;
+                margin-top: 20px; /* Slight offset to visually stack if space permits or just keep aligned */
+                display: block;
+                opacity: 0.8;
+            }
+
+            /* Active Badge & AI Button overrides */
+            .active-badge-card {
+                position: absolute;
+                top: 2px;
+                left: 32px; /* Adjust for list layout */
+                font-size: 0.55rem;
+                padding: 1px 5px;
+                z-index: 5;
+            }
+            
+            .top-card .ai-trigger-btn {
+                position: absolute;
+                bottom: 2px;
+                right: 5px;
+                width: 20px;
+                height: 20px;
+            }
+            .top-card .ai-sparkle-icon {
+                width: 14px;
+                height: 14px;
+            }
+            
+            .top-card:hover {
+                transform: none;
+                box-shadow: none;
+            }
+
+            /* --- List View (Rank 4+) adjustments --- */
+            .list-item {
+                grid-template-columns: 35px 50px 1fr auto; 
+                gap: 12px;
+                padding: 10px 15px;
             }
             .list-rank {
-                font-size: 1.2rem; /* 少し小さくしてスペース確保 */
+                font-size: 1.2rem;
                 width: 35px;
-                text-align: center;
             }
             .list-poster {
                 width: 45px;
                 height: 68px;
             }
-            .list-info {
-                padding-left: 0;
-                display: block;
-                min-width: 0; /* 折り返しを有効にするため */
-            }
-            .list-item .movie-title {
-                margin-bottom: 2px;
-                font-size: 0.95rem;
-                line-height: 1.3;
-                white-space: normal;
-                word-break: break-all;
-                display: block;
-            }
-            .list-item .movie-title-en {
-                font-size: 0.75rem;
-                margin-bottom: 0;
-            }
             .list-revenue {
-                text-align: right;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                gap: 2px;
-                min-width: 80px; /* 金額エリアの最低幅確保 */
+                min-width: 70px;
             }
             .list-revenue .revenue-main {
                 font-size: 1rem;
-            }
-            .list-revenue .revenue-sub {
-                font-size: 0.65rem;
-                margin-top: 0;
             }
         }
 

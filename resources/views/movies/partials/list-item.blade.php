@@ -28,6 +28,13 @@
              $posterUrl = 'https://image.tmdb.org/t/p/w200' . $movie->poster_path;
         }
     }
+    $titleLen = mb_strlen($movie->title);
+    $titleClass = 'title-short';
+    if ($titleLen > 35) {
+        $titleClass = 'title-long';
+    } elseif ($titleLen > 20) {
+        $titleClass = 'title-medium';
+    }
 @endphp
 <div class="list-item {{ $isActive ? 'active-movie' : '' }} {{ isset($isJapan) && $isJapan ? 'is-japan' : '' }}" onclick="openModal('{{ addslashes($movie->title) }}', '{{ $movie->movie_id }}', {{ $releaseDate ? $releaseDate->year : 'null' }}, {{ $movie->tmdb_id ?? 'null' }}, '{{ $movie->box_office_billion ?? null }}')">
     <div class="revenue-bar-bg" style="width: {{ $barWidth }}%;"></div>
@@ -40,7 +47,7 @@
          data-release-year="{{ $releaseDate ? $releaseDate->year : '' }}" 
          data-type="movie"></div>
     <div class="list-info">
-        <span class="movie-title">
+        <span class="movie-title {{ $titleClass }}">
             {{ $movie->title }}
             @if($isActive)
                 <span class="active-badge">公開中</span>

@@ -19,6 +19,13 @@
              $posterUrl = 'https://image.tmdb.org/t/p/w200' . $movie->poster_path;
         }
     }
+    $titleLen = mb_strlen($movie->title);
+    $titleClass = 'title-short';
+    if ($titleLen > 35) {
+        $titleClass = 'title-long';
+    } elseif ($titleLen > 20) {
+        $titleClass = 'title-medium';
+    }
 @endphp
 <div class="top-card rank-{{ $movie->rank }} {{ $isActive ? 'active-movie' : '' }}" onclick="openModal('{{ addslashes($movie->title) }}', '{{ $movie->movie_id }}', {{ $releaseDate ? $releaseDate->year : 'null' }}, {{ $movie->tmdb_id ?? 'null' }}, '{{ $movie->box_office_billion ?? null }}')">
     @if($isActive)
@@ -28,7 +35,7 @@
     <div class="card-poster tmdb-poster {{ $posterUrl ? '' : 'poster-placeholder' }}"  
          style="{{ $posterUrl ? 'background-image: url(' . $posterUrl . ')' : '' }}"
          data-title="{{ $movie->title }}" data-movie-id="{{ $movie->movie_id }}" data-release-year="{{ $releaseDate ? $releaseDate->year : '' }}" data-type="movie"></div>
-    <div class="movie-title" style="font-size: 1.3rem; margin-bottom: 2px;">{{ $movie->title }}</div>
+    <div class="movie-title {{ $titleClass }}" style="margin-bottom: 2px;">{{ $movie->title }}</div>
     @if(!empty($movie->original_title) && $movie->original_title !== $movie->title && ($movie->production_country ?? '') !== 'JP')
         <div class="movie-title-en">{{ $movie->original_title }}</div>
     @endif

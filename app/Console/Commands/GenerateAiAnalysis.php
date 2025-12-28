@@ -3,14 +3,10 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use Gemini;
 
 class GenerateAiAnalysis extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
     /**
      * The name and signature of the console command.
      *
@@ -23,7 +19,7 @@ class GenerateAiAnalysis extends Command
      *
      * @var string
      */
-    protected $description = 'Generate AI trends analysis for top ranking movies.';
+    protected $description = 'Generate AI trends analysis for top ranking movies using Gemini 1.5 Flash.';
 
     /**
      * Execute the console command.
@@ -31,9 +27,8 @@ class GenerateAiAnalysis extends Command
     public function handle()
     {
         $type = $this->option('type');
-        $this->info('Starting AI Analysis generation...');
+        $this->info('Starting AI Analysis generation (Paid Tier Mode)...');
         $this->info('DB Connection: ' . \DB::connection()->getDatabaseName());
-        $this->info('DB Host: ' . config('database.connections.mysql.host'));
 
         if ($type === 'global' || $type === 'all') {
             $this->processTable('global_movies', 'Global Ranking');
@@ -50,7 +45,7 @@ class GenerateAiAnalysis extends Command
     {
         $this->info("Processing {$label}...");
 
-        // Only process top 20 for AI analysis to save resources/tokens
+        // Process top 20 movies
         $movies = \DB::table($tableName)->orderBy('rank')->limit(20)->get();
 
         foreach ($movies as $movie) {
@@ -65,10 +60,6 @@ class GenerateAiAnalysis extends Command
             } else {
                 $this->error("Failed to generate analysis for: {$movie->title}");
             }
-
-            // Rate Limiting: Sleep to avoid hitting Gemini Free Tier limits (approx 15 RPM)
-            $this->info("Sleeping for 4 seconds to respect API rate limits...");
-            sleep(4);
         }
     }
 
@@ -97,51 +88,15 @@ class GenerateAiAnalysis extends Command
             5. 具体的な興行収入の数字は含めないでよい（コンテキストとして既にユーザーに見えているため）。
         ";
 
-        $models = [
-            'gemini-2.0-flash-lite-preview-02-05', // High speed, potential higher limits
-            'gemini-2.0-flash',          // Standard v2 Flash
-            'gemini-1.5-flash',          // Standard v1.5 Flash (stable)
-            'gemma-2-27b-it'             // High free tier limit fallback (approx 14k req/day)
-        ];
+        // Use the most cost-effective and fast model
+        $model = 'gemini-2.0-flash';
 
         try {
-            $client = \Gemini::client($apiKey);
-
-            foreach ($models as $model) {
-                $attempts = 0;
-                $maxAttempts = 2; // Try once, if limited wait long and retry once
-
-                while ($attempts < $maxAttempts) {
-                    try {
-                        $result = $client->generativeModel(model: $model)->generateContent($prompt);
-                        return $result->text();
-                    } catch (\Exception $e) {
-                        $msg = strtolower($e->getMessage());
-                        
-                        // Check for rate limit errors
-                        if (str_contains($msg, 'quota') || str_contains($msg, '429') || str_contains($msg, 'rate limit')) {
-                            $attempts++;
-                            if ($attempts < $maxAttempts) {
-                                // Free Tier is 15 RPM (approx). If we hit limit, penalty can be ~60s.
-                                // Wait 70s to be absolutely sure the window resets.
-                                $waitTime = 70; 
-                                $this->warn("Rate limit hit for {$model}. Cooldown: Waiting {$waitTime}s to reset API quota window...");
-                                sleep($waitTime);
-                                continue;
-                            }
-                        }
-                        
-                        $this->warn("Model {$model} failed: " . $e->getMessage());
-                        break; 
-                    }
-                }
-            }
-
+            $result = Gemini::client($apiKey)->generativeModel(model: $model)->generateContent($prompt);
+            return $result->text();
         } catch (\Exception $e) {
-            $this->error("API Error context for {$movie->title}: " . $e->getMessage());
+            $this->error("API Error for {$movie->title}: " . $e->getMessage());
             return null;
         }
-
-        return null;
     }
 }

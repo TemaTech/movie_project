@@ -40,18 +40,20 @@
         <div class="movie-title-en">{{ $movie->original_title }}</div>
     @endif
 
-    <div class="revenue-main" style="color: var(--accent-gold);">
-        @if(isset($isJapan) && $isJapan)
-            {{ $movie->box_office_billion }}億円
-        @else
-            {{ number_format($movie->box_office / 100000000, 2) }}億ドル
+    <div class="revenue-container">
+        <div class="revenue-main" style="color: var(--accent-gold);">
+            @if(isset($isJapan) && $isJapan)
+                {{ $movie->box_office_billion }}億円
+            @else
+                {{ number_format($movie->box_office / 100000000, 2) }}億ドル
+            @endif
+        </div>
+        @if(!(isset($isJapan) && $isJapan))
+            <div class="revenue-sub">
+                {{ $movie->box_office_billion }}億円
+            </div>
         @endif
     </div>
-    @if(!(isset($isJapan) && $isJapan))
-        <div class="revenue-sub">
-            {{ $movie->box_office_billion }}億円
-        </div>
-    @endif
     
     @if(!empty($movie->ai_analysis))
         <button class="ai-trigger-btn" onclick="toggleAi(event, this)" aria-label="AI分析を表示">

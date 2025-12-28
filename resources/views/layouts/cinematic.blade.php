@@ -310,14 +310,14 @@
             .top-rankings { 
                 flex-direction: column; 
                 gap: 10px;
-                margin-bottom: 20px;
+                margin-bottom: 10px; /* Reduced from 20px to match list gap */
                 align-items: stretch;
             }
 
             .top-card {
                 width: 100%;
                 max-width: none;
-                padding: 10px 15px; /* Match list-item padding */
+                padding: 10px 15px; /* Match standard padding */
                 display: grid;
                 /* Grid Layout EXACT match to list-item: Rank | Image | Info | Revenue */
                 /* list-item is: 35px 50px 1fr auto */
@@ -328,7 +328,9 @@
                 text-align: left;
                 order: unset !important;
                 overflow: hidden;
-                min-height: auto; /* Remove fixed min-height */
+                min-height: 100px; /* Fixed height match */
+                height: 100px; /* Force fixed height */
+                box-sizing: border-box;
             }
             
             /* Reset specific styles for ranks to share common list layout */
@@ -342,6 +344,13 @@
                 order: 1 !important;
                 background: linear-gradient(90deg, rgba(255, 215, 0, 0.1) 0%, rgba(10, 10, 10, 1) 100%);
                 border-color: rgba(255, 215, 0, 0.4);
+                width: 100% !important; /* Force full width */
+                max-width: none !important;
+                display: grid !important; /* Enforce grid */
+                margin: 0 !important; /* Reset any margins */
+                box-sizing: border-box !important;
+                align-items: center !important; /* Force vertical centering */
+                padding: 10px 15px !important; /* Force padding */
             }
             .top-card.rank-2 {
                 order: 2 !important;
@@ -395,33 +404,40 @@
             .top-card .movie-title, .list-item .movie-title {
                 transition: font-size 0.2s;
             }
-            .top-card .movie-title.title-short { font-size: 0.95rem; }
-            .top-card .movie-title.title-medium { font-size: 0.85rem; }
-            .top-card .movie-title.title-long { font-size: 0.75rem; }
+            .top-card .movie-title.title-short, .list-item .movie-title.title-short { font-size: 0.95rem; }
+            .top-card .movie-title.title-medium, .list-item .movie-title.title-medium { font-size: 0.85rem; }
+            .top-card .movie-title.title-long, .list-item .movie-title.title-long { font-size: 0.75rem; }
             
             /* Fallback/Default if class missing */
-            .top-card .movie-title:not([class*="title-"]) { font-size: 0.95rem; }
+            .top-card .movie-title:not([class*="title-"]), .list-item .movie-title:not([class*="title-"]) { font-size: 0.95rem; }
             
             .top-card .movie-title-en {
                 display: none; 
             }
             
-            .top-card .revenue-main {
+            .top-card .revenue-container {
                 grid-column: 4;
                 grid-row: 1;
-                font-size: 1rem; /* Match list-revenue revenue-main */
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
                 text-align: right;
-                align-self: center;
+                gap: 2px;
+            }
+            .top-card .revenue-main {
+                display: block; /* ensure block level for stacking */
+                font-size: 0.95rem; /* Slightly smaller to prevent overlap */
                 white-space: nowrap;
+                line-height: 1.1;
             }
             .top-card .revenue-sub {
-                grid-column: 4;
-                grid-row: 1;
-                font-size: 0.65rem; /* Match list-revenue revenue-sub */
-                text-align: right;
-                margin-top: 20px; /* Slight offset to visually stack if space permits or just keep aligned */
                 display: block;
+                font-size: 0.6rem;
+                margin-top: 0; 
                 opacity: 0.8;
+                line-height: 1.1;
+                grid-column: unset; /* Reset grid placement since inside container */
+                grid-row: unset;
             }
 
             /* Active Badge & AI Button overrides */
@@ -438,12 +454,16 @@
                 position: absolute;
                 bottom: 2px;
                 right: 5px;
-                width: 20px;
-                height: 20px;
+                width: 16px; /* Smaller button */
+                height: 16px;
+                padding: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
             .top-card .ai-sparkle-icon {
-                width: 14px;
-                height: 14px;
+                width: 12px; /* Smaller icon */
+                height: 12px;
             }
             
             .top-card:hover {
@@ -454,22 +474,104 @@
             /* --- List View (Rank 4+) adjustments --- */
             .list-item {
                 grid-template-columns: 35px 50px 1fr auto; 
-                gap: 12px;
-                padding: 10px 15px;
+                column-gap: 12px; /* Use column-gap only, row-gap 0 to prevent drawer gap */
+                row-gap: 0;
+                padding: 10px 15px; /* Restoration of standard padding for consistency */
+                align-items: center !important; /* Force vertical centering matches top-card rank-1 */
+                position: relative; 
+                min-height: 100px; /* Fixed height match */
+                height: 100px; /* Force fixed height */
+                overflow: hidden; /* Prevent expansion */
+                box-sizing: border-box;
             }
             .list-rank {
                 font-size: 1.2rem;
                 width: 35px;
+                text-align: center;
             }
             .list-poster {
                 width: 45px;
                 height: 68px;
+                margin-bottom: 0 !important; /* Fix alignment */
             }
             .list-revenue {
                 min-width: 70px;
+                text-align: right;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                gap: 2px;
+                margin-right: 0; 
+                padding: 0; 
+                height: 100%;
+                grid-column: 4;
+                grid-row: 1;
             }
             .list-revenue .revenue-main {
-                font-size: 1rem;
+                font-size: 0.95rem; /* Match top-card */
+                line-height: 1;
+            }
+            .list-revenue .revenue-sub {
+                font-size: 0.6rem; /* Match top-card */
+                margin-top: 2px;
+                line-height: 1;
+            }
+            
+            /* Hide English Title on Mobile for uniformity with Top 3 */
+            .list-item .movie-title-en {
+                display: none;
+            }
+            
+            /* Fix AI Drawer Grid Interruption */
+            .list-item .ai-drawer {
+                grid-column: 1 / -1;
+                display: none; /* Remove from flow to fix alignment */
+            }
+            .list-item .ai-drawer.open {
+                display: block;
+                margin-top: 10px;
+            }
+            
+            /* Harmonize Active Badge: Make list-item badge absolute on mobile like top-card */
+            /* Harmonize Active Badge: Make list-item badge absolute on mobile like top-card */
+            .list-item .active-badge {
+                position: absolute;
+                top: 2px;
+                left: 32px;
+                font-size: 0.55rem;
+                padding: 1px 5px;
+                z-index: 5;
+                margin-left: 0; /* Override default margin */
+            }
+
+            /* Fix AI Button Size for List Items - ABSOLUTE POSITION TOP RIGHT */
+            .list-item .ai-trigger-btn {
+                position: absolute;
+                top: 4px;
+                right: 5px;
+                width: 16px;
+                height: 16px;
+                padding: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 20;
+            }
+            .list-item .ai-sparkle-icon {
+                width: 12px;
+                height: 12px;
+            }
+
+            /* Redundant block removed */
+            
+            /* Remove list-info extra margin */
+            .list-info {
+                margin: 0;
+                padding: 0;
+            }
+            .list-item .movie-title {
+                margin: 0;
+                line-height: 1.2;
             }
         }
 

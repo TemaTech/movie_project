@@ -15,6 +15,14 @@
     z-index: 10; /* Ensure clickable above other things */
 }
 
+/* Desktop positioning for list item button */
+.list-item .ai-trigger-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    margin-left: 0;
+}
+
 .ai-trigger-btn:hover {
     background-color: rgba(139, 92, 246, 0.1);
     color: #a78bfa; /* violet-400 */

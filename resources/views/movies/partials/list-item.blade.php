@@ -38,7 +38,7 @@
 @endphp
 <div class="list-item {{ $isActive ? 'active-movie' : '' }} {{ isset($isJapan) && $isJapan ? 'is-japan' : '' }}" onclick="openModal('{{ addslashes($movie->title) }}', '{{ $movie->movie_id }}', {{ $releaseDate ? $releaseDate->year : 'null' }}, {{ $movie->tmdb_id ?? 'null' }}, '{{ $movie->box_office_billion ?? null }}')">
     <div class="revenue-bar-bg" style="width: {{ $barWidth }}%;"></div>
-    <div class="list-rank">{{ str_pad($movie->rank, 2, '0', STR_PAD_LEFT) }}</div>
+    <div class="list-rank">{{ $movie->rank }}</div>
     <div class="list-poster tmdb-poster {{ $posterUrl ? '' : 'poster-placeholder' }}" 
          style="{{ $posterUrl ? 'background-image: url(' . $posterUrl . ')' : '' }}"
          data-title="{{ $movie->title }}" 

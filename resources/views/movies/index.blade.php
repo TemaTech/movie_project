@@ -124,5 +124,5 @@
     });
 </script>
 <script src="{{ asset('js/movie-modal.js') }}"></script>
-<script src="{{ asset('js/ai-analysis.js') }}"></script>
+<script src="{{ asset('js/ai-analysis.js') }}?v={{ time() }}"></script>
 @endsection

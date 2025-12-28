@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use Gemini;
+use Gemini\Gemini;
 
 class GenerateAiAnalysis extends Command
 {

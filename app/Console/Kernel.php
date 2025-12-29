@@ -17,14 +17,14 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // 毎日午前2時30分に日本の映画データを取得
+        // 日本映画データ取得 (1日4回: 3時、9時、15時、21時)
         $schedule->command('movies:fetch-japanese-boxoffice')
-                ->dailyAt('02:30')
+                ->cron('0 3,9,15,21 * * *')
                 ->withoutOverlapping();
 
-        // 毎日午前3時30分にグローバル映画データを取得
+        // グローバル映画データ取得 (1日4回: 3時15分、9時15分、15時15分、21時15分)
         $schedule->command('movies:fetch-global-boxoffice')
-                ->dailyAt('03:30')
+                ->cron('15 3,9,15,21 * * *')
                 ->withoutOverlapping();
     }
 

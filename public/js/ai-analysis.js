@@ -22,3 +22,29 @@ class AiAnalysis {
 
 // Global expose
 window.toggleAi = AiAnalysis.toggleDrawer;
+
+// Initialize Overlay Listeners
+document.addEventListener('DOMContentLoaded', () => {
+    // Attach click listeners to all existing overlays to handle "close on click"
+    // and prevent event bubbling to the card (which would open the modal).
+    const overlays = document.querySelectorAll('.ai-overlay');
+    overlays.forEach(overlay => {
+        overlay.addEventListener('click', (event) => {
+            // Stop the click from reaching the parent .list-item or .top-card
+            event.stopPropagation();
+            event.preventDefault();
+
+            // Close the overlay
+            overlay.classList.remove('visible');
+
+            // Find and deactivate the trigger button
+            const card = overlay.closest('.top-card, .list-item');
+            if (card) {
+                const btn = card.querySelector('.ai-trigger-btn');
+                if (btn) {
+                    btn.classList.remove('active');
+                }
+            }
+        });
+    });
+});

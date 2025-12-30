@@ -11,6 +11,7 @@ RUN export NODE_OPTIONS=--openssl-legacy-provider && \
 FROM php:8.2-fpm
 
 # プロダクション用の最適化
+ENV TZ=Asia/Tokyo
 ENV PHP_OPCACHE_ENABLE=1
 ENV PHP_OPCACHE_ENABLE_CLI=1
 ENV PHP_OPCACHE_VALIDATE_TIMESTAMPS=0
@@ -27,6 +28,7 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
     procps \
     openssl \
+    tzdata \
     && docker-php-ext-install pdo pdo_mysql zip opcache
 
 # SSL証明書の設定

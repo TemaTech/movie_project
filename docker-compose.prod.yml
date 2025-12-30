@@ -16,7 +16,10 @@ services:
       DB_USERNAME: ${DB_USERNAME:-movie_user}
       DB_PASSWORD: ${DB_PASSWORD:-movie_password}
       APP_ENV: production
+      APP_ENV: production
       APP_DEBUG: false
+      APP_TIMEZONE: Asia/Tokyo
+      TZ: Asia/Tokyo
     networks:
       - app-network
 

@@ -37,6 +37,9 @@
     }
 @endphp
 <div class="list-item {{ $isActive ? 'active-movie' : '' }} {{ isset($isJapan) && $isJapan ? 'is-japan' : '' }}" onclick="openModal('{{ addslashes($movie->title) }}', '{{ $movie->movie_id }}', {{ $releaseDate ? $releaseDate->year : 'null' }}, {{ $movie->tmdb_id ?? 'null' }}, '{{ $movie->box_office_billion ?? null }}')">
+    @if($isActive)
+        <div class="active-badge-card">公開中</div>
+    @endif
     <div class="revenue-bar-bg" style="width: {{ $barWidth }}%;"></div>
     <div class="list-rank">{{ $movie->rank }}</div>
     <div class="list-poster tmdb-poster {{ $posterUrl ? '' : 'poster-placeholder' }}" 
@@ -49,9 +52,6 @@
     <div class="list-info">
         <span class="movie-title {{ $titleClass }}">
             {{ $movie->title }}
-            @if($isActive)
-                <span class="active-badge">公開中</span>
-            @endif
         </span>
         @if(!empty($movie->original_title) && $movie->original_title !== $movie->title && ($movie->production_country ?? '') !== 'JP')
             <span class="movie-title-en">{{ $movie->original_title }}</span>

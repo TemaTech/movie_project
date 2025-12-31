@@ -47,6 +47,9 @@ WORKDIR /var/www/html
 # プロジェクトファイルのコピー
 COPY . .
 
+# Viteビルドアセットをコピー（キャッシュバスティング用ハッシュ付きファイル）
+COPY --from=node-builder /app/public/build /var/www/html/public/build
+
 # 依存関係のインストール
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
 

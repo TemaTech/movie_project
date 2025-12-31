@@ -3,8 +3,7 @@
 @section('title', '歴代映画興行収入ランキング | 世界・日本のヒット作を徹底分析 - MUBIRAN')
 
 @section('head')
-    <link rel="stylesheet" href="{{ asset('css/movie-modal.css') }}?v={{ time() }}">
-    <link rel="stylesheet" href="{{ asset('css/ai-analysis.css') }}?v={{ time() }}">
+    @vite(['resources/css/movie-modal.css', 'resources/css/ai-analysis.css'])
 @endsection
 
 @section('content')
@@ -128,6 +127,5 @@
         }
     });
 </script>
-<script src="{{ asset('js/movie-modal.js') }}?v={{ time() }}"></script>
-<script src="{{ asset('js/ai-analysis.js') }}?v={{ time() }}"></script>
+@vite(['resources/js/movie-modal.js', 'resources/js/ai-analysis.js'])
 @endsection

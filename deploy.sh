@@ -28,6 +28,16 @@ sudo systemctl disable mysql || true
 echo "⬇️ Pulling latest code..."
 git pull origin features/movie_master
 
+# 3.5. Service Workerキャッシュバージョンの更新（キャッシュバスティング）
+echo "🔄 Updating Service Worker cache version..."
+NEW_VERSION=$(date +%Y%m%d%H%M%S)
+if [ -f public/sw.js ]; then
+    sed -i "s/const CACHE_VERSION = '[^']*'/const CACHE_VERSION = 'v${NEW_VERSION}'/" public/sw.js
+    echo "✅ SW cache version updated to: v${NEW_VERSION}"
+else
+    echo "⚠️ public/sw.js not found, skipping SW version update"
+fi
+
 # 4. Dockerコンテナのビルドと起動
 echo "🐳 Building and starting Docker containers..."
 docker compose -f docker-compose.prod.yml up -d --build

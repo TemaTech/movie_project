@@ -118,11 +118,16 @@
         const urlParams = new URLSearchParams(window.location.search);
         const tab = urlParams.get('tab') || 'global';
         switchTab(tab);
+        // リスト項目の背景画像を処理（サーバーサイドで設定されている場合）
+        if (typeof processListBackgrounds === 'function') {
+            processListBackgrounds();
+        }
+        // Top3カードのポスター画像を取得
         if (typeof fetchImages === 'function') {
             fetchImages();
         }
     });
 </script>
-<script src="{{ asset('js/movie-modal.js') }}"></script>
+<script src="{{ asset('js/movie-modal.js') }}?v={{ time() }}"></script>
 <script src="{{ asset('js/ai-analysis.js') }}?v={{ time() }}"></script>
 @endsection

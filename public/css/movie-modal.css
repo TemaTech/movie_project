@@ -371,11 +371,11 @@
 
 /* Japan Layout Adjustments */
 .list-item.is-japan {
-    grid-template-columns: 60px 70px 1fr 180px; /* Reduced revenue column width for Japan */
+    grid-template-columns: 60px 1fr 180px; /* ポスター列削除、興行収入幅を調整 */
 }
 
 @media (max-width: 768px) {
     .list-item.is-japan {
-        grid-template-columns: 35px 50px 1fr auto; /* Keep mobile auto */
+        grid-template-columns: 35px 1fr; /* モバイル版もポスター列削除 */
     }
 }

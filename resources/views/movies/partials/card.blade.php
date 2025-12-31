@@ -35,6 +35,10 @@
     <div class="card-poster tmdb-poster {{ $posterUrl ? '' : 'poster-placeholder' }}"  
          style="{{ $posterUrl ? 'background-image: url(' . $posterUrl . ')' : '' }}"
          data-title="{{ $movie->title }}" data-movie-id="{{ $movie->movie_id }}" data-release-year="{{ $releaseDate ? $releaseDate->year : '' }}" data-type="movie"></div>
+    {{-- モバイル版用グラデーション付き背景画像 --}}
+    @if($posterUrl)
+    <div class="card-bg-image" style="background-image: url({{ $posterUrl }});"></div>
+    @endif
     <div class="movie-title {{ $titleClass }}" style="margin-bottom: 2px;">{{ $movie->title }}</div>
     @if(!empty($movie->original_title) && $movie->original_title !== $movie->title && ($movie->production_country ?? '') !== 'JP')
         <div class="movie-title-en">{{ $movie->original_title }}</div>

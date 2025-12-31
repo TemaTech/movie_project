@@ -36,19 +36,22 @@
         $titleClass = 'title-medium';
     }
 @endphp
-<div class="list-item {{ $isActive ? 'active-movie' : '' }} {{ isset($isJapan) && $isJapan ? 'is-japan' : '' }}" onclick="openModal('{{ addslashes($movie->title) }}', '{{ $movie->movie_id }}', {{ $releaseDate ? $releaseDate->year : 'null' }}, {{ $movie->tmdb_id ?? 'null' }}, '{{ $movie->box_office_billion ?? null }}')">
+<div class="list-item {{ $isActive ? 'active-movie' : '' }} {{ isset($isJapan) && $isJapan ? 'is-japan' : '' }}" 
+     onclick="openModal('{{ addslashes($movie->title) }}', '{{ $movie->movie_id }}', {{ $releaseDate ? $releaseDate->year : 'null' }}, {{ $movie->tmdb_id ?? 'null' }}, '{{ $movie->box_office_billion ?? null }}')"
+     data-poster-url="{{ $posterUrl }}"
+     data-title="{{ $movie->title }}" 
+     data-movie-id="{{ $movie->movie_id }}" 
+     data-tmdb-id="{{ $movie->tmdb_id ?? '' }}"
+     data-release-year="{{ $releaseDate ? $releaseDate->year : '' }}">
     @if($isActive)
         <div class="active-badge-card">公開中</div>
     @endif
     <div class="revenue-bar-bg" style="width: {{ $barWidth }}%;"></div>
+    {{-- グラデーション付き背景画像（右端に配置） --}}
+    @if($posterUrl)
+    <div class="list-bg-image" style="background-image: url({{ $posterUrl }});"></div>
+    @endif
     <div class="list-rank">{{ $movie->rank }}</div>
-    <div class="list-poster tmdb-poster {{ $posterUrl ? '' : 'poster-placeholder' }}" 
-         style="{{ $posterUrl ? 'background-image: url(' . $posterUrl . ')' : '' }}"
-         data-title="{{ $movie->title }}" 
-         data-movie-id="{{ $movie->movie_id }}" 
-         data-tmdb-id="{{ $movie->tmdb_id ?? '' }}"
-         data-release-year="{{ $releaseDate ? $releaseDate->year : '' }}" 
-         data-type="movie"></div>
     <div class="list-info">
         <span class="movie-title {{ $titleClass }}">
             {{ $movie->title }}

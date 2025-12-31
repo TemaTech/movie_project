@@ -280,6 +280,129 @@ function showError(msg) {
     modalLoading.innerHTML = `<p style="color: #ff6b6b;">${msg}</p>`;
 }
 
+// 背景画像要素を動的に追加するヘルパー関数
+// element: .tmdb-poster要素、.list-item要素、または.top-card要素
+function addBackgroundImageElement(element, imageUrl) {
+    // 対象の親コンテナを特定
+    const listItem = element.classList.contains('list-item') ? element : element.closest('.list-item');
+    const topCard = element.classList.contains('top-card') ? element : element.closest('.top-card');
+    
+    if (listItem) {
+        // list-itemの場合: list-bg-imageを追加
+        if (!listItem.querySelector('.list-bg-image')) {
+            const bgImage = document.createElement('div');
+            bgImage.className = 'list-bg-image';
+            bgImage.style.backgroundImage = `url('${imageUrl}')`;
+            // revenue-bar-bgの直後に挿入
+            const revenueBar = listItem.querySelector('.revenue-bar-bg');
+            if (revenueBar && revenueBar.nextSibling) {
+                listItem.insertBefore(bgImage, revenueBar.nextSibling);
+            } else {
+                listItem.insertBefore(bgImage, listItem.firstChild);
+            }
+        }
+    } else if (topCard) {
+        // top-cardの場合: card-bg-imageを追加
+        if (!topCard.querySelector('.card-bg-image')) {
+            const bgImage = document.createElement('div');
+            bgImage.className = 'card-bg-image';
+            bgImage.style.backgroundImage = `url('${imageUrl}')`;
+            // 最初の子要素として挿入
+            topCard.insertBefore(bgImage, topCard.firstChild);
+        }
+    }
+}
+
+// リスト項目の背景画像を処理（サーバーサイドで設定されている場合、またはTMDBから動的取得）
+async function processListBackgrounds() {
+    const listItems = document.querySelectorAll('.list-item');
+    const apiKey = window.TMDB_API_KEY;
+    
+    for (const item of listItems) {
+        // 既に背景画像がある場合はスキップ
+        if (item.querySelector('.list-bg-image')) continue;
+        
+        const posterUrl = item.dataset.posterUrl;
+        
+        // サーバーサイドで設定済みの場合
+        if (posterUrl) {
+            addBackgroundImageElement(item, posterUrl);
+            continue;
+        }
+        
+        // TMDBから動的に取得する場合
+        const tmdbId = item.dataset.tmdbId;
+        const movieId = item.dataset.movieId;
+        const title = item.dataset.title;
+        const releaseYear = item.dataset.releaseYear;
+        
+        if (!apiKey) continue;
+        
+        let imageUrl = null;
+        
+        // キャッシュを確認
+        const cacheKey = movieId ? CACHE_PREFIX_POSTER + movieId : null;
+        if (cacheKey) {
+            const cachedImage = localStorage.getItem(cacheKey);
+            if (cachedImage) {
+                addBackgroundImageElement(item, cachedImage);
+                continue;
+            }
+        }
+        
+        try {
+            let posterPath = null;
+            
+            // 1. TMDB IDから取得（最も信頼性が高い）
+            if (tmdbId) {
+                const res = await fetch(`${TMDB_BASE_URL}/movie/${tmdbId}?api_key=${apiKey}&language=ja-JP`);
+                if (res.ok) {
+                    const data = await res.json();
+                    posterPath = data.poster_path;
+                }
+            }
+            // 2. movie_idからTMDB IDを抽出して取得
+            else if (movieId && movieId.startsWith('global_')) {
+                const parts = movieId.split('_');
+                const tId = parts[parts.length - 1];
+                if (tId && !isNaN(tId)) {
+                    const res = await fetch(`${TMDB_BASE_URL}/movie/${tId}?api_key=${apiKey}&language=ja-JP`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        posterPath = data.poster_path;
+                    }
+                }
+            }
+            // 3. タイトル検索（フォールバック）
+            else if (title) {
+                let searchUrl = `${TMDB_BASE_URL}/search/movie?api_key=${apiKey}&query=${encodeURIComponent(title)}&language=ja-JP`;
+                if (releaseYear) {
+                    searchUrl += `&year=${releaseYear}`;
+                }
+                const res = await fetch(searchUrl);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.results && data.results.length > 0) {
+                        posterPath = data.results[0].poster_path;
+                    }
+                }
+            }
+            
+            if (posterPath) {
+                imageUrl = IMAGE_BASE_URL_LARGE + posterPath;
+                addBackgroundImageElement(item, imageUrl);
+                // キャッシュに保存
+                if (cacheKey) {
+                    localStorage.setItem(cacheKey, imageUrl);
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching image for list item:', error);
+        }
+    }
+}
+
+
 async function fetchImages() {
     const posters = document.querySelectorAll('.tmdb-poster');
     
@@ -301,6 +424,9 @@ async function fetchImages() {
         // If we already have the image set via PHP (server-side), skip fetching (unless we want to cache it?)
         // The server-side rendering sets the style attribute, so we can check that.
         if (poster.style.backgroundImage && poster.style.backgroundImage !== 'none' && !poster.classList.contains('poster-placeholder')) {
+            // 既にサーバーサイドで設定されている場合でも、背景画像要素を追加
+            const imageUrl = poster.style.backgroundImage.slice(5, -2);
+            addBackgroundImageElement(poster, imageUrl);
             continue;
         }
 
@@ -312,6 +438,8 @@ async function fetchImages() {
         const cachedImage = localStorage.getItem(cacheKey);
         if (cachedImage) {
             poster.style.backgroundImage = `url('${cachedImage}')`;
+            // キャッシュから読み込み時も背景画像要素を生成
+            addBackgroundImageElement(poster, cachedImage);
             continue;
         }
 
@@ -376,6 +504,8 @@ async function fetchImages() {
                 
                 poster.style.backgroundImage = `url('${imageUrl}')`;
                 
+                // グラデーション付き背景画像要素を動的に追加
+                addBackgroundImageElement(poster, imageUrl);
                 // Cache it
                 localStorage.setItem(cacheKey, imageUrl);
             }

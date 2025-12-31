@@ -161,18 +161,32 @@
             background-position: center;
             transition: opacity 0.3s;
         }
+        
+        /* Top Card 背景画像（PC版では非表示、モバイルで表示） */
+        .card-bg-image {
+            display: none;
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            z-index: 1;
+            pointer-events: none;
+        }
 
         /* --- List View (Rank 4+) --- */
         .ranking-list {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 6px; /* 余白を縮小 */
         }
 
         .list-item {
             display: grid;
-            /* Grid Layout: Rank | Image | Info | Revenue */
-            grid-template-columns: 60px 70px 1fr 220px; 
+            /* Grid Layout: Rank | Info | Revenue（ポスター列を削除） */
+            grid-template-columns: 60px 1fr 220px; 
             align-items: center;
             background: var(--glass);
             border: 1px solid var(--glass-border);
@@ -181,6 +195,8 @@
             transition: 0.2s;
             position: relative;
             overflow: hidden;
+            height: 100px; /* 洋題の有無に関わらず高さを完全に統一 */
+            box-sizing: border-box;
         }
 
         .list-item:hover {
@@ -198,15 +214,9 @@
             z-index: 2;
         }
 
-        /* Poster Thumb */
-        .list-poster {
-            width: 50px;
-            height: 75px;
-            border-radius: 6px;
-            background-color: #333;
-            background-size: cover;
-            background-position: center;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        /* Info Area */
+        .list-info {
+            padding-left: 20px;
             z-index: 2;
         }
 
@@ -273,7 +283,33 @@
             left: 0;
             background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.08) 100%);
             z-index: 0;
-            border-right: 2px solid rgba(255,255,255,0.1);
+        }
+        
+        /* 日本タブでは収益バーを非表示（境界線が不要なため） */
+        .list-item.is-japan .revenue-bar-bg {
+            display: none;
+        }
+
+        /* リストアイテム グラデーション背景画像（興行収入の左側に配置） */
+        .list-bg-image {
+            position: absolute;
+            top: 0;
+            right: 180px; /* 興行収入エリアに近づけて余白を減らす */
+            width: 30%; /* 横幅を広げる */
+            height: 100%;
+            background-size: 100% auto; /* 横幅に合わせて表示、縦は中央を切り取り */
+            background-position: center center; /* ポスターの中央を表示（登場人物や雰囲気が分かる） */
+            border-radius: 8px;
+            -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 30%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.3) 70%, transparent 100%);
+            mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 30%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.3) 70%, transparent 100%);
+            z-index: 1;
+            pointer-events: none;
+            opacity: 0.8; /* 視認性を上げる */
+            transition: opacity 0.3s ease;
+        }
+        
+        .list-item:hover .list-bg-image {
+            opacity: 0.85;
         }
 
         /* --- Responsive --- */
@@ -309,28 +345,28 @@
             /* --- Top 3 Mobile Optimization (List Style) --- */
             .top-rankings { 
                 flex-direction: column; 
-                gap: 10px;
-                margin-bottom: 10px; /* Reduced from 20px to match list gap */
+                gap: 6px; /* 余白を縮小 */
+                margin-bottom: 6px;
                 align-items: stretch;
             }
 
             .top-card {
                 width: 100%;
                 max-width: none;
-                padding: 10px 15px; /* Match standard padding */
+                padding: 5px 10px; /* list-itemと同じpaddingに統一 */
                 display: grid;
-                /* Grid Layout EXACT match to list-item: Rank | Image | Info | Revenue */
-                /* list-item is: 35px 50px 1fr auto */
-                grid-template-columns: 35px 50px 1fr auto; 
+                /* Grid Layout: Rank | Info | Revenue（ポスター列を削除、4位以降と同じ） */
+                grid-template-columns: 35px 1fr auto; 
                 grid-template-rows: auto;
                 align-items: center;
                 gap: 12px;
                 text-align: left;
                 order: unset !important;
                 overflow: hidden;
-                min-height: 100px; /* Fixed height match */
-                height: 100px; /* Force fixed height */
+                min-height: 60px; /* Reduced height for mobile */
+                height: 60px; /* Reduced fixed height */
                 box-sizing: border-box;
+                position: relative; /* 背景画像のため */
             }
             
             /* Reset specific styles for ranks to share common list layout */
@@ -350,7 +386,7 @@
                 margin: 0 !important; /* Reset any margins */
                 box-sizing: border-box !important;
                 align-items: center !important; /* Force vertical centering */
-                padding: 10px 15px !important; /* Force padding */
+                padding: 5px 10px !important; /* list-itemと同じpaddingに統一 */
             }
             .top-card.rank-2 {
                 order: 2 !important;
@@ -375,20 +411,17 @@
                 text-align: center;
                 position: static;
                 width: 35px; /* Match list-rank width */
+                z-index: 2; /* 背景画像より前面 */
             }
 
-            /* Poster */
+            /* Poster - モバイルでは非表示（背景グラデーションを使用） */
             .top-card .poster-placeholder, .top-card .card-poster {
-                grid-column: 2;
-                grid-row: 1;
-                width: 45px; /* Match list-poster width */
-                height: 68px; /* Match list-poster height */
-                margin-bottom: 0;
+                display: none !important; /* ポスター要素を非表示 */
             }
 
             /* Title */
             .top-card .movie-title {
-                grid-column: 3;
+                grid-column: 2; /* ポスター列削除に伴い調整 */
                 grid-row: 1;
                 /* Base font size set by utility classes */
                 line-height: 1.3;
@@ -398,6 +431,7 @@
                 overflow: visible; 
                 align-self: center;
                 padding-right: 5px;
+                z-index: 2; /* 背景画像より前面 */
             }
             
             /* Dynamic Font Sizes for Mobile */
@@ -416,13 +450,14 @@
             }
             
             .top-card .revenue-container {
-                grid-column: 4;
+                grid-column: 3; /* ポスター列削除に伴い調整 */
                 grid-row: 1;
                 display: flex;
                 flex-direction: column;
                 justify-content: center;
                 text-align: right;
                 gap: 2px;
+                z-index: 2; /* 背景画像より前面 */
             }
             .top-card .revenue-main {
                 display: block; /* ensure block level for stacking */
@@ -442,28 +477,40 @@
 
             /* Active Badge & AI Button overrides */
             .active-badge-card {
-                position: absolute;
-                top: 2px;
-                left: 32px; /* Adjust for list layout */
-                font-size: 0.55rem;
-                padding: 1px 5px;
-                z-index: 5;
+                position: absolute !important;
+                top: 4px !important;
+                left: 28px !important;  /* list-itemと同じ: padding(10px) + 順位列中央(17.5px) */
+                transform: translateX(-50%) !important;
+                font-size: 0.4rem !important;
+                padding: 1px 4px !important;
+                z-index: 10 !important;
+                white-space: nowrap;
+                line-height: 1;
+                margin: 0 !important;
+                animation: pulse-badge 2s infinite;
+            }
+            
+            /* 順位は中央のまま（padding-top削除） */
+            .top-card .rank-badge {
+                padding-top: 0 !important;
+                line-height: 1 !important;
             }
             
             .top-card .ai-trigger-btn {
                 position: absolute;
-                bottom: 2px;
+                top: 4px;     /* 金額の右上に配置 */
+                bottom: auto;
                 right: 5px;
-                width: 16px; /* Smaller button */
-                height: 16px;
+                width: 14px;
+                height: 14px;
                 padding: 0;
                 display: flex;
                 align-items: center;
                 justify-content: center;
             }
             .top-card .ai-sparkle-icon {
-                width: 12px; /* Smaller icon */
-                height: 12px;
+                width: 10px;
+                height: 10px;
             }
             
             .top-card:hover {
@@ -473,26 +520,24 @@
 
             /* --- List View (Rank 4+) adjustments --- */
             .list-item {
-                grid-template-columns: 35px 50px 1fr auto; 
+                grid-template-columns: 35px 1fr auto; /* ポスター列を削除 */
                 column-gap: 12px; /* Use column-gap only, row-gap 0 to prevent drawer gap */
                 row-gap: 0;
-                padding: 10px 15px; /* Restoration of standard padding for consistency */
+                padding: 5px 10px; /* Reduced padding */
                 align-items: center !important; /* Force vertical centering matches top-card rank-1 */
                 position: relative; 
-                min-height: 100px; /* Fixed height match */
-                height: 100px; /* Force fixed height */
+                min-height: 60px; /* Reduced height */
+                height: 60px; /* Reduced fixed height */
                 overflow: hidden; /* Prevent expansion */
                 box-sizing: border-box;
+                border-radius: 16px; /* top-cardと同じ丸みに統一 */
             }
             .list-rank {
                 font-size: 1.2rem;
                 width: 35px;
                 text-align: center;
-            }
-            .list-poster {
-                width: 45px;
-                height: 68px;
-                margin-bottom: 0 !important; /* Fix alignment */
+                padding-top: 0;    /* パディング削除で中央に戻す */
+                line-height: 1.2;
             }
             .list-revenue {
                 min-width: 70px;
@@ -504,7 +549,7 @@
                 margin-right: 0; 
                 padding: 0; 
                 height: 100%;
-                grid-column: 4;
+                grid-column: 3; /* ポスター列削除に伴い調整 */
                 grid-row: 1;
             }
             .list-revenue .revenue-main {
@@ -532,34 +577,47 @@
                 margin-top: 10px;
             }
             
-            /* Harmonize Active Badge: Make list-item badge absolute on mobile like top-card */
-            /* Harmonize Active Badge: Make list-item badge absolute on mobile like top-card */
+            /* Harmonize Active Badge: 順位列の上部中央に配置 */
             .list-item .active-badge {
-                position: absolute;
-                top: 2px;
-                left: 32px;
-                font-size: 0.55rem;
-                padding: 1px 5px;
-                z-index: 5;
-                margin-left: 0; /* Override default margin */
+                position: absolute !important;
+                top: 4px !important;
+                left: 28px !important;  /* スマホ版: padding(10px) + 順位列中央(17.5px) */
+                transform: translateX(-50%) !important;
+                font-size: 0.4rem !important;
+                padding: 1px 4px !important;
+                z-index: 10 !important;
+                white-space: nowrap;
+                line-height: 1;
+                margin: 0 !important;
+            }
+            
+            /* 順位は中央のまま（padding-top削除） */
+            .list-rank {
+                padding-top: 0 !important;
+                line-height: 1 !important;
             }
 
-            /* Fix AI Button Size for List Items - ABSOLUTE POSITION TOP RIGHT */
+            /* Fix AI Button Size for List Items - 金額の右上に配置 */
             .list-item .ai-trigger-btn {
                 position: absolute;
-                top: 4px;
+                top: 4px;     /* 金額の右上に配置 */
+                bottom: auto;
                 right: 5px;
-                width: 16px;
-                height: 16px;
+                width: 14px;
+                height: 14px;
                 padding: 0;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 z-index: 20;
+                /* top-cardと同じスタイルに統一 */
+                background: rgba(0, 0, 0, 0.4);
+                backdrop-filter: blur(4px);
+                color: #e2e8f0;
             }
             .list-item .ai-sparkle-icon {
-                width: 12px;
-                height: 12px;
+                width: 10px;
+                height: 10px;
             }
 
             /* Redundant block removed */
@@ -571,6 +629,47 @@
             }
             .list-item .movie-title {
                 margin: 0;
+                line-height: 1.2;
+            }
+            
+            /* モバイル版 グラデーション背景画像（PC版と同じスタイル） */
+            .list-bg-image {
+                right: 70px; /* 興行収入エリアを避ける（モバイル用に調整） */
+                width: 50%; /* モバイル用に調整 */
+                opacity: 0.7;
+                background-size: 100% auto; /* 横幅に合わせて表示、縦は中央を切り取り */
+                background-position: center center;
+                -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 30%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.3) 70%, transparent 100%);
+                mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 30%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.3) 70%, transparent 100%);
+                border-radius: 8px;
+            }
+            
+            .list-item:hover .list-bg-image {
+                opacity: 0.8;
+            }
+            
+            /* Top Card モバイル版 背景画像（list-bg-imageと同じスタイルに統一） */
+            .top-card .card-bg-image {
+                display: block;
+                position: absolute;
+                top: 0;
+                right: 70px; /* 興行収入エリアを避ける（モバイル用に調整） */
+                width: 50%; /* モバイル用に調整 */
+                height: 100%;
+                opacity: 0.7;
+                background-size: 100% auto; /* 横幅に合わせて表示、縦は中央を切り取り */
+                background-position: center center;
+                -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 30%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.3) 70%, transparent 100%);
+                mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 30%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.3) 70%, transparent 100%);
+                border-radius: 8px;
+                z-index: 1;
+            }
+            
+
+            
+            /* Top Card Rank Adjustment */
+            .top-card .rank-badge {
+                padding-top: 0;    /* パディング削除で中央に戻す */
                 line-height: 1.2;
             }
         }
@@ -633,7 +732,8 @@
         .active-badge-card {
             position: absolute;
             top: 10px;
-            left: 10px;
+            left: 25px;  /* PC版: 中央補正後の最適値 */
+            transform: translateX(-50%);  /* 中央合わせ */
             right: auto;
             background: #2ecc71; /* Green */
             color: #000;
@@ -650,6 +750,12 @@
             0% { transform: scale(1); opacity: 1; }
             50% { transform: scale(1.05); opacity: 0.9; }
             100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes pulse-badge-centered {
+            0% { transform: translateX(-50%) scale(1); opacity: 1; }
+            50% { transform: translateX(-50%) scale(1.05); opacity: 0.9; }
+            100% { transform: translateX(-50%) scale(1); opacity: 1; }
         }
 
         /* Pagination Styles */
@@ -688,6 +794,32 @@
             background: rgba(255, 255, 255, 0.05);
             border-color: rgba(255, 255, 255, 0.05);
             pointer-events: none;
+        }
+
+        /* Force Override for AI Analysis Overlay Text */
+        .ai-overlay-content {
+            color: #f1f5f9 !important;
+            font-size: 0.75rem !important; /* 小さくして見切れ防止 */
+            line-height: 1.4 !important;
+            max-height: 120px !important; /* 高さ制限 */
+            overflow-y: auto !important;  /* スクロール可能に */
+        }
+        
+        /* Force Override for AI Button Positioning - 金額の右上に配置 */
+        .list-item .ai-trigger-btn {
+            /* デスクトップ版: 金額エリアの右上に配置 */
+            position: absolute;
+            top: 8px;
+            right: 8px; /* 金額エリアの右上 */
+            width: 16px;
+            height: 16px;
+            padding: 2px;
+            z-index: 20;
+        }
+        
+        .list-item .ai-sparkle-icon {
+            width: 12px;
+            height: 12px;
         }
 
     </style>

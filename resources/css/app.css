@@ -154,8 +154,8 @@ header {
 
 .list-item {
     display: grid;
-    /* Grid Layout: Rank | Image | Info | Revenue */
-    grid-template-columns: 60px 70px 1fr 220px; 
+    /* Grid Layout: Rank | Info | Revenue（ポスター列を削除） */
+    grid-template-columns: 60px 1fr 220px; 
     align-items: center;
     background: var(--glass);
     border: 1px solid var(--glass-border);
@@ -164,6 +164,8 @@ header {
     transition: 0.2s;
     position: relative;
     overflow: hidden;
+    height: 100px; /* 洋題の有無に関わらず高さを完全に統一 */
+    box-sizing: border-box;
 }
 
 .list-item:hover {
@@ -181,16 +183,20 @@ header {
     z-index: 2;
 }
 
-/* Poster Thumb */
-.list-poster {
-    width: 50px;
-    height: 75px;
-    border-radius: 6px;
-    background-color: #333;
+/* 背景画像（右端にグラデーション表示、金額と被らないよう配置） */
+.list-bg-image {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 40%; /* 引きの絵にするため少し広げる */
     background-size: cover;
-    background-position: center;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
-    z-index: 2;
+    background-position: center center; /* 真ん中を表示（主要な登場人物が見える） */
+    opacity: 0.7; /* 色を濃く */
+    mask-image: linear-gradient(to left, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 50%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to left, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 50%, transparent 100%);
+    z-index: 0;
+    pointer-events: none;
 }
 
 /* Info Area */
@@ -246,7 +252,6 @@ header {
     left: 0;
     background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.08) 100%);
     z-index: 0;
-    border-right: 2px solid rgba(255,255,255,0.1);
 }
 
 /* --- Responsive --- */
@@ -256,17 +261,23 @@ header {
     .top-card.rank-1 { order: 1; } /* モバイルでは1位を一番上に */
     
     .list-item {
-        grid-template-columns: 40px 50px 1fr; /* Revenueを下に落とすなどの調整が必要かも */
+        grid-template-columns: 40px 1fr; /* ポスター列削除 */
         grid-template-rows: auto auto;
         gap: 10px;
     }
     .list-revenue {
         grid-column: 1 / -1;
         text-align: left;
-        padding-left: 90px; /* 画像分ずらす */
+        padding-left: 40px; /* 順位分のみずらす */
         display: flex;
         gap: 10px;
         align-items: baseline;
+    }
+    
+    /* モバイル版の背景画像 */
+    .list-bg-image {
+        width: 50%;
+        opacity: 0.3;
     }
 }
 

@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# Cronサービスの起動
+echo "Starting Cron..."
+service cron start
+
 echo "Setting up permissions..."
 chmod -R 777 /var/www/html/storage
 chmod -R 777 /var/www/html/storage/logs

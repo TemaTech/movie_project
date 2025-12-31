@@ -29,6 +29,7 @@ RUN apt-get update && apt-get install -y \
     procps \
     openssl \
     tzdata \
+    cron \
     && docker-php-ext-install pdo pdo_mysql zip opcache
 
 # SSL証明書の設定
@@ -59,6 +60,9 @@ RUN php artisan config:clear \
 # Nginxの設定
 RUN rm -f /etc/nginx/sites-enabled/default \
     && rm -f /etc/nginx/sites-available/default
+
+# Cron設定
+RUN echo "* * * * * cd /var/www/html && php artisan schedule:run >> /dev/null 2>&1" | crontab -u www-data -
 
 # Nginxの設定ファイルをコピー
 COPY docker/nginx/nginx.conf /etc/nginx/sites-available/default

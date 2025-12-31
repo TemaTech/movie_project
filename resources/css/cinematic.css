@@ -288,7 +288,7 @@ header {
     mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 30%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.3) 70%, transparent 100%);
     z-index: 1;
     pointer-events: none;
-    opacity: 0.8; /* 視認性を上げる */
+    opacity: 0.9; /* 視認性を上げる: 0.8 -> 0.9 */
     transition: opacity 0.3s ease;
 }
 
@@ -620,7 +620,7 @@ header {
     .list-bg-image {
         right: 70px; /* 興行収入エリアを避ける（モバイル用に調整） */
         width: 50%; /* モバイル用に調整 */
-        opacity: 0.7;
+        opacity: 0.85; /* 0.7 -> 0.85 */
         background-size: 100% auto; /* 横幅に合わせて表示、縦は中央を切り取り */
         background-position: center center;
         -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 30%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.3) 70%, transparent 100%);
@@ -640,7 +640,7 @@ header {
         right: 70px; /* 興行収入エリアを避ける（モバイル用に調整） */
         width: 50%; /* モバイル用に調整 */
         height: 100%;
-        opacity: 0.7;
+        opacity: 0.85; /* 0.7 -> 0.85 */
         background-size: 100% auto; /* 横幅に合わせて表示、縦は中央を切り取り */
         background-position: center center;
         -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 30%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.3) 70%, transparent 100%);

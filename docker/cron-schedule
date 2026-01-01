@@ -1,5 +1,5 @@
 # Laravelスケジューラー用Cron設定
 # 毎分実行（環境変数を読み込んでからartisanを実行）
-* * * * * root . /var/www/html/.env.cron; cd /var/www/html && php artisan schedule:run >> /var/www/html/storage/logs/cron.log 2>&1
+* * * * * root . /var/www/html/.env.cron; cd /var/www/html && /usr/local/bin/php artisan schedule:run >> /var/www/html/storage/logs/cron.log 2>&1
 
 # 空行が必要

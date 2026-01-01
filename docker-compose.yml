@@ -1,4 +1,14 @@
 services:
+  # Node.js - フロントエンドビルド用（オプション）
+  # 使用方法: docker-compose run --rm node npm run build
+  node:
+    image: node:20
+    volumes:
+      - .:/app
+    working_dir: /app
+    profiles:
+      - tools  # docker-compose up では起動しない
+
   app:
     build: .
     ports:

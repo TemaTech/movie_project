@@ -40,7 +40,7 @@
     <div class="card-bg-image" style="background-image: url({{ $posterUrl }});"></div>
     @endif
     <div class="movie-title {{ $titleClass }}" style="margin-bottom: 2px;">{{ $movie->title }}</div>
-    @if(!empty($movie->original_title) && $movie->original_title !== $movie->title && ($movie->production_country ?? '') !== 'JP')
+    @if(!empty($movie->original_title) && $movie->original_title !== $movie->title && ($movie->production_country ?? '') !== 'JP' && ($movie->production_country ?? '') !== '日本')
         <div class="movie-title-en">{{ $movie->original_title }}</div>
     @endif
 

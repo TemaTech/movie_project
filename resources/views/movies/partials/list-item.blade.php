@@ -56,7 +56,7 @@
         <span class="movie-title {{ $titleClass }}">
             {{ $movie->title }}
         </span>
-        @if(!empty($movie->original_title) && $movie->original_title !== $movie->title && ($movie->production_country ?? '') !== 'JP')
+        @if(!empty($movie->original_title) && $movie->original_title !== $movie->title && ($movie->production_country ?? '') !== 'JP' && ($movie->production_country ?? '') !== '日本')
             <span class="movie-title-en">{{ $movie->original_title }}</span>
         @endif
     </div>

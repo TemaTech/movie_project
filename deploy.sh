@@ -60,4 +60,4 @@ docker compose -f docker-compose.prod.yml exec app php artisan route:cache
 docker compose -f docker-compose.prod.yml exec app php artisan view:cache
 
 echo "✅ Deployment completed successfully!"
-echo "🌐 Application should be running on port 8000"
+echo "🌐 Application should be running on port 80"

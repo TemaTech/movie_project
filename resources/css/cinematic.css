@@ -106,11 +106,15 @@ header {
     background: var(--bg-card);
     border: 1px solid var(--glass-border);
     border-radius: 16px;
-    padding: 20px;
+    padding: 20px; /* will be overridden by rank-1 */
     text-align: center;
     width: 300px;
     position: relative;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
+    /* Flex Column for fixed height layout */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
 }
 
 .top-card:hover {
@@ -119,9 +123,32 @@ header {
     border-color: rgba(255,255,255,0.3);
 }
 
-.top-card.rank-1 { order: 2; width: 340px; padding: 30px; border: 1px solid rgba(255, 215, 0, 0.3); background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%); }
-.top-card.rank-2 { order: 1; }
-.top-card.rank-3 { order: 3; }
+/* Rank 1: 1番高く、一番大きい (Center) */
+.top-card.rank-1 { 
+    order: 2; 
+    width: 340px; 
+    height: 740px !important; /* Force Height */
+    min-height: 740px;
+    padding: 30px 20px; /* Adjust padding */
+    border: 1px solid rgba(255, 215, 0, 0.3); 
+    background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%); 
+}
+
+/* Rank 2: 2番目に高く、2番目に大きい (Left) */
+.top-card.rank-2 { 
+    order: 1; 
+    width: 300px;
+    height: 660px !important; /* Force Height */
+    min-height: 660px;
+}
+
+/* Rank 3: 一番低く、一番小さい (Right) */
+.top-card.rank-3 { 
+    order: 3; 
+    width: 270px;
+    height: 580px !important; /* Force Height */
+    min-height: 580px;
+}
 
 .rank-badge {
     font-family: var(--font-num);
@@ -130,6 +157,7 @@ header {
     font-weight: 700;
     margin-bottom: 10px;
     display: block;
+    flex-shrink: 0; /* Prevent shrinking */
 }
 .rank-1 .rank-badge { color: var(--accent-gold); text-shadow: 0 0 20px rgba(255, 215, 0, 0.4); }
 .rank-2 .rank-badge { color: #C0C0C0; }
@@ -137,7 +165,10 @@ header {
 
 .poster-placeholder, .card-poster {
     width: 100%;
-    aspect-ratio: 2/3;
+    /* Remove aspect-ratio for top cards to allow flex filling */
+    /* aspect-ratio: 2/3; -> moved to fallback or specific context */
+    flex: 1; /* Fill remaining vertical space */
+    min-height: 0; /* Allow shrinking */
     background-color: #333;
     border-radius: 8px;
     margin-bottom: 15px;
@@ -357,6 +388,10 @@ header {
     .top-card.rank-1, .top-card.rank-2, .top-card.rank-3 {
         border-width: 1px;
         margin-bottom: 0;
+        width: 100% !important; /* Reset PC width */
+        height: 60px !important; /* Reset PC height */
+        min-height: 60px !important;
+        display: grid !important; /* Force grid vs flex */
     }
     
     /* Rank 1 Specifics for List View */

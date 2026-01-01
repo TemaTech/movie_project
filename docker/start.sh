@@ -3,6 +3,10 @@ set -e
 
 # Cronサービスの起動
 echo "Starting Cron..."
+# 環境変数をcron用に書き出し（DB接続情報やAPIキーなど）
+printenv | grep -E '^(DB_|APP_|GEMINI_|TZ|HOME|PATH)' > /var/www/html/.env.cron
+chmod 644 /var/www/html/.env.cron
+echo "Environment variables exported for cron"
 service cron start
 
 echo "Setting up permissions..."

@@ -64,8 +64,9 @@ RUN php artisan config:clear \
 RUN rm -f /etc/nginx/sites-enabled/default \
     && rm -f /etc/nginx/sites-available/default
 
-# Cron設定
-RUN echo "* * * * * cd /var/www/html && php artisan schedule:run >> /dev/null 2>&1" | crontab -u www-data -
+# Cron設定（環境変数を読み込むスクリプトを使用）
+COPY docker/cron-schedule /etc/cron.d/laravel-scheduler
+RUN chmod 0644 /etc/cron.d/laravel-scheduler && crontab /etc/cron.d/laravel-scheduler
 
 # Nginxの設定ファイルをコピー
 COPY docker/nginx/nginx.conf /etc/nginx/sites-available/default

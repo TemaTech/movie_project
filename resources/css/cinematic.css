@@ -733,7 +733,7 @@ header {
 /* --- Active Movie Highlight --- */
 /* Active Movie (Green) - Unified for both Global and Japan */
 .active-movie {
-    border: 1px solid rgba(46, 204, 113, 0.6) !important; /* Green */
+    border: 3px solid rgba(46, 204, 113, 0.7) !important; /* Green - 太枠で視認性向上 */
     box-shadow: 0 0 15px rgba(46, 204, 113, 0.15);
     position: relative;
     background: rgba(46, 204, 113, 0.05) !important;

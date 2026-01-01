@@ -41,8 +41,10 @@ else
     echo "⚠️ public/sw.js not found, skipping SW version update"
 fi
 
-# 4. Dockerコンテナのビルドと起動
+# 4. Dockerコンテナのビルドと起動 (キャッシュバスティングのため、appコンテナと匿名ボリュームを再作成)
 echo "🐳 Building and starting Docker containers..."
+docker compose -f docker-compose.prod.yml stop app
+docker compose -f docker-compose.prod.yml rm -f -v app
 docker compose -f docker-compose.prod.yml up -d --build
 
 # 5. アプリケーションのセットアップ

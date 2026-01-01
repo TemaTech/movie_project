@@ -26,6 +26,9 @@ sudo systemctl disable mysql || true
 
 # 3. 最新コードの取得
 echo "⬇️ Pulling latest code..."
+# ローカルの変更を破棄して最新の状態にする
+git checkout public/sw.js 2>/dev/null || true
+rm -f .env.cron 2>/dev/null || true
 git pull origin features/movie_master
 
 # 3.5. Service Workerキャッシュバージョンの更新（キャッシュバスティング）

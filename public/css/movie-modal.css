@@ -331,6 +331,12 @@
     transform: scale(0.98);
 }
 
+/* AI分析ボタンクリック時はカードを縮小しない */
+.top-card:has(.ai-trigger-btn:active),
+.list-item:has(.ai-trigger-btn:active) {
+    transform: none !important;
+}
+
 /* Pagination Styles */
 .cinematic-pagination {
     display: flex;

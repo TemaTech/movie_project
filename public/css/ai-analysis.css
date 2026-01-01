@@ -18,12 +18,30 @@
 /* Desktop positioning for list item button - 金額の右上に配置 */
 .list-item .ai-trigger-btn {
     position: absolute;
-    top: 8px;
-    right: 8px; /* 金額エリアの右上 */
+    top: 4px;
+    right: 4px; /* 金額エリアの右上 */
     margin-left: 0;
-    width: 16px;
-    height: 16px;
-    padding: 2px;
+    /* クリック領域を拡大 */
+    width: 28px;
+    height: 28px;
+    padding: 6px;
+    /* 親のtransformから独立 */
+    isolation: isolate;
+}
+
+/* PC版: ボタンにホバー中は親カードのtransformを抑制 */
+@media (min-width: 769px) {
+    .top-card:has(.ai-trigger-btn:hover),
+    .list-item:has(.ai-trigger-btn:hover) {
+        transform: none !important;
+    }
+    
+    /* top-card用のボタンサイズ拡大 */
+    .top-card .ai-trigger-btn {
+        width: 32px;
+        height: 32px;
+        padding: 8px;
+    }
 }
 
 .ai-trigger-btn:hover {

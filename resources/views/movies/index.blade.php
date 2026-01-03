@@ -3,7 +3,7 @@
 @section('title', '歴代映画興行収入ランキング | 世界・日本のヒット作を徹底分析 - MUBIRAN')
 
 @section('head')
-    @vite(['resources/css/movie-modal.css', 'resources/css/ai-analysis.css'])
+    @vite(['resources/css/movie-modal.css', 'resources/css/ai-analysis.css', 'resources/css/filter-modal.css'])
     {{-- 直接CSSを読み込み（Viteビルドが古い場合のフォールバック - ビルド再実行後は削除可） --}}
     <link rel="stylesheet" href="/css/movie-modal.css">
 @endsection
@@ -21,20 +21,17 @@
         <a href="#" class="toggle-btn" id="btn-japan" onclick="switchTab('japan'); return false;">日本興行収入</a>
     </div>
 
-    <!-- Genre Filter (Integrated into Header for style) -->
-    <div class="genre-filter-wrapper" style="margin-left: 20px;">
-        <form action="" method="GET" id="genreForm" style="display: flex; gap: 10px;">
-            <input type="hidden" name="tab" id="tabInput" value="{{ request('tab', 'global') }}">
-            <select name="genre" class="genre-select" onchange="document.getElementById('genreForm').submit()">
-                <option value="">すべてのジャンル</option>
-                @foreach($availableGenres as $genre)
-                    <option value="{{ $genre }}" {{ $selectedGenre == $genre ? 'selected' : '' }}>
-                        {{ $genre }}
-                    </option>
-                @endforeach
-            </select>
-        </form>
+    {{-- 絞り込みボタン --}}
+    <div class="filter-trigger-wrapper" style="margin-left: 20px;">
+        <button type="button" class="filter-trigger-btn" id="filterTriggerBtn">
+            <svg class="filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
+            </svg>
+            絞り込み
+        </button>
     </div>
+    {{-- タブ状態保持用hidden input --}}
+    <input type="hidden" id="tabInput" value="{{ request('tab', 'global') }}">
 </header>
 
 <div class="container">
@@ -97,6 +94,7 @@
 </div>
 
 @include('movies.partials.modal')
+@include('movies.partials.filter-modal')
 
 @endsection
 
@@ -131,5 +129,5 @@
         }
     });
 </script>
-@vite(['resources/js/movie-modal.js', 'resources/js/ai-analysis.js'])
+@vite(['resources/js/movie-modal.js', 'resources/js/ai-analysis.js', 'resources/js/filter-modal.js'])
 @endsection

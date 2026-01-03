@@ -246,6 +246,12 @@ class MovieController extends Controller
             }
 
             $selectedGenre = request()->get('genre');
+            
+            // 高度なフィルターパラメータを取得
+            $category = request()->get('category', 'all'); // all, anime, live
+            $genres = request()->get('genres') ? explode(',', request()->get('genres')) : [];
+            $years = request()->get('years') ? explode(',', request()->get('years')) : [];
+            $matchMode = request()->get('match_mode', 'and'); // and, or
 
             // ジャンル名の変換マップを定義
             $genreMap = [
@@ -263,15 +269,73 @@ class MovieController extends Controller
 
             // タイトル変換マップを定義
             $titleMap = [
-                '哪吒之魔童闹海' => 'ナタ 魔童の大暴れ'
+                '哪吒之魔童闘海' => 'ナタ 魔童の大暴れ'
             ];
+            
+            // フィルター条件を構築するヘルパー関数
+            $applyFilters = function($query) use ($category, $genres, $years, $matchMode, $genreMap, $selectedGenre) {
+                // 旧ジャンルフィルター（後方互換性）
+                if ($selectedGenre) {
+                    $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
+                    $query->whereRaw("JSON_CONTAINS(genres, ?)", [json_encode([$searchGenre])]);
+                }
+                
+                // カテゴリフィルター（アニメ/実写）
+                if ($category === 'anime') {
+                    $query->where(function($q) {
+                        $q->whereRaw("JSON_CONTAINS(genres, ?)", [json_encode(['アニメーション'])])
+                          ->orWhereRaw("JSON_CONTAINS(genres, ?)", [json_encode(['アニメ'])]);
+                    });
+                } elseif ($category === 'live') {
+                    $query->where(function($q) {
+                        $q->whereRaw("NOT JSON_CONTAINS(genres, ?)", [json_encode(['アニメーション'])])
+                          ->whereRaw("NOT JSON_CONTAINS(genres, ?)", [json_encode(['アニメ'])]);
+                    });
+                }
+                
+                // ジャンルフィルター（複数選択対応）
+                if (!empty($genres)) {
+                    if ($matchMode === 'and') {
+                        foreach ($genres as $genre) {
+                            $searchGenre = array_flip($genreMap)[$genre] ?? $genre;
+                            $query->whereRaw("JSON_CONTAINS(genres, ?)", [json_encode([$searchGenre])]);
+                        }
+                    } else { // or
+                        $query->where(function($q) use ($genres, $genreMap) {
+                            foreach ($genres as $genre) {
+                                $searchGenre = array_flip($genreMap)[$genre] ?? $genre;
+                                $q->orWhereRaw("JSON_CONTAINS(genres, ?)", [json_encode([$searchGenre])]);
+                            }
+                        });
+                    }
+                }
+                
+                // 制作年フィルター
+                if (!empty($years)) {
+                    $currentYear = (int)date('Y');
+                    
+                    if ($matchMode === 'and') {
+                        // AND検索の場合、年は実質OR（同じ映画が複数年に該当することはない）
+                        $query->where(function($q) use ($years, $currentYear) {
+                            foreach ($years as $year) {
+                                $this->applyYearCondition($q, $year, $currentYear, true);
+                            }
+                        });
+                    } else {
+                        $query->where(function($q) use ($years, $currentYear) {
+                            foreach ($years as $year) {
+                                $this->applyYearCondition($q, $year, $currentYear, true);
+                            }
+                        });
+                    }
+                }
+                
+                return $query;
+            };
 
             // 世界の興行収入データ
             $globalMovies = GlobalMovie::query()
-                ->when($selectedGenre, function($query) use ($selectedGenre, $genreMap) {
-                    $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
-                    return $query->whereRaw("JSON_CONTAINS(genres, ?)", [json_encode([$searchGenre])]);
-                })
+                ->tap($applyFilters)
                 ->orderBy('box_office', 'desc')
                 ->paginate(100, ['*'], 'global_page');
 
@@ -300,10 +364,7 @@ class MovieController extends Controller
             
             // 日本の興行収入データ
             $japanMovies = JapaneseMovie::query()  // Movie から JapaneseMovie に変更
-                ->when($selectedGenre, function($query) use ($selectedGenre, $genreMap) {
-                    $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
-                    return $query->whereRaw("JSON_CONTAINS(genres, ?)", [json_encode([$searchGenre])]);
-                })
+                ->tap($applyFilters)
                 ->orderBy('box_office', 'desc')
                 ->paginate(100, ['*'], 'japan_page');
 
@@ -350,18 +411,22 @@ class MovieController extends Controller
                 ->sort()
                 ->all();
 
-            // ページネーションのURLにジャンルパラメータを追加
-            $globalMovies->appends([
+            // ページネーションのURLにフィルターパラメータを追加
+            $filterParams = [
                 'japan_page' => request()->japan_page,
                 'tab' => request()->tab,
-                'genre' => $selectedGenre
-            ]);
+                'genre' => $selectedGenre,
+                'category' => $category !== 'all' ? $category : null,
+                'genres' => request()->get('genres'),
+                'years' => request()->get('years'),
+                'match_mode' => $matchMode !== 'and' ? $matchMode : null,
+            ];
+            $filterParams = array_filter($filterParams); // null値を除去
 
-            $japanMovies->appends([
-                'global_page' => request()->global_page,
-                'tab' => request()->tab,
-                'genre' => $selectedGenre
-            ]);
+            $globalMovies->appends($filterParams);
+            $japanMovies->appends(array_merge($filterParams, [
+                'global_page' => request()->global_page
+            ]));
 
             // ジャンルごとの色を薄いトーンに変更
             $genreColors = [
@@ -510,6 +575,52 @@ class MovieController extends Controller
                 'success' => false,
                 'message' => 'データの取得中にエラーが発生しました。'
             ], 500);
+        }
+    }
+
+    /**
+     * 年条件をクエリに適用するヘルパーメソッド
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string $year 年または年代コード（2020s, 2010s, etc.）
+     * @param int $currentYear 現在の年
+     * @param bool $useOr ORで条件を追加するかどうか
+     */
+    private function applyYearCondition($query, $year, $currentYear, $useOr = false)
+    {
+        $method = $useOr ? 'orWhere' : 'where';
+        
+        if (is_numeric($year)) {
+            // 具体的な年（例: 2024）
+            $query->$method(function($q) use ($year) {
+                $q->whereYear('release_date', $year);
+            });
+        } else {
+            // 年代コード
+            switch ($year) {
+                case '2020s':
+                    $query->$method(function($q) use ($currentYear) {
+                        $q->whereYear('release_date', '>=', 2020)
+                          ->whereYear('release_date', '<=', min($currentYear - 3, 2029));
+                    });
+                    break;
+                case '2010s':
+                    $query->$method(function($q) {
+                        $q->whereYear('release_date', '>=', 2010)
+                          ->whereYear('release_date', '<=', 2019);
+                    });
+                    break;
+                case '2000s':
+                    $query->$method(function($q) {
+                        $q->whereYear('release_date', '>=', 2000)
+                          ->whereYear('release_date', '<=', 2009);
+                    });
+                    break;
+                case 'older':
+                    $query->$method(function($q) {
+                        $q->whereYear('release_date', '<', 2000);
+                    });
+                    break;
+            }
         }
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use Gemini\Gemini;
 
 class GenerateAiAnalysis extends Command
 {
@@ -91,7 +92,7 @@ class GenerateAiAnalysis extends Command
         $model = 'gemini-2.0-flash';
 
         try {
-            $result = \Gemini::client($apiKey)->generativeModel(model: $model)->generateContent($prompt);
+            $result = Gemini::client($apiKey)->generativeModel(model: $model)->generateContent($prompt);
             return $result->text();
         } catch (\Exception $e) {
             $this->error("API Error for {$movie->title}: " . $e->getMessage());

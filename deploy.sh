@@ -29,74 +29,52 @@ sudo systemctl disable mysql 2>/dev/null || true
 echo "⬇️  Pulling latest code..."
 git checkout public/sw.js 2>/dev/null || true
 rm -f .env.cron 2>/dev/null || true
-GIT_OUTPUT=$(git pull origin features/movie_master 2>&1)
-if echo "$GIT_OUTPUT" | grep -q "Already up to date"; then
-    echo "   Already up to date"
-else
-    echo "$GIT_OUTPUT" | grep -E "(Updating|files changed)" | head -1 || true
-fi
+git pull origin features/movie_master
 
-# 3.5. Service Workerキャッシュバージョンの更新
+# 3.5. Service Workerキャッシュバージョンの更新（キャッシュバスティング）
 NEW_VERSION=$(date +%Y%m%d%H%M%S)
 if [ -f public/sw.js ]; then
     sed -i "s/const CACHE_VERSION = '[^']*'/const CACHE_VERSION = 'v${NEW_VERSION}'/" public/sw.js
     echo "🔄 SW cache version: v${NEW_VERSION}"
-fi
-
-# 4. Dockerコンテナのビルドと起動
-echo "🐳 Building Docker containers... (this may take 30-60 seconds)"
-docker compose -f docker-compose.prod.yml stop app > /dev/null 2>&1 || true
-docker compose -f docker-compose.prod.yml rm -f -v app > /dev/null 2>&1 || true
-
-# ビルドを実行（ログはファイルに出力、エラー時のみ表示）
-BUILD_LOG="/tmp/docker-build-$$.log"
-if docker compose -f docker-compose.prod.yml up -d --build --quiet-pull --progress=quiet > "$BUILD_LOG" 2>&1; then
-    echo "   ✅ Containers built and started"
-    rm -f "$BUILD_LOG"
 else
-    echo "   ❌ Build failed! Error log:"
-    cat "$BUILD_LOG"
-    rm -f "$BUILD_LOG"
-    exit 1
+    echo "⚠️ public/sw.js not found, skipping SW version update"
 fi
+
+# 4. Dockerコンテナのビルドと起動 (キャッシュバスティングのため、appコンテナと匿名ボリュームを再作成)
+echo "🐳 Building Docker containers... (this may take 30-60 seconds)"
+docker compose -f docker-compose.prod.yml stop app
+docker compose -f docker-compose.prod.yml rm -f -v app
+docker compose -f docker-compose.prod.yml up -d --build
+echo "   ✅ Containers built and started"
 
 # 5. アプリケーションのセットアップ
 echo "⏳ Waiting for database..."
-WAIT_COUNT=0
-until docker compose -f docker-compose.prod.yml exec -T app php artisan db:monitor > /dev/null 2>&1; do
-    WAIT_COUNT=$((WAIT_COUNT + 1))
-    if [ $WAIT_COUNT -gt 30 ]; then
-        echo "   ❌ Database connection timeout"
-        exit 1
-    fi
-    sleep 2
+until docker compose -f docker-compose.prod.yml exec app php artisan db:monitor > /dev/null 2>&1; do
+    sleep 3
 done
 echo "   ✅ Database connected"
 
 echo "⚙️  Setting up application..."
 
-# キャッシュをクリア
-docker compose -f docker-compose.prod.yml exec -T app php artisan cache:clear --quiet 2>/dev/null || true
-docker compose -f docker-compose.prod.yml exec -T app php artisan config:clear --quiet 2>/dev/null || true
-docker compose -f docker-compose.prod.yml exec -T app php artisan route:clear --quiet 2>/dev/null || true
-docker compose -f docker-compose.prod.yml exec -T app php artisan view:clear --quiet 2>/dev/null || true
+# キャッシュをクリア（旧キャッシュによる不整合を防止）
+docker compose -f docker-compose.prod.yml exec app php artisan cache:clear
+docker compose -f docker-compose.prod.yml exec app php artisan config:clear
+docker compose -f docker-compose.prod.yml exec app php artisan route:clear
+docker compose -f docker-compose.prod.yml exec app php artisan view:clear
 
 # Composerオートロードを再生成
-docker compose -f docker-compose.prod.yml exec -T app git config --global --add safe.directory /var/www/html 2>/dev/null || true
-docker compose -f docker-compose.prod.yml exec -T app composer dump-autoload -o --quiet 2>/dev/null || true
+# Gitのsafe.directory警告を消す
+docker compose -f docker-compose.prod.yml exec app git config --global --add safe.directory /var/www/html
+docker compose -f docker-compose.prod.yml exec app composer dump-autoload -o
 
 # ストレージリンクとマイグレーション
-docker compose -f docker-compose.prod.yml exec -T app php artisan storage:link --force --quiet 2>/dev/null || true
-MIGRATION_OUTPUT=$(docker compose -f docker-compose.prod.yml exec -T app php artisan migrate --force 2>&1)
+docker compose -f docker-compose.prod.yml exec app php artisan storage:link --force
+docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
 
 # キャッシュを再構築
-docker compose -f docker-compose.prod.yml exec -T app php artisan config:cache --quiet 2>/dev/null || true
-docker compose -f docker-compose.prod.yml exec -T app php artisan route:cache --quiet 2>/dev/null || true
-docker compose -f docker-compose.prod.yml exec -T app php artisan view:cache --quiet 2>/dev/null || true
-
-if echo "$MIGRATION_OUTPUT" | grep -q "Migrating"; then
-    echo "   📊 Migrations applied"
-fi
+docker compose -f docker-compose.prod.yml exec app php artisan config:cache
+docker compose -f docker-compose.prod.yml exec app php artisan route:cache
+docker compose -f docker-compose.prod.yml exec app php artisan view:cache
 
 echo "   ✅ Application setup complete"
 

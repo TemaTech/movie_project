@@ -42,7 +42,7 @@ fi
 echo "🐳 Building Docker containers..."
 docker compose -f docker-compose.prod.yml stop app > /dev/null 2>&1
 docker compose -f docker-compose.prod.yml rm -f -v app > /dev/null 2>&1
-docker compose -f docker-compose.prod.yml up -d --build --quiet-pull 2>&1 | grep -v "^\[" | grep -v "^=>" | grep -v "^WARN" | grep -v "^ =>" || true
+docker compose -f docker-compose.prod.yml up -d --build --quiet-pull --progress=quiet > /dev/null 2>&1
 echo "   ✅ Containers built and started"
 
 # 5. アプリケーションのセットアップ

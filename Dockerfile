@@ -51,6 +51,8 @@ COPY . .
 COPY --from=node-builder /app/public/build /var/www/html/public/build
 
 # 依存関係のインストール
+# Gitのsafe.directory警告を消す
+RUN git config --global --add safe.directory /var/www/html
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
 
 # キャッシュクリアとルート最適化

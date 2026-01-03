@@ -55,8 +55,24 @@ until docker compose -f docker-compose.prod.yml exec app php artisan db:monitor 
 done
 
 echo "⚙️ Running application setup..."
+
+# キャッシュをクリア（旧キャッシュによる不整合を防止）
+echo "🧹 Clearing all caches..."
+docker compose -f docker-compose.prod.yml exec app php artisan cache:clear
+docker compose -f docker-compose.prod.yml exec app php artisan config:clear
+docker compose -f docker-compose.prod.yml exec app php artisan route:clear
+docker compose -f docker-compose.prod.yml exec app php artisan view:clear
+
+# Composerオートロードを再生成
+echo "📦 Regenerating composer autoload..."
+docker compose -f docker-compose.prod.yml exec app composer dump-autoload -o
+
+# ストレージリンクとマイグレーション
 docker compose -f docker-compose.prod.yml exec app php artisan storage:link --force
 docker compose -f docker-compose.prod.yml exec app php artisan migrate --force
+
+# キャッシュを再構築
+echo "🔄 Rebuilding caches..."
 docker compose -f docker-compose.prod.yml exec app php artisan config:cache
 docker compose -f docker-compose.prod.yml exec app php artisan route:cache
 docker compose -f docker-compose.prod.yml exec app php artisan view:cache

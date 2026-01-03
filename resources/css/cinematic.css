@@ -53,25 +53,27 @@ header {
 .logo-link {
     display: flex;
     align-items: center;
-    justify-content: flex-start; /* Left align explicitly */
+    justify-content: center; /* Center the scaled image */
     text-decoration: none;
-    height: 64px; /* Increased height for better visibility */
-    padding-right: 15px; /* Spacing from switch */
-    overflow: hidden; /* Crop scaled image */
+    height: 50px; /* Fixed height */
+    width: 220px; /* Explicit width to accommodate scaled image width */
+    padding-right: 0;
+    overflow: hidden; /* Crop standard whitespace */
 }
 
 .logo-img {
-    height: 100%; /* Fill the container */
+    height: 100%;
     width: auto;
     object-fit: contain;
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
-    transform: scale(1.15); /* Slight zoom to reduce whitespace */
+    transform: scale(4.0); /* Maximize text size */
+    transform-origin: center center; /* Scale from center to keep text visible */
     transition: transform 0.3s ease, filter 0.3s ease;
 }
 
 .logo-link:hover .logo-img {
-    transform: scale(1.2); /* Enhanced zoom on hover */
-    filter: drop-shadow(0 2px 8px rgba(255, 215, 0, 0.4)); /* Enhanced glow on hover */
+    transform: scale(4.2); /* Zoom effect */
+    filter: drop-shadow(0 2px 8px rgba(255, 215, 0, 0.4));
 }
 
 /* Toggle Switch Design */
@@ -373,14 +375,14 @@ header {
     }
     /* Mobile Logo Adjustment */
     .logo-link {
-        width: 100%;
+        width: 160px; /* Restricted width for mobile */
         justify-content: center;
-        margin-bottom: 12px;
-        height: 50px; /* Increased for mobile */
+        margin-bottom: 5px; /* Tighter spacing */
+        height: 50px;
     }
     
     .logo-img {
-        height: 100%; /* Fill container */
+        height: 100%; 
     }
     .toggle-container {
         order: 2;

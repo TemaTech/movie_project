@@ -93,10 +93,16 @@ class GenerateAiAnalysis extends Command
         try {
             // 両方の環境で動作するように、クラスの存在を確認して適切なものを使用
             // ローカル: Gemini\Gemini（名前空間あり）, 本番: Gemini（グローバル）
-            if (class_exists('Gemini\\Gemini')) {
+            // 第2引数falseでオートロードを無効化し、二重読み込みを防止
+            if (class_exists('Gemini\\Gemini', false)) {
                 $client = \Gemini\Gemini::client($apiKey);
-            } else {
+            } elseif (class_exists('Gemini', false)) {
                 $client = \Gemini::client($apiKey);
+            } else {
+                // どちらも存在しない場合、まずGemini\Geminiを試す（オートロード有効）
+                $client = class_exists('Gemini\\Gemini') 
+                    ? \Gemini\Gemini::client($apiKey) 
+                    : \Gemini::client($apiKey);
             }
             $result = $client->generativeModel(model: $model)->generateContent($prompt);
             return $result->text();

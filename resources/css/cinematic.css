@@ -365,8 +365,9 @@ header {
 /* --- Responsive --- */
 @media (max-width: 768px) {
     header {
-        padding: 0.8rem 1rem;
+        padding: 5px 1rem; /* Reduced top/bottom padding to minimize whitespace */
         justify-content: center; /* 中央揃え */
+        gap: 5px;
     }
     .page-title {
         font-size: 1.6rem; /* スマホ向けに縮小 */
@@ -379,8 +380,8 @@ header {
         width: auto; /* Allow width to adapt on mobile too */
         min-width: 150px;
         justify-content: center;
-        margin-bottom: 5px; /* Tighter spacing */
-        height: 50px;
+        margin-bottom: 0; /* Remove bottom margin */
+        height: 30px; /* Reduced height to crop vertical whitespace */
     }
     
     .logo-img {

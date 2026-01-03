@@ -312,11 +312,13 @@
     }
     
     .modal-content {
-        border-radius: 16px 16px 0 0;
-        height: 90vh;
-        margin-top: 10vh;
-        max-height: none;
+        border-radius: 16px;
+        height: auto;
+        max-height: 85vh;
+        margin-top: auto;
+        margin-bottom: 0;
         transform: translateY(100%);
+        padding-bottom: 20px;
     }
 
     .modal-close {

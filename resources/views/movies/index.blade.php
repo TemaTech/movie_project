@@ -4,8 +4,6 @@
 
 @section('head')
     @vite(['resources/css/movie-modal.css', 'resources/css/ai-analysis.css', 'resources/css/filter-modal.css'])
-    {{-- 直接CSSを読み込み（Viteビルドが古い場合のフォールバック - ビルド再実行後は削除可） --}}
-    <link rel="stylesheet" href="/css/movie-modal.css">
 @endsection
 
 @section('content')

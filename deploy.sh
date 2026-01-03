@@ -44,67 +44,55 @@ if [ -f public/sw.js ]; then
 fi
 
 # 4. Dockerコンテナのビルドと起動
-echo -n "🐳 Building Docker containers"
+echo "🐳 Building Docker containers... (this may take 30-60 seconds)"
 docker compose -f docker-compose.prod.yml stop app > /dev/null 2>&1 || true
 docker compose -f docker-compose.prod.yml rm -f -v app > /dev/null 2>&1 || true
 
-# バックグラウンドでビルドを実行し、プログレスを表示
-docker compose -f docker-compose.prod.yml up -d --build --quiet-pull --progress=quiet > /dev/null 2>&1 &
-BUILD_PID=$!
-while kill -0 $BUILD_PID 2>/dev/null; do
-    echo -n "."
-    sleep 2
-done
-wait $BUILD_PID
-BUILD_STATUS=$?
-
-if [ $BUILD_STATUS -eq 0 ]; then
-    echo ""
+# ビルドを実行（ログはファイルに出力、エラー時のみ表示）
+BUILD_LOG="/tmp/docker-build-$$.log"
+if docker compose -f docker-compose.prod.yml up -d --build --quiet-pull --progress=quiet > "$BUILD_LOG" 2>&1; then
     echo "   ✅ Containers built and started"
+    rm -f "$BUILD_LOG"
 else
-    echo ""
-    echo "   ❌ Build failed!"
+    echo "   ❌ Build failed! Error log:"
+    cat "$BUILD_LOG"
+    rm -f "$BUILD_LOG"
     exit 1
 fi
 
 # 5. アプリケーションのセットアップ
-echo -n "⏳ Waiting for database"
+echo "⏳ Waiting for database..."
+WAIT_COUNT=0
 until docker compose -f docker-compose.prod.yml exec -T app php artisan db:monitor > /dev/null 2>&1; do
-    echo -n "."
+    WAIT_COUNT=$((WAIT_COUNT + 1))
+    if [ $WAIT_COUNT -gt 30 ]; then
+        echo "   ❌ Database connection timeout"
+        exit 1
+    fi
     sleep 2
 done
-echo ""
 echo "   ✅ Database connected"
 
-echo -n "⚙️  Setting up application"
+echo "⚙️  Setting up application..."
 
 # キャッシュをクリア
 docker compose -f docker-compose.prod.yml exec -T app php artisan cache:clear --quiet 2>/dev/null || true
-echo -n "."
 docker compose -f docker-compose.prod.yml exec -T app php artisan config:clear --quiet 2>/dev/null || true
-echo -n "."
 docker compose -f docker-compose.prod.yml exec -T app php artisan route:clear --quiet 2>/dev/null || true
-echo -n "."
 docker compose -f docker-compose.prod.yml exec -T app php artisan view:clear --quiet 2>/dev/null || true
-echo -n "."
 
 # Composerオートロードを再生成
 docker compose -f docker-compose.prod.yml exec -T app git config --global --add safe.directory /var/www/html 2>/dev/null || true
 docker compose -f docker-compose.prod.yml exec -T app composer dump-autoload -o --quiet 2>/dev/null || true
-echo -n "."
 
 # ストレージリンクとマイグレーション
 docker compose -f docker-compose.prod.yml exec -T app php artisan storage:link --force --quiet 2>/dev/null || true
 MIGRATION_OUTPUT=$(docker compose -f docker-compose.prod.yml exec -T app php artisan migrate --force 2>&1)
-echo -n "."
 
 # キャッシュを再構築
 docker compose -f docker-compose.prod.yml exec -T app php artisan config:cache --quiet 2>/dev/null || true
-echo -n "."
 docker compose -f docker-compose.prod.yml exec -T app php artisan route:cache --quiet 2>/dev/null || true
-echo -n "."
 docker compose -f docker-compose.prod.yml exec -T app php artisan view:cache --quiet 2>/dev/null || true
-echo ""
 
 if echo "$MIGRATION_OUTPUT" | grep -q "Migrating"; then
     echo "   📊 Migrations applied"

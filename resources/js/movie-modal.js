@@ -87,8 +87,14 @@ async function fetchMovieDetails(title, movieId = null, releaseYear = null, tmdb
         if (cachedData) {
             try {
                 const data = JSON.parse(cachedData);
-                populateModal(data, revenue);
-                return;
+                // キャッシュデータのバリデーション（creditsが必須）
+                if (!data.credits) {
+                    console.warn('Invalid cached data (missing credits), fetching fresh data');
+                    localStorage.removeItem(cacheKey);
+                } else {
+                    populateModal(data, revenue);
+                    return;
+                }
             } catch (e) {
                 console.error('Error parsing cached detail data:', e);
                 localStorage.removeItem(cacheKey);
@@ -228,7 +234,7 @@ function populateModal(data, revenue = null) {
     }
 
     // Director
-    const director = data.credits.crew.find(c => c.job === 'Director');
+    const director = data.credits?.crew?.find(c => c.job === 'Director');
     document.getElementById('modalDirector').textContent = director ? director.name : '-';
 
     // Genres
@@ -246,7 +252,7 @@ function populateModal(data, revenue = null) {
     // Cast (Top 6)
     const castContainer = document.getElementById('modalCast');
     castContainer.innerHTML = '';
-    if (data.credits.cast) {
+    if (data.credits?.cast) {
         data.credits.cast.slice(0, 6).forEach(actor => {
             const item = document.createElement('div');
             item.className = 'cast-item';

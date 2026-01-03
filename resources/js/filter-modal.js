@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('filterModal');
     const closeBtn = document.getElementById('filterModalClose');
     const triggerBtn = document.getElementById('filterTriggerBtn');
+    const triggerBtnDesktop = document.getElementById('filterTriggerBtnDesktop');
     const resetBtn = document.getElementById('filterReset');
     const form = document.getElementById('filterForm');
     
@@ -35,6 +36,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // トリガーボタンでモーダルを開く
     if (triggerBtn) {
         triggerBtn.addEventListener('click', openModal);
+    }
+    
+    // デスクトップ用トリガーボタンでもモーダルを開く
+    if (triggerBtnDesktop) {
+        triggerBtnDesktop.addEventListener('click', openModal);
     }
     
     // 閉じるボタン

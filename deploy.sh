@@ -65,6 +65,8 @@ docker compose -f docker-compose.prod.yml exec app php artisan view:clear
 
 # Composerオートロードを再生成
 echo "📦 Regenerating composer autoload..."
+# Gitのsafe.directory警告を消す
+docker compose -f docker-compose.prod.yml exec app git config --global --add safe.directory /var/www/html
 docker compose -f docker-compose.prod.yml exec app composer dump-autoload -o
 
 # ストレージリンクとマイグレーション

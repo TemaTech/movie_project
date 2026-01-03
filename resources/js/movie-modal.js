@@ -29,6 +29,227 @@ const COUNTRY_MAP = {
     'Brazil': 'ブラジル'
 };
 
+// 制作会社の日本語変換マップ（日本映画1〜200位の日本企業を網羅）
+const COMPANY_MAP = {
+    // ===== 映画会社・スタジオ =====
+    'TOHO': '東宝',
+    'Toho': '東宝',
+    'Toho Pictures': '東宝ピクチャーズ',
+    'TOHO Studios': '東宝スタジオ',
+    'Toho Eizo Bijutsu': '東宝映像美術',
+    'Toei Company': '東映',
+    'Toei Animation': '東映アニメーション',
+    'Shochiku': '松竹',
+    'Nikkatsu Studio': '日活',
+    'Daiei Co. Ltd.': '大映',
+    'Daiei TV-Film': '大映テレビ',
+    'KADOKAWA': 'KADOKAWA',
+    'Kadokawa': 'KADOKAWA',
+    'KADOKAWA Daiei Studio': 'KADOKAWA大映スタジオ',
+    
+    // ===== アニメスタジオ =====
+    'Studio Ghibli': 'スタジオジブリ',
+    'Nibariki': '二馬力',
+    'Studio Chizu': 'スタジオ地図',
+    'CoMix Wave Films': 'コミックス・ウェーブ・フィルム',
+    'MAPPA': 'MAPPA',
+    'ufotable': 'ufotable',
+    'WIT STUDIO': 'WIT STUDIO',
+    'Production I.G': 'プロダクション・アイジー',
+    'Bones': 'ボンズ',
+    'Madhouse': 'マッドハウス',
+    'Kyoto Animation': '京都アニメーション',
+    'SUNRISE': 'サンライズ',
+    'Sunrise': 'サンライズ',
+    'Shin-Ei Animation': 'シンエイ動画',
+    'TMS Entertainment': 'トムス・エンタテインメント',
+    'OLM': 'OLM',
+    'Pierrot': 'ぴえろ',
+    'CloverWorks': 'CloverWorks',
+    'khara': 'カラー',
+    'Bandai Namco Filmworks': 'バンダイナムコフィルムワークス',
+    'DandeLion Animation Studio': 'ダンデライオン・アニメーションスタジオ',
+    'Shirogumi': '白組',
+    'Yasahi-Mation Productions': 'ヤサヒメーションプロダクション',
+    'Myriagon Studio': 'ミリアゴンスタジオ',
+    
+    // ===== テレビ局 =====
+    'Fuji Television Network': 'フジテレビジョン',
+    'Nippon Television Network Corporation': '日本テレビ',
+    'TBS': 'TBS',
+    'TBS Radio': 'TBSラジオ',
+    'TBS Sparkle': 'TBSスパークル',
+    'TV Asahi': 'テレビ朝日',
+    'TV Tokyo': 'テレビ東京',
+    'TV Osaka': 'テレビ大阪',
+    'TV Setouchi Broadcasting': 'テレビせとうち',
+    'TVQ Kyushu Broadcasting': 'TVQ九州放送',
+    'Yomiuri Telecasting Corporation': '読売テレビ',
+    'MBS': 'MBS',
+    'Kansai Television': '関西テレビ',
+    'Asahi Broadcasting Corporation': '朝日放送',
+    'Tokai Television Broadcasting': '東海テレビ',
+    'Nagoya Broadcasting Network': '名古屋テレビ',
+    'Chukyo TV Broadcasting Company': '中京テレビ',
+    'CBC': 'CBC',
+    'Hokkaido Broadcasting': '北海道放送',
+    'Hokkaido Television Broadcasting': '北海道テレビ',
+    'Hokkaido Cultural Broadcasting': '北海道文化放送',
+    'Television Hokkaido Broadcasting': 'テレビ北海道',
+    'Sapporo Television Broadcasting Company': '札幌テレビ',
+    'RKB Mainichi Broadcasting Corporation': 'RKB毎日放送',
+    'Kyushu Asahi Broadcasting': '九州朝日放送',
+    'Television Nishinippon Corporation': 'テレビ西日本',
+    'Hiroshima Home Television': '広島ホームテレビ',
+    'Hiroshima Telecasting': '広島テレビ',
+    'Television Shin-Hiroshima System': 'テレビ新広島',
+    'Niigata Sogo Television': 'NST新潟総合テレビ',
+    'Sendai Television': '仙台放送',
+    'Miyagi Television Broadcasting': '宮城テレビ',
+    'Fukuoka Broadcasting System': '福岡放送',
+    'Iwate Menkoi Television': 'めんこいテレビ',
+    'Akita Television': '秋田テレビ',
+    'Fukushima Television Broadcasting': '福島テレビ',
+    'Nagano Broadcasting System': '長野放送',
+    'Ishikawa Television Broadcasting': '石川テレビ',
+    'Toyama Television': '富山テレビ',
+    'Fukui Television Broadcasting': '福井テレビ',
+    'San-in Chuo Television Broadcasting': '山陰中央テレビ',
+    'Okayama Broadcasting': '岡山放送',
+    'Ehime Broadcasting': '愛媛放送',
+    'Kochi Sun Sun Broadcasting': '高知さんさんテレビ',
+    'Shizuoka Telecasting': '静岡朝日テレビ',
+    'Shizuoka Daiichi Television': '静岡第一テレビ',
+    'Television Nagasaki': 'テレビ長崎',
+    'Television Oita System': 'テレビ大分',
+    'Kumamoto Kenmin Televisions': '熊本県民テレビ',
+    'Saga Television Station': 'サガテレビ',
+    'Kagoshima Television Station': '鹿児島テレビ',
+    'Miyazaki Telecasting': 'テレビ宮崎',
+    'Okinawa Television Broadcasting': '沖縄テレビ',
+    'Sakuranbo Television Broadcasting Corporation': 'さくらんぼテレビ',
+    'Kids Station': 'キッズステーション',
+    'Tokyo FM': 'TOKYO FM',
+    'AX-ON': 'AX-ON',
+    
+    // ===== 広告代理店・マーケティング =====
+    'dentsu': '電通',
+    'dentsu Music and Entertainment': '電通ミュージック・アンド・エンタテインメント',
+    'Hakuhodo': '博報堂',
+    'Hakuhodo DY Media Partners': '博報堂DYメディアパートナーズ',
+    'ADK': 'ADK',
+    'ADK Emotions': 'ADKエモーションズ',
+    'jeki': 'ジェイアール東日本企画',
+    'Metro Ad Agency': 'メトロアドエージェンシー',
+    'Tokyu Agency': '東急エージェンシー',
+    
+    // ===== 出版社・メディア =====
+    'Shogakukan': '小学館',
+    'Shueisha': '集英社',
+    'Shogakukan-Shueisha Productions': '小学館集英社プロダクション',
+    'Shogakukan Production': '小学館プロダクション',
+    'Kodansha': '講談社',
+    'KADOKAWA': 'KADOKAWA',
+    'Tokuma Shoten': '徳間書店',
+    'Futabasha': '双葉社',
+    'Ohta Publishing': '太田出版',
+    'Media Factory': 'メディアファクトリー',
+    'Enterbrain': 'エンターブレイン',
+    'BookWalker': 'BOOK☆WALKER',
+    'The Asahi Shimbun': '朝日新聞社',
+    'Yomiuri Shimbun Company': '読売新聞社',
+    'Chunichi Shimbun': '中日新聞社',
+    'THE NISHINIPPON SHIMBUN': '西日本新聞社',
+    'NIKKEI': '日本経済新聞社',
+    
+    // ===== 音楽・エンタメ企業 =====
+    'Sony Music Entertainment (Japan)': 'ソニー・ミュージックエンタテインメント',
+    'avex pictures': 'エイベックス・ピクチャーズ',
+    'Pony Canyon': 'ポニーキャニオン',
+    'Aniplex': 'アニプレックス',
+    'J Storm': 'ジェイ・ストーム',
+    'AMUSE': 'アミューズ',
+    'Amuse Soft Entertainment': 'アミューズソフトエンタテインメント',
+    'Horipro': 'ホリプロ',
+    'Stardust Pictures': 'スターダストピクチャーズ',
+    'LesPros Entertainment': 'レプロエンタテインメント',
+    'Watanabe Entertainment': '渡辺エンターテインメント',
+    'TEN CARAT': 'テンカラット',
+    
+    // ===== ゲーム・玩具 =====
+    'Nintendo': '任天堂',
+    'Bandai': 'バンダイ',
+    'Bandai Namco Entertainment': 'バンダイナムコエンターテインメント',
+    'Tomy': 'タカラトミー',
+    'GAME FREAK': 'ゲームフリーク',
+    'Creatures': 'クリーチャーズ',
+    'LEVEL5': 'レベルファイブ',
+    'Pikachu Project \'98': 'ピカチュウプロジェクト',
+    
+    // ===== 通信・IT =====
+    'NTT Docomo': 'NTTドコモ',
+    'KDDI': 'KDDI',
+    'LY Corporation': 'LINEヤフー',
+    'Yahoo! Japan': 'Yahoo! JAPAN',
+    'GYAO': 'GYAO',
+    
+    // ===== プロダクション・制作会社 =====
+    'Robot Communications': 'ロボットコミュニケーションズ',
+    'AOI Pro.': 'AOI Pro.',
+    'IMAGICA': 'IMAGICA',
+    'TC Entertainment': 'TCエンタテインメント',
+    'TC Productions': 'TCプロダクション',
+    'Sedic': 'セディックインターナショナル',
+    'Film Makers': 'フィルムメーカーズ',
+    'V1 studio': 'V1 studio',
+    'BIGFACE': 'BIGFACE',
+    'CREDEUS': 'クレデウス',
+    'Cross Media': 'クロスメディア',
+    'Digital Image Associates': 'デジタル・イメージ・アソシエイツ',
+    'Odin': 'オディン',
+    'INP': 'INP',
+    'Suirinsha': '水輪社',
+    'Cine Bazar': 'シネバザール',
+    'GNDHDDT': 'GNDHDDT',
+    'Kurahara Productions': '蔵原プロダクション',
+    'Office Nino': 'オフィスニノ',
+    'Shuji Abe Office': '阿部秀司事務所',
+    'K-Factory': 'K-Factory',
+    'J-dream': 'Jドリーム',
+    'Funimation Global Group': 'ファニメーション',
+    
+    // ===== その他の日本企業 =====
+    'Lawson': 'ローソン',
+    'Lawson Entertainment': 'ローソンエンタテインメント',
+    'Mitsubishi': '三菱商事',
+    'Mitsubishi Shoji': '三菱商事',
+    'Tohan': 'トーハン',
+    'Nippan Group Holdings': '日販グループホールディングス',
+    'Pioneer': 'パイオニア',
+    'Gakken Co. Ltd.': '学研',
+    'd-rights': 'ディーライツ',
+    'movic': 'ムービック',
+    'voque ting': 'ヴォーク・ティング',
+    'Sumzap': 'サムザップ',
+    'Story': 'ストーリー',
+    'MIRACLE Productions': 'ミラクルプロダクション',
+    'TFC': 'TFC',
+    'TNDG': 'TNDG',
+    'NPV Entertainment': 'NPVエンターテインメント',
+    'Audio Planning U': 'オーディオプランニングユー',
+    'Fujiko Productions': 'フジコ・プロダクション',
+    
+    // ===== 製作委員会・特別プロジェクト =====
+    'Meitantei Conan Production Committee': '名探偵コナン製作委員会',
+    '"Weathering With You" Film Partners': '「天気の子」製作委員会',
+    
+    // ===== 海外日本法人 =====
+    'Warner Bros. Japan': 'ワーナー・ブラザース・ジャパン',
+    'Walt Disney Japan': 'ウォルト・ディズニー・ジャパン',
+    'The Walt Disney Company (Japan)': 'ウォルト・ディズニー・ジャパン',
+    'Sony Pictures International Productions': 'ソニー・ピクチャーズ・インターナショナル・プロダクションズ'
+};
+
 // Modal Logic
 function getModalElements() {
     return {
@@ -222,8 +443,8 @@ function populateModal(data, revenue = null) {
     document.getElementById('modalCountry').textContent = countryNames || '-';
 
     const companyNames = data.production_companies ? 
-        data.production_companies.slice(0, 2).map(c => c.name).join('、') : '-';
-    document.getElementById('modalCompany').textContent = companyNames || '-';
+        data.production_companies.slice(0, 2).map(c => COMPANY_MAP[c.name] || c.name).join('<br>') : '-';
+    document.getElementById('modalCompany').innerHTML = companyNames || '-';
 
     // Japanese Date Format
     if (data.release_date) {
@@ -266,13 +487,8 @@ function populateModal(data, revenue = null) {
             name.className = 'cast-name';
             name.textContent = actor.name;
 
-            const char = document.createElement('span');
-            char.className = 'cast-character';
-            char.textContent = actor.character;
-
             item.appendChild(img);
             item.appendChild(name);
-            item.appendChild(char);
             castContainer.appendChild(item);
         });
     }

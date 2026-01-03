@@ -56,7 +56,8 @@ header {
     justify-content: center; /* Center the scaled image */
     text-decoration: none;
     height: 50px; /* Fixed height */
-    width: 220px; /* Explicit width to accommodate scaled image width */
+    width: auto; /* Allow width to adapt */
+    min-width: 150px; /* Ensure minimum width for scaled text */
     padding-right: 0;
     overflow: hidden; /* Crop standard whitespace */
 }
@@ -66,13 +67,13 @@ header {
     width: auto;
     object-fit: contain;
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
-    transform: scale(4.0); /* Maximize text size */
-    transform-origin: center center; /* Scale from center to keep text visible */
-    transition: transform 0.3s ease, filter 0.3s ease;
+    transform: scale(3.0); /* Adjusted scale for balanced size */
+    transform-origin: center center;
+    transition: filter 0.3s ease; /* Only animate filter, not transform */
 }
 
 .logo-link:hover .logo-img {
-    transform: scale(4.2); /* Zoom effect */
+    /* No scale change on hover */
     filter: drop-shadow(0 2px 8px rgba(255, 215, 0, 0.4));
 }
 
@@ -375,7 +376,8 @@ header {
     }
     /* Mobile Logo Adjustment */
     .logo-link {
-        width: 160px; /* Restricted width for mobile */
+        width: auto; /* Allow width to adapt on mobile too */
+        min-width: 150px;
         justify-content: center;
         margin-bottom: 5px; /* Tighter spacing */
         height: 50px;

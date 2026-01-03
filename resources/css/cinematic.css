@@ -45,9 +45,31 @@ header {
     font-size: 1.5rem;
     font-weight: 700;
     letter-spacing: 0.05em;
-    background: linear-gradient(to right, #fff, #aaa);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    display: none; /* Hide text logo styles */
+}
+
+/* Header Logo Image */
+/* Header Logo */
+.logo-link {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start; /* Left align explicitly */
+    text-decoration: none;
+    height: 50px; /* Header height */
+    padding-right: 15px; /* Spacing from switch */
+}
+
+.logo-img {
+    height: 40px; /* Adjusted optimized height for landscape logo */
+    width: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+    transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+.logo-link:hover .logo-img {
+    transform: scale(1.05); /* Gentle hover effect */
+    filter: drop-shadow(0 2px 8px rgba(255, 215, 0, 0.4)); /* Enhanced glow on hover */
 }
 
 /* Toggle Switch Design */
@@ -347,10 +369,16 @@ header {
         padding: 0 10px;
         line-height: 1.2;
     }
-    .logo {
+    /* Mobile Logo Adjustment */
+    .logo-link {
         width: 100%;
-        text-align: center;
-        margin-bottom: 10px;
+        justify-content: center;
+        margin-bottom: 15px;
+        height: 48px; /* Slightly taller for mobile tap target */
+    }
+    
+    .logo-img {
+        height: 38px; /* Balanced size for mobile */
     }
     .toggle-container {
         order: 2;

@@ -11,7 +11,9 @@
 @section('content')
 
 <header>
-    <a href="/" class="logo">MUBIRAN</a>
+    <a href="/" class="logo-link">
+        <img src="{{ asset('images/logo.png') }}" alt="MUBIRAN" class="logo-img">
+    </a>
     
     <!-- Toggle Switch -->
     <div class="toggle-container">

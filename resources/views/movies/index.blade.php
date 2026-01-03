@@ -15,19 +15,19 @@
         <img src="{{ asset('images/logo.png') }}" alt="MUBIRAN" class="logo-img">
     </a>
     
-    <!-- Toggle Switch -->
-    <div class="toggle-container">
-        <a href="#" class="toggle-btn active" id="btn-global" onclick="switchTab('global'); return false;">世界興行収入</a>
-        <a href="#" class="toggle-btn" id="btn-japan" onclick="switchTab('japan'); return false;">日本興行収入</a>
-    </div>
-
-    {{-- 絞り込みボタン --}}
-    <div class="filter-trigger-wrapper" style="margin-left: 20px;">
+    <!-- Toggle Switch + Filter Button (モバイルでは同じ行に表示) -->
+    <div class="header-controls">
+        <div class="toggle-container">
+            <a href="#" class="toggle-btn active" id="btn-global" onclick="switchTab('global'); return false;">世界興行収入</a>
+            <a href="#" class="toggle-btn" id="btn-japan" onclick="switchTab('japan'); return false;">日本興行収入</a>
+        </div>
+        
+        {{-- 絞り込みボタン --}}
         <button type="button" class="filter-trigger-btn" id="filterTriggerBtn">
             <svg class="filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
             </svg>
-            絞り込み
+            <span class="filter-text">絞り込み</span>
         </button>
     </div>
     {{-- タブ状態保持用hidden input --}}

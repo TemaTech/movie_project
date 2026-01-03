@@ -104,6 +104,18 @@ header {
     box-shadow: 0 2px 10px rgba(0,0,0,0.5);
 }
 
+/* Header Controls: タブ + 絞り込みボタン */
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+/* 絞り込みボタンのテキスト（モバイルで非表示用） */
+.filter-text {
+    display: inline;
+}
+
 /* --- Main Container --- */
 .container {
     max-width: 1200px;
@@ -365,9 +377,11 @@ header {
 /* --- Responsive --- */
 @media (max-width: 768px) {
     header {
-        padding: 5px 1rem; /* Reduced top/bottom padding to minimize whitespace */
-        justify-content: center; /* 中央揃え */
-        gap: 5px;
+        padding: 8px 1rem;
+        flex-direction: column; /* 縦に並べる */
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
     }
     .page-title {
         font-size: 1.6rem; /* スマホ向けに縮小 */
@@ -375,22 +389,44 @@ header {
         padding: 0 10px;
         line-height: 1.2;
     }
-    /* Mobile Logo Adjustment */
+    /* Mobile Logo: 中央配置 */
     .logo-link {
-        width: auto; /* Allow width to adapt on mobile too */
-        min-width: 150px;
+        width: auto;
+        min-width: 120px;
         justify-content: center;
-        margin-bottom: 0; /* Remove bottom margin */
-        height: 30px; /* Reduced height to crop vertical whitespace */
+        margin-bottom: 0;
+        height: 28px; /* 少し小さく */
+        order: 1; /* 1行目 */
     }
     
     .logo-img {
         height: 100%; 
     }
-    .toggle-container {
-        order: 2;
-        margin-bottom: 10px;
+    
+    /* Header Controls: タブと絞り込みボタンを同じ行に */
+    .header-controls {
+        order: 2; /* 2行目 */
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: auto;
     }
+    
+    .toggle-container {
+        margin-bottom: 0;
+    }
+    
+    /* モバイルでは「絞り込み」テキストを非表示、アイコンのみ */
+    .filter-text {
+        display: none;
+    }
+    
+    /* 絞り込みボタンをコンパクトに（アイコンのみ） */
+    .filter-trigger-btn {
+        padding: 6px 10px;
+        min-width: auto;
+    }
+    
     .genre-filter-wrapper {
         order: 3;
         width: 100%;

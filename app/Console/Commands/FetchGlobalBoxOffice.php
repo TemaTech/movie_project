@@ -24,6 +24,13 @@ class FetchGlobalBoxOffice extends Command
             $api_key = config('services.tmdb.api_key');
             $this->info('TMDb APIを使用してデータ取得を開始...');
 
+            // 既存のAI分析データを事前に退避（DB接続タイムアウト回避のため早期に取得）
+            $existingAnalyses = GlobalMovie::where('region', 'global')
+                ->whereNotNull('ai_analysis')
+                ->pluck('ai_analysis', 'tmdb_id')
+                ->toArray();
+            $this->info(sprintf('既存のAI分析データを%d件保持しています', count($existingAnalyses)));
+
             $movies = [];
             $page = 1;
             $totalMovies = 0;
@@ -191,14 +198,6 @@ class FetchGlobalBoxOffice extends Command
                 
                 try {
                     // 既存のデータを一旦全て削除（truncateは暗黙的にコミットするため、トランザクション外で実行）
-                    
-                    // 削除前にAI分析データを退避
-                    $existingAnalyses = GlobalMovie::where('region', 'global')
-                        ->whereNotNull('ai_analysis')
-                        ->pluck('ai_analysis', 'tmdb_id')
-                        ->toArray();
-                    $this->info(sprintf('既存のAI分析データを%d件退避しました', count($existingAnalyses)));
-
                     GlobalMovie::where('region', 'global')->delete();
                     $this->info('既存のデータを削除しました');
                     

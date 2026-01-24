@@ -45,13 +45,5 @@ class GlobalMovie extends Model
         'genres' => '[]'
     ];
 
-    protected function setGenresAttribute($value)
-    {
-        $this->attributes['genres'] = is_array($value) ? json_encode($value) : $value;
-    }
 
-    protected function getGenresAttribute($value)
-    {
-        return json_decode($value, true) ?? [];
-    }
 }

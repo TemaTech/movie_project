@@ -354,6 +354,16 @@ class MovieController extends Controller
                 // ドルから円への換算（1ドル = 約150円で計算）
                 $movie->box_office_billion = number_format($movie->box_office * 150 / 100000000, 1);
                 $movie->budget_billion = number_format($movie->budget * 150 / 100000000, 1);
+
+                // genres が配列でない場合の処理（防御的コード）
+                if (!is_array($movie->genres)) {
+                    if (is_string($movie->genres)) {
+                        $movie->genres = json_decode($movie->genres, true) ?? [];
+                    } else {
+                        $movie->genres = [];
+                    }
+                }
+
                 if ($movie->genres) {
                     $movie->genres = array_map(function($genre) use ($genreMap) {
                         return $genreMap[$genre] ?? $genre;

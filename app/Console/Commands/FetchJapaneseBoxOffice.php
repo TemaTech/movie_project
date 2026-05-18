@@ -164,13 +164,13 @@ class FetchJapaneseBoxOffice extends Command
             $this->error('エラー発生: ' . $e->getMessage());
             $this->error('スタックトレース: ' . $e->getTraceAsString());
 
-            // エラーメール送信
-            try {
-                Mail::to('horiuchi.cadd9@gmail.com')->send(new BoxOfficeFetchError($e, '日本歴代興行成績'));
-                $this->info('エラー通知メールを送信しました');
-            } catch (\Exception $mailException) {
-                $this->error('エラー通知メールの送信に失敗しました: ' . $mailException->getMessage());
-            }
+            // エラーメール送信（一時停止中）
+            // try {
+            //     Mail::to('horiuchi.cadd9@gmail.com')->send(new BoxOfficeFetchError($e, '日本歴代興行成績'));
+            //     $this->info('エラー通知メールを送信しました');
+            // } catch (\Exception $mailException) {
+            //     $this->error('エラー通知メールの送信に失敗しました: ' . $mailException->getMessage());
+            // }
             
             // 最終的なトランザクションのクリーンアップ
             try {

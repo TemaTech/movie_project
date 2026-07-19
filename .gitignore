@@ -22,3 +22,6 @@ yarn-error.log
 .DS_Store
 手順書/01.本番環境_ConoHaVPS.txt
 手順書/02.ローカル環境_Docker.txt
+.env_bk
+.env.cron
+キー/

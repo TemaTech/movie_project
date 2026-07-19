@@ -18,7 +18,7 @@ class GenerateAiAnalysis extends Command
      *
      * @var string
      */
-    protected $description = 'Generate AI trends analysis for top ranking movies using Gemini 1.5 Flash.';
+    protected $description = 'Generate AI trends analysis for top ranking movies using Gemini.';
 
     /**
      * Execute the console command.
@@ -87,8 +87,9 @@ class GenerateAiAnalysis extends Command
             5. 具体的な興行収入の数字は含めないでよい（コンテキストとして既にユーザーに見えているため）。
         ";
 
-        // Use the most cost-effective and fast model
-        $model = 'gemini-2.0-flash';
+        // Gemini 2.0 Flash was shut down on 2026-06-01.
+        // The model can be overridden with GEMINI_MODEL without changing code.
+        $model = config('services.gemini.model', 'gemini-3.5-flash');
 
         try {
             // 両方の環境で動作するように、クラスの存在を確認して適切なものを使用

@@ -41,6 +41,9 @@ return [
 
     'gemini' => [
         'api_key' => env('GEMINI_API_KEY'),
+        // Gemini 2.0 Flash was shut down on 2026-06-01.
+        // Keep this configurable so future model migrations do not require code changes.
+        'model' => env('GEMINI_MODEL', 'gemini-3.5-flash'),
     ],
 
 ];

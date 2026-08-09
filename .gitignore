@@ -1,6 +1,7 @@
 /.phpunit.cache
 /node_modules
 /public/build
+/dist
 /public/hot
 /public/storage
 /storage/*.key
@@ -8,6 +9,9 @@
 .env
 .env.backup
 .env.production
+.env_bk
+.env.cron
+キー/
 .phpactor.json
 .phpunit.result.cache
 docker-compose.override.yml

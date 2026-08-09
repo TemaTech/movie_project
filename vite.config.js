@@ -14,6 +14,7 @@ export default defineConfig({
                 'resources/js/movie-modal.js',
                 'resources/js/ai-analysis.js',
                 'resources/js/filter-modal.js',
+                'resources/js/static-site.js',
             ],
             refresh: true,
         }),

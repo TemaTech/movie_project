@@ -120,8 +120,6 @@
         window.history.pushState({}, '', url);
     }
 
-    window.TMDB_API_KEY = '26e7b323fa7ad8630e7c661e3c1def29';
-
     document.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
         const tab = urlParams.get('tab') || 'global';

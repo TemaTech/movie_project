@@ -58,6 +58,13 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Restore TMDb detail cache
+        uses: actions/cache@v4
+        with:
+          path: storage/app/static-details
+          key: static-details-${{ runner.os }}-v1
+          restore-keys: static-details-${{ runner.os }}-v1
+
       - name: Install dependencies
         run: |
           composer install --no-interaction --prefer-dist --no-progress

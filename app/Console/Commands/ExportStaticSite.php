@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Traits\FetchesTmdbMovieDetails;
 use App\Models\GlobalMovie;
 use App\Models\JapaneseMovie;
 use Carbon\Carbon;
@@ -10,16 +11,21 @@ use Illuminate\Support\Facades\File;
 
 class ExportStaticSite extends Command
 {
-    protected $signature = 'site:export-static {--output=dist : Export directory}';
+    use FetchesTmdbMovieDetails;
+
+    protected $signature = 'site:export-static
+                            {--output=dist : Export directory}
+                            {--refresh-details : Re-fetch all TMDb detail files}';
 
     protected $description = 'Export the movie rankings as a static site for Cloudflare Pages';
 
     public function handle(): int
     {
         $output = base_path($this->option('output'));
+        $refreshDetails = (bool) $this->option('refresh-details');
 
         File::deleteDirectory($output);
-        File::ensureDirectoryExists($output . '/data');
+        File::ensureDirectoryExists($output . '/data/details');
 
         $global = GlobalMovie::orderBy('box_office', 'desc')->get()
             ->values()
@@ -34,6 +40,9 @@ class ExportStaticSite extends Command
             'japan' => $japan,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT));
 
+        $this->exportMovieDetails($global, $output . '/data/details', $refreshDetails, GlobalMovie::class);
+        $this->exportMovieDetails($japan, $output . '/data/details', $refreshDetails, JapaneseMovie::class);
+
         $this->copyPublicAssets($output);
         File::put($output . '/index.html', $this->indexHtml());
 
@@ -41,6 +50,28 @@ class ExportStaticSite extends Command
         $this->line("Global: {$global->count()} movies / Japan: {$japan->count()} movies");
 
         return self::SUCCESS;
+    }
+
+    private function exportMovieDetails($movies, string $detailsDir, bool $refresh, string $modelClass): void
+    {
+        $exported = 0;
+        $skipped = 0;
+
+        foreach ($movies as $movieData) {
+            $movie = $modelClass::find($movieData['id']);
+            if (! $movie) {
+                $skipped++;
+                continue;
+            }
+
+            if ($this->exportMovieDetail($movieData['id'], $movie, $detailsDir, $refresh)) {
+                $exported++;
+            } else {
+                $skipped++;
+            }
+        }
+
+        $this->line("Details exported: {$exported} / skipped: {$skipped}");
     }
 
     private function movieData(GlobalMovie|JapaneseMovie $movie, int $rank, bool $isJapan): array
@@ -58,16 +89,25 @@ class ExportStaticSite extends Command
             ? (bool) $movie->is_active
             : ($releaseDate && Carbon::parse($releaseDate)->greaterThanOrEqualTo(now()->subMonths(6)));
 
+        $revenueBillion = $isJapan
+            ? number_format($movie->box_office / 100000000, 1)
+            : number_format($movie->box_office * 150 / 100000000, 1);
+
         return [
             'id' => $movie->movie_id,
+            'tmdbId' => $movie->tmdb_id,
             'rank' => $rank,
             'title' => $movie->title,
             'originalTitle' => $movie->original_title,
             'releaseDate' => $releaseDate,
+            'releaseYear' => $releaseDate ? (int) substr($releaseDate, 0, 4) : null,
             'genres' => array_values($genres),
             'posterUrl' => $poster,
             'isActive' => $isActive,
             'isAnime' => in_array('アニメ', $genres, true) || in_array('アニメーション', $genres, true),
+            'boxOffice' => (int) $movie->box_office,
+            'revenueBillion' => $revenueBillion,
+            'productionCountry' => $isJapan ? ($movie->production_country ?? '日本') : null,
             'revenue' => $isJapan
                 ? number_format($movie->box_office / 100000000, 1) . '億円'
                 : number_format($movie->box_office / 100000000, 2) . '億ドル',
@@ -95,13 +135,13 @@ class ExportStaticSite extends Command
     private function indexHtml(): string
     {
         $manifestPath = public_path('build/manifest.json');
-        if (!File::exists($manifestPath)) {
+        if (! File::exists($manifestPath)) {
             throw new \RuntimeException('Vite assets are missing. Run npm run build before site:export-static.');
         }
 
         $manifest = json_decode(File::get($manifestPath), true, flags: JSON_THROW_ON_ERROR);
         $entry = $manifest['resources/js/static-site.js'] ?? null;
-        if (!$entry) {
+        if (! $entry) {
             throw new \RuntimeException('Static site Vite entry was not found in the manifest.');
         }
 

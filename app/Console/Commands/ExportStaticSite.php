@@ -27,11 +27,15 @@ class ExportStaticSite extends Command
         File::deleteDirectory($output);
         File::ensureDirectoryExists($output . '/data/details');
 
-        $global = GlobalMovie::orderBy('box_office', 'desc')->get()
-            ->values()
+        $globalModels = GlobalMovie::orderBy('box_office', 'desc')->get();
+        $japanModels = JapaneseMovie::orderBy('box_office', 'desc')->get();
+
+        $this->exportMovieDetails($globalModels, $output . '/data/details', $refreshDetails);
+        $this->exportMovieDetails($japanModels, $output . '/data/details', $refreshDetails);
+
+        $global = $globalModels->values()
             ->map(fn (GlobalMovie $movie, int $index) => $this->movieData($movie, $index + 1, false));
-        $japan = JapaneseMovie::orderBy('box_office', 'desc')->get()
-            ->values()
+        $japan = $japanModels->values()
             ->map(fn (JapaneseMovie $movie, int $index) => $this->movieData($movie, $index + 1, true));
 
         File::put($output . '/data/movies.json', json_encode([
@@ -39,9 +43,6 @@ class ExportStaticSite extends Command
             'global' => $global,
             'japan' => $japan,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT));
-
-        $this->exportMovieDetails($global, $output . '/data/details', $refreshDetails, GlobalMovie::class);
-        $this->exportMovieDetails($japan, $output . '/data/details', $refreshDetails, JapaneseMovie::class);
 
         $this->copyPublicAssets($output);
         File::put($output . '/index.html', $this->indexHtml());
@@ -52,19 +53,13 @@ class ExportStaticSite extends Command
         return self::SUCCESS;
     }
 
-    private function exportMovieDetails($movies, string $detailsDir, bool $refresh, string $modelClass): void
+    private function exportMovieDetails($movies, string $detailsDir, bool $refresh): void
     {
         $exported = 0;
         $skipped = 0;
 
-        foreach ($movies as $movieData) {
-            $movie = $modelClass::find($movieData['id']);
-            if (! $movie) {
-                $skipped++;
-                continue;
-            }
-
-            if ($this->exportMovieDetail($movieData['id'], $movie, $detailsDir, $refresh)) {
+        foreach ($movies as $movie) {
+            if ($this->exportMovieDetail($movie->movie_id, $movie, $detailsDir, $refresh)) {
                 $exported++;
             } else {
                 $skipped++;
@@ -77,12 +72,7 @@ class ExportStaticSite extends Command
     private function movieData(GlobalMovie|JapaneseMovie $movie, int $rank, bool $isJapan): array
     {
         $releaseDate = $movie->release_date?->format('Y-m-d');
-        $poster = $movie->poster_path;
-        if ($poster && str_starts_with($poster, 'posters/')) {
-            $poster = '/storage/' . $poster;
-        } elseif ($poster && ! str_starts_with($poster, 'http')) {
-            $poster = 'https://image.tmdb.org/t/p/w342' . $poster;
-        }
+        $poster = $this->resolvePosterPath($movie);
 
         $genres = is_array($movie->genres) ? $movie->genres : (json_decode((string) $movie->genres, true) ?: []);
         $isActive = $isJapan
@@ -115,6 +105,33 @@ class ExportStaticSite extends Command
             'analysis' => $movie->ai_analysis,
             'sourceUrl' => $movie->data_source_url,
         ];
+    }
+
+    private function resolvePosterPath(GlobalMovie|JapaneseMovie $movie): ?string
+    {
+        $poster = $movie->poster_path;
+
+        if (empty($poster)) {
+            $cachePath = storage_path("app/static-details/{$movie->movie_id}.json");
+            if (File::exists($cachePath)) {
+                $detail = json_decode(File::get($cachePath), true);
+                $poster = is_array($detail) ? ($detail['poster_path'] ?? null) : null;
+            }
+        }
+
+        if (empty($poster)) {
+            return null;
+        }
+
+        if (str_starts_with($poster, 'posters/')) {
+            return '/storage/' . $poster;
+        }
+
+        if (str_starts_with($poster, 'http')) {
+            return $poster;
+        }
+
+        return 'https://image.tmdb.org/t/p/w342' . $poster;
     }
 
     private function copyPublicAssets(string $output): void

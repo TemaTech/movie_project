@@ -358,32 +358,58 @@ trait FetchesTmdbMovieDetails
         bool $refresh = false
     ): bool {
         $cachePath = storage_path("app/static-details/{$movieId}.json");
+        $export = null;
+        $tmdbId = null;
 
         if (! $refresh && File::exists($cachePath)) {
+            $export = json_decode(File::get($cachePath), true);
+            if (! is_array($export)) {
+                return false;
+            }
+
             File::ensureDirectoryExists($detailsDir);
             File::copy($cachePath, "{$detailsDir}/{$movieId}.json");
+            $tmdbId = $this->findTmdbId($movie);
+        } else {
+            $tmdbId = $this->findTmdbId($movie);
+            if (! $tmdbId) {
+                return false;
+            }
 
-            return true;
+            $detail = $this->fetchTmdbMovieDetail($tmdbId);
+            if (! $detail) {
+                return false;
+            }
+
+            $tmdbId = (int) ($detail['id'] ?? $tmdbId);
+            $export = $this->slimTmdbDetail($detail);
+            $json = json_encode($export, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+            File::ensureDirectoryExists(dirname($cachePath));
+            File::put($cachePath, $json);
+            File::ensureDirectoryExists($detailsDir);
+            File::put("{$detailsDir}/{$movieId}.json", $json);
         }
 
-        $tmdbId = $this->findTmdbId($movie);
-        if (! $tmdbId) {
-            return false;
-        }
-
-        $detail = $this->fetchTmdbMovieDetail($tmdbId);
-        if (! $detail) {
-            return false;
-        }
-
-        $export = $this->slimTmdbDetail($detail);
-        $json = json_encode($export, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-        File::ensureDirectoryExists(dirname($cachePath));
-        File::put($cachePath, $json);
-        File::ensureDirectoryExists($detailsDir);
-        File::put("{$detailsDir}/{$movieId}.json", $json);
+        $this->backfillMovieMetadata($movie, $tmdbId, $export);
 
         return true;
+    }
+
+    private function backfillMovieMetadata(GlobalMovie|JapaneseMovie $movie, ?int $tmdbId, array $export): void
+    {
+        $updates = [];
+
+        if (empty($movie->tmdb_id) && $tmdbId) {
+            $updates['tmdb_id'] = $tmdbId;
+        }
+
+        if (empty($movie->poster_path) && ! empty($export['poster_path'])) {
+            $updates['poster_path'] = $export['poster_path'];
+        }
+
+        if ($updates !== []) {
+            $movie->update($updates);
+        }
     }
 }

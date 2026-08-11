@@ -48,8 +48,8 @@ class ExportStaticSite extends Command
         $releaseDate = $movie->release_date?->format('Y-m-d');
         $poster = $movie->poster_path;
         if ($poster && str_starts_with($poster, 'posters/')) {
-            $poster = 'storage/' . $poster;
-        } elseif ($poster) {
+            $poster = '/storage/' . $poster;
+        } elseif ($poster && ! str_starts_with($poster, 'http')) {
             $poster = 'https://image.tmdb.org/t/p/w342' . $poster;
         }
 

@@ -1,3 +1,5 @@
+#modalGenres { margin-top: 12px; }
+#modalSourceLink { color: var(--accent-blue); }
 .static-filters { display: flex; gap: 12px; margin: -16px auto 18px; max-width: 760px; flex-wrap: wrap; }
 .static-filters input, .static-filters select { background: #171717; border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-primary); font: inherit; min-height: 42px; padding: 0 12px; }
 .static-filters input { flex: 1 1 300px; }

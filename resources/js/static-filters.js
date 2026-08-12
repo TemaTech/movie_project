@@ -5,6 +5,32 @@ const DECADE_LABELS = {
     older: 'それ以前',
 };
 
+const GENRE_MAP = {
+    アニメーション: 'アニメ',
+    サイエンスフィクション: 'SF',
+    アニメ: 'アニメーション',
+    SF: 'サイエンスフィクション',
+    謎: 'ミステリー',
+    ミステリー: '謎',
+    犯罪: 'サスペンス',
+    サスペンス: '犯罪',
+    履歴: '歴史',
+    歴史: '履歴',
+};
+
+function genreAliases(genre) {
+    const aliases = new Set([genre]);
+    if (GENRE_MAP[genre]) aliases.add(GENRE_MAP[genre]);
+    const reverse = Object.entries(GENRE_MAP).find(([, value]) => value === genre);
+    if (reverse) aliases.add(reverse[0]);
+    return [...aliases];
+}
+
+function movieHasGenre(movie, genre) {
+    const aliases = genreAliases(genre);
+    return (movie.genres || []).some((movieGenre) => aliases.includes(movieGenre));
+}
+
 function escapeHtml(value = '') {
     return String(value).replace(/[&<>'"]/g, (char) => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
@@ -34,30 +60,27 @@ function matchesYear(movie, year, currentYear) {
 }
 
 export function filterMovies(movies, filters) {
-    const query = filters.query.trim().toLocaleLowerCase('ja');
     const currentYear = new Date().getFullYear();
 
     return movies.filter((movie) => {
-        const searchable = `${movie.title} ${movie.originalTitle || ''} ${(movie.genres || []).join(' ')}`.toLocaleLowerCase('ja');
         const categoryMatches = filters.category === 'all'
             || (filters.category === 'anime' && movie.isAnime)
             || (filters.category === 'live' && !movie.isAnime);
 
         const genreMatches = !filters.genres.length
             || (filters.matchMode === 'and'
-                ? filters.genres.every((genre) => movie.genres.includes(genre))
-                : filters.genres.some((genre) => movie.genres.includes(genre)));
+                ? filters.genres.every((genre) => movieHasGenre(movie, genre))
+                : filters.genres.some((genre) => movieHasGenre(movie, genre)));
 
         const yearMatches = !filters.years.length
             || filters.years.some((year) => matchesYear(movie, year, currentYear));
 
-        const textMatches = !query || searchable.includes(query);
         const filterGroups = [genreMatches, yearMatches];
         const advancedMatches = filters.matchMode === 'and'
             ? filterGroups.every(Boolean)
             : filterGroups.some(Boolean) || (!filters.genres.length && !filters.years.length);
 
-        return categoryMatches && textMatches && advancedMatches;
+        return categoryMatches && advancedMatches;
     });
 }
 
@@ -171,6 +194,12 @@ export function bindFilterModal(filters, onApply) {
     closeBtn?.addEventListener('click', closeModal);
     overlay?.addEventListener('click', (event) => {
         if (event.target === overlay) closeModal();
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && overlay?.classList.contains('active')) {
+            closeModal();
+        }
     });
 
     document.querySelectorAll('.filter-chip[data-category]').forEach((chip) => {

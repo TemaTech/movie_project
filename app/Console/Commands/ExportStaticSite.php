@@ -40,6 +40,8 @@ class ExportStaticSite extends Command
 
         File::put($output . '/data/movies.json', json_encode([
             'generatedAt' => now('Asia/Tokyo')->toIso8601String(),
+            'globalLastUpdated' => $this->maxLastUpdated(GlobalMovie::class),
+            'japanLastUpdated' => $this->maxLastUpdated(JapaneseMovie::class),
             'global' => $global,
             'japan' => $japan,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT));
@@ -69,12 +71,47 @@ class ExportStaticSite extends Command
         $this->line("Details exported: {$exported} / skipped: {$skipped}");
     }
 
+    private function maxLastUpdated(string $modelClass): ?string
+    {
+        $value = $modelClass::whereNotNull('last_updated')->max('last_updated');
+
+        return $value ? Carbon::parse($value)->format('Y-m-d H:i:s') : null;
+    }
+
+    private function genreMap(): array
+    {
+        return [
+            'アニメーション' => 'アニメ',
+            'サイエンスフィクション' => 'SF',
+            'アニメ' => 'アニメーション',
+            'SF' => 'サイエンスフィクション',
+            '謎' => 'ミステリー',
+            'ミステリー' => '謎',
+            '犯罪' => 'サスペンス',
+            'サスペンス' => '犯罪',
+            '履歴' => '歴史',
+            '歴史' => '履歴',
+        ];
+    }
+
+    private function titleMap(): array
+    {
+        return [
+            '哪吒之魔童闘海' => 'ナタ 魔童の大暴れ',
+            '哪吒之魔童闹海' => 'ナタ 魔童の大暴れ',
+        ];
+    }
+
     private function movieData(GlobalMovie|JapaneseMovie $movie, int $rank, bool $isJapan): array
     {
         $releaseDate = $movie->release_date?->format('Y-m-d');
         $poster = $this->resolvePosterPath($movie);
 
-        $genres = is_array($movie->genres) ? $movie->genres : (json_decode((string) $movie->genres, true) ?: []);
+        $rawGenres = is_array($movie->genres) ? $movie->genres : (json_decode((string) $movie->genres, true) ?: []);
+        $genres = array_values(array_map(
+            fn (string $genre) => $this->genreMap()[$genre] ?? $genre,
+            $rawGenres,
+        ));
         $isActive = $isJapan
             ? (bool) $movie->is_active
             : ($releaseDate && Carbon::parse($releaseDate)->greaterThanOrEqualTo(now()->subMonths(6)));
@@ -83,18 +120,21 @@ class ExportStaticSite extends Command
             ? number_format($movie->box_office / 100000000, 1)
             : number_format($movie->box_office * 150 / 100000000, 1);
 
+        $dbTitle = $movie->title;
+        $title = $this->titleMap()[$dbTitle] ?? $dbTitle;
+
         return [
             'id' => $movie->movie_id,
             'tmdbId' => $movie->tmdb_id,
             'rank' => $rank,
-            'title' => $movie->title,
+            'title' => $title,
             'originalTitle' => $movie->original_title,
             'releaseDate' => $releaseDate,
             'releaseYear' => $releaseDate ? (int) substr($releaseDate, 0, 4) : null,
             'genres' => array_values($genres),
             'posterUrl' => $poster,
             'isActive' => $isActive,
-            'isAnime' => in_array('アニメ', $genres, true) || in_array('アニメーション', $genres, true),
+            'isAnime' => in_array('アニメ', $rawGenres, true) || in_array('アニメーション', $rawGenres, true),
             'boxOffice' => (int) $movie->box_office,
             'revenueBillion' => $revenueBillion,
             'productionCountry' => $isJapan ? ($movie->production_country ?? '日本') : null,
@@ -143,6 +183,11 @@ class ExportStaticSite extends Command
             }
         }
 
+        $sw = public_path('sw.js');
+        if (File::exists($sw)) {
+            File::copy($sw, $output . '/sw.js');
+        }
+
         $storage = storage_path('app/public');
         if (File::isDirectory($storage)) {
             File::copyDirectory($storage, $output . '/storage');
@@ -173,8 +218,8 @@ class ExportStaticSite extends Command
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="世界と日本の歴代映画興行収入ランキング。映画データを毎日更新しています。">
-    <title>歴代映画興行収入ランキング | MUBIRAN</title>
+    <meta name="description" content="「アバター」「鬼滅の刃」など、世界と日本の歴代ヒット映画の興行収入ランキングを完全網羅。興収だけでなく制作費や利益率まで可視化。あなたの好きな映画は今何位？最新データをリアルタイムで更新中。">
+    <title>歴代映画興行収入ランキング | 世界・日本のヒット作を徹底分析 - MUBIRAN</title>
     <link rel="icon" href="/images/favicon-32x32.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -184,6 +229,13 @@ class ExportStaticSite extends Command
   <body>
     <div id="app" aria-live="polite"></div>
     <script type="module" src="{$script}"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>
 HTML;

@@ -16,14 +16,6 @@ const PER_PAGE = 100;
 const app = document.querySelector('#app');
 let siteData = null;
 
-const moviePagePath = (id) => {
-    if (id.startsWith('global_')) {
-        return `/movies/${id.slice(7)}`;
-    }
-
-    return `/movies/${encodeURIComponent(id)}`;
-};
-
 const defaultState = () => ({
     tab: 'global',
     category: 'all',
@@ -150,7 +142,7 @@ function movieCard(movie) {
         <div class="rank-badge">${movie.rank}</div>
         <div class="card-poster ${url ? '' : 'poster-placeholder'}" ${posterStyle(movie.posterUrl)}></div>
         ${bgImage}
-        <div class="movie-title ${titleClass(movie.title)}" style="margin-bottom: 2px;"><a href="${moviePagePath(movie.id)}" class="movie-page-link" onclick="event.stopPropagation()">${escapeHtml(movie.title)}</a></div>
+        <div class="movie-title ${titleClass(movie.title)}" style="margin-bottom: 2px;">${escapeHtml(movie.title)}</div>
         ${subtitle}
         <div class="revenue-container">
             <div class="revenue-main" style="color: var(--accent-gold);">${escapeHtml(movie.revenue)}</div>
@@ -172,7 +164,7 @@ function movieRow(movie, isJapan) {
         ${bgImage}
         <div class="list-rank">${movie.rank}</div>
         <div class="list-info">
-            <span class="movie-title ${titleClass(movie.title)}"><a href="${moviePagePath(movie.id)}" class="movie-page-link" onclick="event.stopPropagation()">${escapeHtml(movie.title)}</a></span>
+            <span class="movie-title ${titleClass(movie.title)}">${escapeHtml(movie.title)}</span>
             ${subtitle}
         </div>
         <div class="list-revenue">

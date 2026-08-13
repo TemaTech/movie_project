@@ -12,3 +12,35 @@ footer { text-align: center; padding: 40px 20px; color: var(--text-secondary); b
 footer p { margin-bottom: 10px; }
 footer p + p { font-size: .8rem; margin-top: 0; margin-bottom: 0; }
 footer a { color: var(--accent-blue); }
+
+.movie-page-link { color: inherit; text-decoration: none; }
+.movie-page-link:hover { color: var(--accent-gold); }
+
+body.movie-page { padding-bottom: 40px; }
+.movie-page header { justify-content: flex-start; }
+.movie-page-main { max-width: 960px; margin: 0 auto; padding: 24px 20px 0; }
+.movie-breadcrumb { color: var(--text-secondary); font-size: .9rem; margin-bottom: 24px; display: flex; gap: 8px; flex-wrap: wrap; }
+.movie-breadcrumb a { color: var(--accent-blue); }
+.movie-page-title { font-size: clamp(1.8rem, 4vw, 2.6rem); margin-bottom: 8px; line-height: 1.2; }
+.movie-original-title { color: var(--text-secondary); margin-bottom: 20px; }
+.movie-hero { display: grid; grid-template-columns: minmax(180px, 260px) 1fr; gap: 28px; margin-bottom: 24px; }
+.movie-poster { width: 100%; border-radius: 12px; border: 1px solid var(--glass-border); display: block; }
+.movie-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; }
+.movie-stats div { background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: 10px; padding: 14px 16px; }
+.movie-stats dt { color: var(--text-secondary); font-size: .8rem; margin-bottom: 6px; }
+.movie-stats dd { font-family: var(--font-num); font-size: 1.15rem; color: var(--accent-gold); margin: 0; }
+.movie-tagline { color: var(--text-secondary); font-style: italic; margin-bottom: 16px; }
+.movie-genres { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+.movie-genres .genre-tag { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 999px; padding: 4px 12px; font-size: .85rem; }
+.movie-section { margin-bottom: 28px; }
+.movie-section h2 { font-size: 1.2rem; margin-bottom: 12px; }
+.movie-section p { color: var(--text-secondary); line-height: 1.8; }
+.movie-cast { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
+.movie-cast .cast-name { display: block; padding: 10px 12px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--glass-border); }
+.movie-back-link { margin-top: 32px; }
+.movie-back-link a { color: var(--accent-blue); }
+
+@media (max-width: 768px) {
+    .movie-hero { grid-template-columns: 1fr; }
+    .movie-poster { max-width: 240px; margin: 0 auto; }
+}

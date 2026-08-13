@@ -48,11 +48,14 @@ class ExportStaticSite extends Command
 
         $this->copyPublicAssets($output);
         $this->exportRobotsTxt($output);
-        $this->exportSitemap($output);
+        $this->exportMoviePages($output, $global, $japan);
+        $this->exportSitemap($output, $globalModels, $japanModels);
         File::put($output . '/index.html', $this->indexHtml());
 
+        $moviePageCount = $global->count() + $japan->count();
         $this->info("Static site exported to {$output}");
         $this->line("Global: {$global->count()} movies / Japan: {$japan->count()} movies");
+        $this->line("Movie pages: {$moviePageCount}");
 
         return self::SUCCESS;
     }
@@ -218,27 +221,88 @@ Crawl-delay: 1
 TXT);
     }
 
-    private function exportSitemap(string $output): void
+    private function movieSlug(string $movieId): string
     {
-        $baseUrl = rtrim(config('app.url'), '/');
-        $lastmod = now('Asia/Tokyo')->toAtomString();
+        if (str_starts_with($movieId, 'global_')) {
+            return str_replace('global_', '', $movieId);
+        }
 
-        $xml = <<<XML
-<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-    <url>
-        <loc>{$baseUrl}/</loc>
-        <lastmod>{$lastmod}</lastmod>
-        <changefreq>daily</changefreq>
-        <priority>1.0</priority>
-    </url>
-</urlset>
-XML;
-
-        File::put($output . '/sitemap.xml', $xml);
+        return $movieId;
     }
 
-    private function indexHtml(): string
+    private function exportMoviePages(string $output, $global, $japan): void
+    {
+        foreach ($global as $movie) {
+            $this->writeMoviePage($output, $movie, false);
+        }
+
+        foreach ($japan as $movie) {
+            $this->writeMoviePage($output, $movie, true);
+        }
+    }
+
+    private function writeMoviePage(string $output, array $movie, bool $isJapan): void
+    {
+        $slug = $this->movieSlug($movie['id']);
+        $dir = $output . '/movies/' . $slug;
+        File::ensureDirectoryExists($dir);
+        File::put($dir . '/index.html', $this->moviePageHtml($movie, $isJapan, $output));
+    }
+
+    private function loadExportedDetail(string $output, string $movieId): ?array
+    {
+        $paths = [
+            $output . '/data/details/' . $movieId . '.json',
+            storage_path('app/static-details/' . $movieId . '.json'),
+        ];
+
+        foreach ($paths as $path) {
+            if (! File::exists($path)) {
+                continue;
+            }
+
+            $detail = json_decode(File::get($path), true);
+
+            return is_array($detail) ? $detail : null;
+        }
+
+        return null;
+    }
+
+    private function formatReleaseDate(?string $date): string
+    {
+        if (! $date) {
+            return '-';
+        }
+
+        try {
+            return Carbon::parse($date)->format('Y年n月j日');
+        } catch (\Throwable) {
+            return $date;
+        }
+    }
+
+    private function absoluteUrl(?string $url): string
+    {
+        $baseUrl = rtrim(config('app.url'), '/');
+
+        if (empty($url)) {
+            return $baseUrl . '/images/android-chrome-512x512.png';
+        }
+
+        if (str_starts_with($url, 'http')) {
+            return $url;
+        }
+
+        return $baseUrl . (str_starts_with($url, '/') ? $url : '/' . $url);
+    }
+
+    private function h(?string $value): string
+    {
+        return htmlspecialchars((string) ($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+    private function viteEntry(): array
     {
         $manifestPath = public_path('build/manifest.json');
         if (! File::exists($manifestPath)) {
@@ -251,10 +315,291 @@ XML;
             throw new \RuntimeException('Static site Vite entry was not found in the manifest.');
         }
 
-        $styles = collect($entry['css'] ?? [])
+        return $entry;
+    }
+
+    private function viteStyles(): string
+    {
+        $entry = $this->viteEntry();
+
+        return collect($entry['css'] ?? [])
             ->map(fn (string $file) => '<link rel="stylesheet" href="/build/' . e($file) . '">')
             ->implode("\n    ");
-        $script = '/build/' . e($entry['file']);
+    }
+
+    private function viteScript(): string
+    {
+        return '/build/' . e($this->viteEntry()['file']);
+    }
+
+    private function exportSitemap(string $output, $globalModels, $japanModels): void
+    {
+        $baseUrl = rtrim(config('app.url'), '/');
+        $defaultLastmod = now('Asia/Tokyo')->toAtomString();
+
+        $urls = [[
+            'loc' => "{$baseUrl}/",
+            'lastmod' => $defaultLastmod,
+            'changefreq' => 'daily',
+            'priority' => '1.0',
+        ]];
+
+        foreach ($globalModels as $movie) {
+            if (! str_starts_with($movie->movie_id, 'global_')) {
+                continue;
+            }
+
+            $urls[] = [
+                'loc' => "{$baseUrl}/movies/" . $this->movieSlug($movie->movie_id),
+                'lastmod' => $movie->last_updated
+                    ? Carbon::parse($movie->last_updated)->toAtomString()
+                    : $defaultLastmod,
+                'changefreq' => 'weekly',
+                'priority' => '0.6',
+            ];
+        }
+
+        foreach ($japanModels as $movie) {
+            if (! str_starts_with($movie->movie_id, 'jp_')) {
+                continue;
+            }
+
+            $urls[] = [
+                'loc' => "{$baseUrl}/movies/" . $movie->movie_id,
+                'lastmod' => $movie->last_updated
+                    ? Carbon::parse($movie->last_updated)->toAtomString()
+                    : $defaultLastmod,
+                'changefreq' => 'weekly',
+                'priority' => '0.6',
+            ];
+        }
+
+        $body = '';
+        foreach ($urls as $url) {
+            $body .= "    <url>\n";
+            $body .= '        <loc>' . $this->h($url['loc']) . "</loc>\n";
+            $body .= '        <lastmod>' . $this->h($url['lastmod']) . "</lastmod>\n";
+            $body .= '        <changefreq>' . $url['changefreq'] . "</changefreq>\n";
+            $body .= '        <priority>' . $url['priority'] . "</priority>\n";
+            $body .= "    </url>\n";
+        }
+
+        File::put($output . '/sitemap.xml', "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            . "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n"
+            . $body
+            . "</urlset>\n");
+    }
+
+    private function moviePageHtml(array $movie, bool $isJapan, string $output): string
+    {
+        $baseUrl = rtrim(config('app.url'), '/');
+        $detail = $this->loadExportedDetail($output, $movie['id']) ?? [];
+        $slug = $this->movieSlug($movie['id']);
+        $pageUrl = "{$baseUrl}/movies/{$slug}";
+        $homeUrl = $baseUrl . '/?tab=' . ($isJapan ? 'japan' : 'global');
+
+        $title = $movie['title'];
+        $originalTitle = $detail['original_title'] ?? $movie['originalTitle'] ?? '';
+        $overview = $detail['overview'] ?? '';
+        $releaseDate = $detail['release_date'] ?? $movie['releaseDate'] ?? null;
+        $rankLabel = $isJapan ? '日本ランキング' : '世界ランキング';
+        $revenueText = $movie['revenue'] . ($movie['revenueYen'] ? "（{$movie['revenueYen']}）" : '');
+
+        $pageTitle = "{$title} の興行収入 {$movie['revenue']} | {$rankLabel}第{$movie['rank']}位 - MUBIRAN";
+        $description = "{$title}の興行収入は{$revenueText}（{$rankLabel}第{$movie['rank']}位）。";
+        if ($originalTitle && $originalTitle !== $title) {
+            $description .= "原題: {$originalTitle}。";
+        }
+        $description .= '公開日: ' . $this->formatReleaseDate($releaseDate) . '。';
+        if ($overview) {
+            $description .= mb_substr($overview, 0, 120) . (mb_strlen($overview) > 120 ? '…' : '');
+        }
+
+        $keywords = implode(',', array_filter([
+            $title,
+            $originalTitle,
+            '興行収入',
+            '映画',
+            $isJapan ? '日本映画' : '洋画',
+            ...($movie['genres'] ?? []),
+        ]));
+
+        $ogImage = $this->absoluteUrl($movie['posterUrl']);
+        $styles = $this->viteStyles();
+
+        $director = collect($detail['credits']['crew'] ?? [])
+            ->first(fn (array $member) => ($member['job'] ?? '') === 'Director');
+        $directorName = $director['name'] ?? '-';
+
+        $genres = ! empty($detail['genres'])
+            ? collect($detail['genres'])->pluck('name')->all()
+            : ($movie['genres'] ?? []);
+        $genreHtml = $genres
+            ? '<div class="movie-genres">' . collect($genres)
+                ->map(fn (string $genre) => '<span class="genre-tag">' . $this->h($genre) . '</span>')
+                ->implode('') . '</div>'
+            : '';
+
+        $cast = array_slice($detail['credits']['cast'] ?? [], 0, 6);
+        $castHtml = '';
+        if ($cast) {
+            $castHtml = '<section class="movie-section"><h2>主要キャスト</h2><div class="movie-cast">';
+            foreach ($cast as $actor) {
+                $castHtml .= '<div class="cast-item"><span class="cast-name">' . $this->h($actor['name'] ?? '') . '</span></div>';
+            }
+            $castHtml .= '</div></section>';
+        }
+
+        $runtime = ! empty($detail['runtime']) ? $detail['runtime'] . '分' : '-';
+        $rating = ! empty($detail['vote_average']) ? '★ ' . number_format((float) $detail['vote_average'], 1) : '-';
+        $tagline = $detail['tagline'] ?? '';
+        $overviewHtml = $overview
+            ? '<p>' . nl2br($this->h($overview)) . '</p>'
+            : '<p>あらすじ情報は現在ありません。</p>';
+
+        $subtitle = ($originalTitle && $originalTitle !== $title)
+            ? '<p class="movie-original-title">' . $this->h($originalTitle) . '</p>'
+            : '';
+
+        $posterHtml = $movie['posterUrl']
+            ? '<img src="' . $this->h($this->absoluteUrl($movie['posterUrl'])) . '" alt="' . $this->h($title) . '" class="movie-poster" width="342" height="513" loading="lazy">'
+            : '';
+
+        $jsonLd = json_encode([
+            '@context' => 'https://schema.org',
+            '@graph' => [
+                [
+                    '@type' => 'BreadcrumbList',
+                    'itemListElement' => [
+                        [
+                            '@type' => 'ListItem',
+                            'position' => 1,
+                            'item' => ['@id' => "{$baseUrl}/", 'name' => 'ホーム'],
+                        ],
+                        [
+                            '@type' => 'ListItem',
+                            'position' => 2,
+                            'item' => ['@id' => $pageUrl, 'name' => $title],
+                        ],
+                    ],
+                ],
+                [
+                    '@type' => 'Movie',
+                    'name' => $title,
+                    'alternateName' => $originalTitle ?: null,
+                    'datePublished' => $releaseDate,
+                    'description' => $overview ?: null,
+                    'url' => $pageUrl,
+                    'image' => $ogImage,
+                    'inLanguage' => 'ja',
+                ],
+            ],
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG);
+
+        $eDescription = $this->h($description);
+        $eKeywords = $this->h($keywords);
+        $ePageUrl = $this->h($pageUrl);
+        $ePageTitle = $this->h($pageTitle);
+        $eOgImage = $this->h($ogImage);
+        $eTitle = $this->h($title);
+        $eRankLabel = $this->h($rankLabel);
+        $eRevenue = $this->h($movie['revenue']);
+        $eRevenueYen = $this->h($isJapan ? ($movie['revenue'] ?? '-') : ($movie['revenueYen'] ?? '-'));
+        $yenRow = $isJapan ? '' : "<div><dt>日本換算</dt><dd>{$eRevenueYen}</dd></div>\n            ";
+        $eReleaseDate = $this->h($this->formatReleaseDate($releaseDate));
+        $eRuntime = $this->h($runtime);
+        $eRating = $this->h($rating);
+        $eDirectorName = $this->h($directorName);
+        $eTagline = $this->h($tagline);
+        $eHomeUrl = $this->h($homeUrl);
+        $eYear = $this->h((string) now('Asia/Tokyo')->year);
+
+        return <<<HTML
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="{$eDescription}">
+    <meta name="keywords" content="{$eKeywords}">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="ムビラン">
+    <meta name="language" content="ja">
+    <link rel="canonical" href="{$ePageUrl}">
+    <title>{$ePageTitle}</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <meta name="theme-color" content="#2c3e50">
+    <meta property="og:title" content="{$ePageTitle}">
+    <meta property="og:description" content="{$eDescription}">
+    <meta property="og:type" content="video.movie">
+    <meta property="og:url" content="{$ePageUrl}">
+    <meta property="og:image" content="{$eOgImage}">
+    <meta property="og:locale" content="ja_JP">
+    <meta property="og:site_name" content="MUBIRAN - 映画興行収入ランキング">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{$ePageTitle}">
+    <meta name="twitter:description" content="{$eDescription}">
+    <meta name="twitter:image" content="{$eOgImage}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Oswald:wght@400;700&display=swap" rel="stylesheet">
+    {$styles}
+    <script type="application/ld+json">{$jsonLd}</script>
+  </head>
+  <body class="movie-page">
+    <header>
+      <a href="/" class="logo-link" aria-label="MUBIRAN トップ"><img src="/images/logo.png" alt="MUBIRAN" class="logo-img"></a>
+    </header>
+    <main class="container movie-page-main">
+      <nav class="movie-breadcrumb" aria-label="パンくずリスト">
+        <a href="/">ホーム</a>
+        <span aria-hidden="true">›</span>
+        <span>{$eTitle}</span>
+      </nav>
+      <article>
+        <h1 class="movie-page-title">{$eTitle}</h1>
+        {$subtitle}
+        <div class="movie-hero">
+          {$posterHtml}
+          <dl class="movie-stats">
+            <div><dt>{$eRankLabel}</dt><dd>第{$movie['rank']}位</dd></div>
+            <div><dt>興行収入</dt><dd>{$eRevenue}</dd></div>
+            {$yenRow}
+            <div><dt>公開日</dt><dd>{$eReleaseDate}</dd></div>
+            <div><dt>上映時間</dt><dd>{$eRuntime}</dd></div>
+            <div><dt>評価</dt><dd>{$eRating}</dd></div>
+            <div><dt>監督</dt><dd>{$eDirectorName}</dd></div>
+          </dl>
+        </div>
+        <p class="movie-tagline">{$eTagline}</p>
+        {$genreHtml}
+        <section class="movie-section">
+          <h2>あらすじ</h2>
+          {$overviewHtml}
+        </section>
+        {$castHtml}
+      </article>
+      <p class="movie-back-link"><a href="{$eHomeUrl}">{$eRankLabel}一覧に戻る</a></p>
+    </main>
+    <footer>
+      <div class="container">
+        <p>&copy; {$eYear} MUBIRAN. All rights reserved.</p>
+        <p>Data provided by <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDb</a> and <a href="https://ja.wikipedia.org/" target="_blank" rel="noreferrer">Wikipedia</a>.</p>
+      </div>
+    </footer>
+  </body>
+</html>
+HTML;
+    }
+
+    private function indexHtml(): string
+    {
+        $styles = $this->viteStyles();
+        $script = $this->viteScript();
 
         $baseUrl = rtrim(config('app.url'), '/');
         $title = '歴代映画興行収入ランキング | 世界・日本のヒット作を徹底分析 - MUBIRAN';

@@ -81,7 +81,9 @@ class ExportStaticSite extends Command
     {
         $value = $modelClass::whereNotNull('last_updated')->max('last_updated');
 
-        return $value ? Carbon::parse($value)->format('Y-m-d H:i:s') : null;
+        return $value
+            ? Carbon::parse($value)->timezone('Asia/Tokyo')->format('Y-m-d H:i:s')
+            : null;
     }
 
     private function genreMap(): array

@@ -10,6 +10,7 @@ use App\Models\JapaneseMovie;
 use Illuminate\Support\Facades\DB;
 use App\Models\Movie;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Carbon\Carbon;
 
 class MovieController extends Controller
 {
@@ -458,11 +459,12 @@ class MovieController extends Controller
             \Log::debug('Global movies count: ' . $globalMovies->count());
             \Log::debug('Japan movies count: ' . $japanMovies->count());
 
-            // 最終更新日時の取得を修正
-            $japanLastUpdated = JapaneseMovie::whereNotNull('last_updated')
-                                          ->max('last_updated');
-            $globalLastUpdated = GlobalMovie::whereNotNull('last_updated')
-                                         ->max('last_updated');
+            $japanLastUpdated = $this->formatLastUpdated(
+                JapaneseMovie::whereNotNull('last_updated')->max('last_updated')
+            );
+            $globalLastUpdated = $this->formatLastUpdated(
+                GlobalMovie::whereNotNull('last_updated')->max('last_updated')
+            );
 
             return view('movies.index', compact('globalMovies', 'japanMovies', 'availableGenres', 'selectedGenre', 'genreColors', 'japanLastUpdated', 'globalLastUpdated'));
         } catch (\Exception $e) {
@@ -632,5 +634,12 @@ class MovieController extends Controller
                     break;
             }
         }
+    }
+
+    private function formatLastUpdated(?string $value): ?string
+    {
+        return $value
+            ? Carbon::parse($value)->timezone('Asia/Tokyo')->format('Y-m-d H:i:s')
+            : null;
     }
 }

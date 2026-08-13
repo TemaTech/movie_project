@@ -47,6 +47,8 @@ class ExportStaticSite extends Command
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT));
 
         $this->copyPublicAssets($output);
+        $this->exportRobotsTxt($output);
+        $this->exportSitemap($output);
         File::put($output . '/index.html', $this->indexHtml());
 
         $this->info("Static site exported to {$output}");
@@ -183,15 +185,57 @@ class ExportStaticSite extends Command
             }
         }
 
-        $sw = public_path('sw.js');
-        if (File::exists($sw)) {
-            File::copy($sw, $output . '/sw.js');
+        foreach (['sw.js', 'favicon.ico', 'site.webmanifest', 'google84b5e42071a0a6f0.html'] as $file) {
+            $source = public_path($file);
+            if (File::exists($source)) {
+                File::copy($source, $output . '/' . $file);
+            }
         }
 
         $storage = storage_path('app/public');
         if (File::isDirectory($storage)) {
             File::copyDirectory($storage, $output . '/storage');
         }
+    }
+
+    private function exportRobotsTxt(string $output): void
+    {
+        $baseUrl = rtrim(config('app.url'), '/');
+
+        File::put($output . '/robots.txt', <<<TXT
+User-agent: *
+Allow: /
+
+# サイトマップ
+Sitemap: {$baseUrl}/sitemap.xml
+
+# 検索エンジンにクロールしてほしくないディレクトリ
+Disallow: /storage/
+Disallow: /data/
+
+# クロール間隔の設定（サーバー負荷軽減）
+Crawl-delay: 1
+TXT);
+    }
+
+    private function exportSitemap(string $output): void
+    {
+        $baseUrl = rtrim(config('app.url'), '/');
+        $lastmod = now('Asia/Tokyo')->toAtomString();
+
+        $xml = <<<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>{$baseUrl}/</loc>
+        <lastmod>{$lastmod}</lastmod>
+        <changefreq>daily</changefreq>
+        <priority>1.0</priority>
+    </url>
+</urlset>
+XML;
+
+        File::put($output . '/sitemap.xml', $xml);
     }
 
     private function indexHtml(): string
@@ -212,15 +256,42 @@ class ExportStaticSite extends Command
             ->implode("\n    ");
         $script = '/build/' . e($entry['file']);
 
+        $baseUrl = rtrim(config('app.url'), '/');
+        $title = '歴代映画興行収入ランキング | 世界・日本のヒット作を徹底分析 - MUBIRAN';
+        $description = '「アバター」「鬼滅の刃」など、世界と日本の歴代ヒット映画の興行収入ランキングを完全網羅。興収だけでなく制作費や利益率まで可視化。あなたの好きな映画は今何位？最新データを毎日更新。';
+        $keywords = '映画,興行収入,ランキング,売上,日本映画,世界の映画,最新,ムビラン,ボックスオフィス,映画統計,映画データ,映画売上,興行成績,映画ランキング,最新映画';
+        $ogImage = $baseUrl . '/images/android-chrome-512x512.png';
+
         return <<<HTML
 <!doctype html>
 <html lang="ja">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="「アバター」「鬼滅の刃」など、世界と日本の歴代ヒット映画の興行収入ランキングを完全網羅。興収だけでなく制作費や利益率まで可視化。あなたの好きな映画は今何位？最新データをリアルタイムで更新中。">
-    <title>歴代映画興行収入ランキング | 世界・日本のヒット作を徹底分析 - MUBIRAN</title>
-    <link rel="icon" href="/images/favicon-32x32.png">
+    <meta name="description" content="{$description}">
+    <meta name="keywords" content="{$keywords}">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="ムビラン">
+    <meta name="language" content="ja">
+    <link rel="canonical" href="{$baseUrl}/">
+    <title>{$title}</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <meta name="theme-color" content="#2c3e50">
+    <meta property="og:title" content="{$title}">
+    <meta property="og:description" content="{$description}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{$baseUrl}/">
+    <meta property="og:image" content="{$ogImage}">
+    <meta property="og:locale" content="ja_JP">
+    <meta property="og:site_name" content="MUBIRAN - 映画興行収入ランキング">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{$title}">
+    <meta name="twitter:description" content="{$description}">
+    <meta name="twitter:image" content="{$ogImage}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Oswald:wght@400;700&display=swap" rel="stylesheet">

@@ -37,7 +37,7 @@ RUN mkdir -p /etc/nginx/ssl
 RUN openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
     -keyout /etc/nginx/ssl/server.key \
     -out /etc/nginx/ssl/server.crt \
-    -subj "/C=JP/ST=Tokyo/L=Tokyo/O=Movie Ranking/CN=movie-ranking.jp"
+    -subj "/C=JP/ST=Tokyo/L=Tokyo/O=Movie Ranking/CN=mubiran.com"
 
 # Composerのインストール
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer

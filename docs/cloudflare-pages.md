@@ -32,7 +32,7 @@ TMDbの開発者用設定画面で、新しいAPIキーを発行します。古�
 
 ここでは仮のファイルをアップロードしても、まだ公開しなくても構いません。GitHub Actionsが最初の公開ファイルをアップロードします。
 
-公開URLは `https://movie-ranking.pages.dev` です。
+本番の公開URLは `https://mubiran.com` です（Cloudflare Pages の `*.pages.dev` は `mubiran.com` へリダイレクトします）。
 
 ## 3. Cloudflareの認証情報をGitHubへ登録する
 
@@ -60,7 +60,7 @@ GitHubの **Settings** → **Secrets and variables** → **Actions** で、以�
 2. **Run workflow** → **Run workflow** を押します。
 3. 完了するまで待ちます。初回はデータ取得と画像保存があるため、数分かかります。
 
-緑のチェックが表示されたら、`https://movie-ranking.pages.dev` を開きます。世界・日本のランキング切替と、ジャンル／アニメ・実写の絞り込みが使えれば成功です。
+緑のチェックが表示されたら、`https://mubiran.com` を開きます。世界・日本のランキング切替と、ジャンル／アニメ・実写の絞り込みが使えれば成功です。
 
 以後は毎日12:17頃（日本時間）に自動更新されます。更新に失敗しても、前回成功した公開版はそのまま表示されます。
 

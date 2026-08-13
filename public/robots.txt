@@ -2,7 +2,7 @@ User-agent: *
 Allow: /
 
 # サイトマップ
-Sitemap: https://movie-ranking.jp/sitemap.xml
+Sitemap: https://mubiran.com/sitemap.xml
 
 # 検索エンジンにクロールしてほしくないディレクトリ
 Disallow: /storage/

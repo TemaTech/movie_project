@@ -313,7 +313,7 @@ function render(data) {
         ${lastUpdated ? `<div class="text-center mt-4 mb-5"><small class="static-updated">最終更新: ${escapeHtml(lastUpdated)}</small></div>` : ''}
         <div class="d-flex justify-content-center mt-4">${renderPagination(totalItems)}</div>
     </main>
-    <footer><div class="container"><p>&copy; ${new Date().getFullYear()} MUBIRAN. All rights reserved.</p><p>Data provided by <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDb</a> and <a href="https://ja.wikipedia.org/" target="_blank" rel="noreferrer">Wikipedia</a>.</p></div></footer>
+    <footer><div class="container"><p class="site-footer-links"><a href="/about/">このサイトについて</a> · <a href="/privacy/">プライバシーポリシー</a></p><p>&copy; ${new Date().getFullYear()} MUBIRAN. All rights reserved.</p><p>Data provided by <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDb</a> and <a href="https://ja.wikipedia.org/" target="_blank" rel="noreferrer">Wikipedia</a>.</p></div></footer>
     ${renderFilterModal(allGenres, state)}`;
 
     document.querySelectorAll('[data-tab]').forEach((button) => {

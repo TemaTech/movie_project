@@ -49,6 +49,7 @@ class ExportStaticSite extends Command
         $this->copyPublicAssets($output);
         $this->exportRobotsTxt($output);
         $this->exportMoviePages($output, $global, $japan);
+        $this->exportTrustPages($output);
         $this->exportSitemap($output, $globalModels, $japanModels);
         File::put($output . '/index.html', $this->indexHtml());
 
@@ -342,6 +343,16 @@ TXT);
             'lastmod' => $defaultLastmod,
             'changefreq' => 'daily',
             'priority' => '1.0',
+        ], [
+            'loc' => "{$baseUrl}/about/",
+            'lastmod' => $defaultLastmod,
+            'changefreq' => 'monthly',
+            'priority' => '0.3',
+        ], [
+            'loc' => "{$baseUrl}/privacy/",
+            'lastmod' => $defaultLastmod,
+            'changefreq' => 'monthly',
+            'priority' => '0.3',
         ]];
 
         foreach ($globalModels as $movie) {
@@ -512,7 +523,7 @@ TXT);
         $eDirectorName = $this->h($directorName);
         $eTagline = $this->h($tagline);
         $eHomeUrl = $this->h($homeUrl);
-        $eYear = $this->h((string) now('Asia/Tokyo')->year);
+        $footerInner = $this->siteFooterInnerHtml();
 
         return <<<HTML
 <!doctype html>
@@ -587,13 +598,231 @@ TXT);
     </main>
     <footer>
       <div class="container">
-        <p>&copy; {$eYear} MUBIRAN. All rights reserved.</p>
-        <p>Data provided by <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDb</a> and <a href="https://ja.wikipedia.org/" target="_blank" rel="noreferrer">Wikipedia</a>.</p>
+        {$footerInner}
       </div>
     </footer>
   </body>
 </html>
 HTML;
+    }
+
+    private function exportTrustPages(string $output): void
+    {
+        File::ensureDirectoryExists($output . '/about');
+        File::ensureDirectoryExists($output . '/privacy');
+
+        File::put($output . '/about/index.html', $this->aboutPageHtml());
+        File::put($output . '/privacy/index.html', $this->privacyPageHtml());
+        File::put($output . '/404.html', $this->notFoundPageHtml());
+    }
+
+    private function siteFooterInnerHtml(): string
+    {
+        $year = $this->h((string) now('Asia/Tokyo')->year);
+
+        return <<<HTML
+        <p class="site-footer-links"><a href="/about/">このサイトについて</a> · <a href="/privacy/">プライバシーポリシー</a></p>
+        <p>&copy; {$year} MUBIRAN. All rights reserved.</p>
+        <p>Data provided by <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDb</a> and <a href="https://ja.wikipedia.org/" target="_blank" rel="noreferrer">Wikipedia</a>.</p>
+HTML;
+    }
+
+    private function contentPageHtml(
+        string $path,
+        string $pageTitle,
+        string $metaDescription,
+        string $breadcrumbLabel,
+        string $heading,
+        string $bodyHtml,
+        string $robots = 'index, follow',
+    ): string {
+        $baseUrl = rtrim(config('app.url'), '/');
+        $canonical = $baseUrl . $path;
+        $ogImage = $baseUrl . '/images/android-chrome-512x512.png';
+        $styles = $this->viteStyles();
+
+        $ePageTitle = $this->h($pageTitle);
+        $eDescription = $this->h($metaDescription);
+        $eCanonical = $this->h($canonical);
+        $eOgImage = $this->h($ogImage);
+        $eBreadcrumb = $this->h($breadcrumbLabel);
+        $eHeading = $this->h($heading);
+        $footer = $this->siteFooterInnerHtml();
+
+        return <<<HTML
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="{$eDescription}">
+    <meta name="robots" content="{$robots}">
+    <meta name="author" content="ムビラン">
+    <meta name="language" content="ja">
+    <link rel="canonical" href="{$eCanonical}">
+    <title>{$ePageTitle}</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <meta name="theme-color" content="#2c3e50">
+    <meta property="og:title" content="{$ePageTitle}">
+    <meta property="og:description" content="{$eDescription}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{$eCanonical}">
+    <meta property="og:image" content="{$eOgImage}">
+    <meta property="og:locale" content="ja_JP">
+    <meta property="og:site_name" content="MUBIRAN - 映画興行収入ランキング">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{$ePageTitle}">
+    <meta name="twitter:description" content="{$eDescription}">
+    <meta name="twitter:image" content="{$eOgImage}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Oswald:wght@400;700&display=swap" rel="stylesheet">
+    {$styles}
+  </head>
+  <body class="content-page">
+    <header>
+      <a href="/" class="logo-link" aria-label="MUBIRAN トップ"><img src="/images/logo.png" alt="MUBIRAN" class="logo-img"></a>
+    </header>
+    <main class="container content-page-main">
+      <nav class="content-breadcrumb" aria-label="パンくずリスト">
+        <a href="/">ホーム</a>
+        <span aria-hidden="true">›</span>
+        <span>{$eBreadcrumb}</span>
+      </nav>
+      <article class="content-article">
+        <h1 class="content-page-title">{$eHeading}</h1>
+        {$bodyHtml}
+      </article>
+    </main>
+    <footer>
+      <div class="container">
+        {$footer}
+      </div>
+    </footer>
+  </body>
+</html>
+HTML;
+    }
+
+    private function aboutPageHtml(): string
+    {
+        $body = <<<'HTML'
+        <section class="content-section">
+          <h2>MUBIRAN（ムビラン）とは</h2>
+          <p>MUBIRANは、世界と日本の映画興行収入ランキングをわかりやすく掲載する情報サイトです。歴代ヒット作の興行成績を比較し、作品ごとの詳細情報も確認できます。</p>
+        </section>
+        <section class="content-section">
+          <h2>掲載データについて</h2>
+          <p>興行収入・作品情報は、主に以下の公開データをもとに整理・掲載しています。</p>
+          <ul>
+            <li><a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDb（The Movie Database）</a></li>
+            <li><a href="https://ja.wikipedia.org/" target="_blank" rel="noreferrer">Wikipedia</a></li>
+          </ul>
+          <p>日本映画については、公開情報や各種データソースを参照しています。表示内容は参考情報であり、公式の興行成績と異なる場合があります。</p>
+        </section>
+        <section class="content-section">
+          <h2>データの更新</h2>
+          <p>ランキングデータは毎日自動で更新されます。作品詳細やポスター画像も、定期的に再取得・反映されます。</p>
+        </section>
+        <section class="content-section">
+          <h2>AI分析について</h2>
+          <p>一部の作品には、興行成績や話題性をもとにしたAIによる解説文を掲載しています。これらは自動生成された参考情報であり、事実確認済みの評論ではありません。</p>
+        </section>
+        <section class="content-section">
+          <h2>免責事項</h2>
+          <p>本サイトの情報は正確性の確保に努めていますが、その完全性・最新性を保証するものではありません。掲載内容を利用したことによって生じた損害について、当サイトは一切の責任を負いません。</p>
+        </section>
+        <section class="content-section">
+          <h2>お問い合わせ</h2>
+          <p>掲載内容の修正依頼やお問い合わせは、<a href="mailto:horiuchi.cadd9@gmail.com">horiuchi.cadd9@gmail.com</a> までご連絡ください。</p>
+        </section>
+        <p class="content-back-link"><a href="/">ランキングトップへ戻る</a></p>
+HTML;
+
+        return $this->contentPageHtml(
+            '/about/',
+            'このサイトについて | MUBIRAN',
+            'MUBIRAN（ムビラン）は世界・日本の映画興行収入ランキングを掲載するサイトです。データの出典、更新頻度、免責事項をご案内します。',
+            'このサイトについて',
+            'このサイトについて',
+            $body,
+        );
+    }
+
+    private function privacyPageHtml(): string
+    {
+        $updated = now('Asia/Tokyo')->format('Y年n月j日');
+        $eUpdated = $this->h($updated);
+        $body = <<<HTML
+        <p class="content-updated">最終更新日: {$eUpdated}</p>
+        <section class="content-section">
+          <h2>基本方針</h2>
+          <p>MUBIRAN（以下「当サイト」）は、利用者のプライバシーを尊重し、個人情報の保護に努めます。本ポリシーは、当サイトの利用に関する情報の取り扱いについて説明するものです。</p>
+        </section>
+        <section class="content-section">
+          <h2>収集する情報</h2>
+          <p>当サイトは、利用者が自ら入力しない限り、氏名・住所・電話番号などの個人を特定できる情報を収集しません。ただし、ホスティング事業者（Cloudflare）やアクセス解析の仕組みにより、以下の情報が自動的に記録される場合があります。</p>
+          <ul>
+            <li>IPアドレス</li>
+            <li>ブラウザの種類・バージョン</li>
+            <li>アクセス日時・参照元URL</li>
+            <li>閲覧したページのURL</li>
+          </ul>
+        </section>
+        <section class="content-section">
+          <h2>Cookie・ローカルストレージ</h2>
+          <p>当サイトでは、表示の利便性向上のため Service Worker を利用することがあります。ブラウザに保存されるデータは、サイトの高速表示やオフライン対応を目的としたものであり、広告配信や第三者への販売には使用しません。</p>
+        </section>
+        <section class="content-section">
+          <h2>第三者サービス</h2>
+          <p>当サイトは、以下の外部サービスを利用しています。各サービスにおけるデータの取り扱いについては、それぞれのプライバシーポリシーをご確認ください。</p>
+          <ul>
+            <li><a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noreferrer">Cloudflare</a>（ホスティング・CDN）</li>
+            <li><a href="https://www.themoviedb.org/privacy-policy" target="_blank" rel="noreferrer">TMDb</a>（映画データ・画像）</li>
+            <li><a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">Google</a>（フォント配信）</li>
+          </ul>
+        </section>
+        <section class="content-section">
+          <h2>外部リンク</h2>
+          <p>当サイトからリンクされている第三者のウェブサイトについて、当サイトはその内容やプライバシー慣行に関して責任を負いません。</p>
+        </section>
+        <section class="content-section">
+          <h2>お問い合わせ</h2>
+          <p>本ポリシーに関するお問い合わせは、<a href="mailto:horiuchi.cadd9@gmail.com">horiuchi.cadd9@gmail.com</a> までご連絡ください。</p>
+        </section>
+        <p class="content-back-link"><a href="/">ランキングトップへ戻る</a></p>
+HTML;
+
+        return $this->contentPageHtml(
+            '/privacy/',
+            'プライバシーポリシー | MUBIRAN',
+            'MUBIRAN（ムビラン）のプライバシーポリシーです。収集する情報、Cookie、第三者サービスについて説明します。',
+            'プライバシーポリシー',
+            'プライバシーポリシー',
+            $body,
+        );
+    }
+
+    private function notFoundPageHtml(): string
+    {
+        $body = <<<'HTML'
+        <p class="content-lead">お探しのページは見つかりませんでした。URLが変更されたか、削除された可能性があります。</p>
+        <p class="content-back-link"><a href="/">ランキングトップへ戻る</a></p>
+HTML;
+
+        return $this->contentPageHtml(
+            '/404.html',
+            'ページが見つかりません | MUBIRAN',
+            'お探しのページは見つかりませんでした。',
+            '404',
+            'ページが見つかりません',
+            $body,
+            'noindex, follow',
+        );
     }
 
     private function indexHtml(): string

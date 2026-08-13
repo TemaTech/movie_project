@@ -3,6 +3,9 @@
 
 .PHONY: build dev restart deploy clean help
 
+# Linux 向けに node_modules を入れ直す（Mac 上の npm install との競合を防ぐ）
+NODE_DOCKER = docker run --rm -v "$$(pwd)":/app -w /app node:20
+
 # ヘルプ（デフォルト）
 help:
 	@echo "使用可能なコマンド:"
@@ -16,7 +19,7 @@ help:
 # CSS/JSを編集した後に実行してください
 build:
 	@echo "🔨 フロントエンドをビルド中..."
-	docker run --rm -v "$$(pwd)":/app -w /app node:20 npm run build
+	$(NODE_DOCKER) sh -c "npm ci && npm run build"
 	@echo "🔄 コンテナを再起動中..."
 	docker-compose down
 	docker-compose up -d

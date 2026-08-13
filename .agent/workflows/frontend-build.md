@@ -22,7 +22,7 @@ make build
 ### 1. Viteビルドを実行
 
 ```bash
-docker run --rm -v "$(pwd)":/app -w /app node:20 npm run build
+docker run --rm -v "$(pwd)":/app -w /app node:20 sh -c "npm ci && npm run build"
 ```
 
 ### 2. コンテナを再作成

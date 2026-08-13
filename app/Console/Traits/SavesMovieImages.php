@@ -21,30 +21,36 @@ trait SavesMovieImages
             return null;
         }
 
+        $extension = str_ends_with($tmdbPosterPath, '.png') ? 'png' : 'jpg';
+        $filename = "posters/{$filenameBase}.{$extension}";
+        $sharedFilename = 'posters/shared/' . md5($tmdbPosterPath) . '.' . $extension;
+
+        if (Storage::disk('public')->exists($filename)) {
+            return $filename;
+        }
+
+        if (Storage::disk('public')->exists($sharedFilename)) {
+            Storage::disk('public')->copy($sharedFilename, $filename);
+
+            return $filename;
+        }
+
         try {
             // Using w342 size for a good balance of quality and size
             $imageUrl = 'https://image.tmdb.org/t/p/w342' . $tmdbPosterPath;
-            
+
             $response = Http::get($imageUrl);
 
             if ($response->successful()) {
                 $imageContent = $response->body();
-                $extension = 'jpg'; // TMDB uses JPG usually
-                if (str_ends_with($tmdbPosterPath, '.png')) {
-                    $extension = 'png';
-                }
-                
-                $filename = "posters/{$filenameBase}.{$extension}";
-                
-                // Ensure directory exists (Storage::put handles this but good to be aware)
+
+                Storage::disk('public')->put($sharedFilename, $imageContent);
                 Storage::disk('public')->put($filename, $imageContent);
-                
-                // Return path relative to storage root, which can be used with Storage::url()
-                // Or if using symbol link, asset('storage/' . $filename)
-                return $filename; 
-            } else {
-                Log::warning("Failed to download image: {$imageUrl}", ['status' => $response->status()]);
+
+                return $filename;
             }
+
+            Log::warning("Failed to download image: {$imageUrl}", ['status' => $response->status()]);
         } catch (\Exception $e) {
             Log::error("Error saving image for {$filenameBase}: " . $e->getMessage());
         }

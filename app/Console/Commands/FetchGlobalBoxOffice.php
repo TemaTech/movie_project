@@ -2,18 +2,22 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Traits\SavesMovieImages;
+use App\Mail\BoxOfficeFetchError;
+use App\Models\GlobalMovie;
+use App\Services\BoxOffice\HistoryRecorder;
+use App\Services\BoxOffice\MovieIdentity;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use App\Models\GlobalMovie;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
-use App\Mail\BoxOfficeFetchError;
-use App\Console\Traits\SavesMovieImages;
 
 class FetchGlobalBoxOffice extends Command
 {
     use SavesMovieImages;
+
+    private HistoryRecorder $history;
 
     protected $signature = 'movies:fetch-global-boxoffice';
     protected $description = '世界の映画興行収入データを取得・更新します（日本を除く）';
@@ -23,6 +27,7 @@ class FetchGlobalBoxOffice extends Command
         try {
             $api_key = config('services.tmdb.api_key');
             $this->info('TMDb APIを使用してデータ取得を開始...');
+            $this->history = HistoryRecorder::fromBasePath(base_path('data/history'));
 
             // 既存のAI分析データを事前に退避（DB接続タイムアウト回避のため早期に取得）
             $existingAnalyses = GlobalMovie::where('region', 'global')
@@ -110,6 +115,24 @@ class FetchGlobalBoxOffice extends Command
 
                             $totalMovies++;
                             $rank = $totalMovies;
+                            $tmdbId = (int) $movie['id'];
+                            $key = MovieIdentity::globalKey($tmdbId);
+                            $releaseDate = ! empty($movie['release_date']) ? $movie['release_date'] : null;
+                            $year = $releaseDate ? (int) substr($releaseDate, 0, 4) : null;
+
+                            $this->history->resolve([
+                                'region' => 'global',
+                                'title' => $movieDetails['title'] ?? $movie['title'],
+                                'tmdbId' => $tmdbId,
+                                'releaseYear' => $year,
+                                'releaseDate' => $releaseDate,
+                                'releaseDatePrecision' => $releaseDate ? 'day' : null,
+                                'legacyIds' => [
+                                    MovieIdentity::globalLegacyId($rank, $tmdbId),
+                                    MovieIdentity::globalLegacySlug($rank, $tmdbId),
+                                ],
+                                'now' => now('Asia/Tokyo')->toIso8601String(),
+                            ]);
 
                             // genresをJSON文字列に変換
                             $genres = isset($movieDetails['genres']) 
@@ -119,24 +142,28 @@ class FetchGlobalBoxOffice extends Command
                             // ポスター画像の保存処理
                             $localPosterPath = null;
                             if (!empty($movieDetails['poster_path'])) {
-                                $filenameBase = 'global_' . sprintf('%03d', $rank) . '_' . $movie['id'];
-                                $localPosterPath = $this->downloadAndSaveImage($movieDetails['poster_path'], $filenameBase);
+                                $localPosterPath = $this->downloadAndSaveImage($movieDetails['poster_path'], $key);
                                 if ($localPosterPath) {
                                     $this->info("ポスター画像を保存しました: {$localPosterPath}");
                                 }
                             }
 
+                            $isActive = $releaseDate
+                                && $releaseDate >= now('Asia/Tokyo')->subMonths(6)->toDateString();
+
                             $movies[] = [
-                                'movie_id' => 'global_' . sprintf('%03d', $rank) . '_' . $movie['id'],
-                                'tmdb_id' => $movie['id'],
+                                'movie_id' => $key,
+                                'tmdb_id' => $tmdbId,
                                 'title' => $movieDetails['title'] ?? $movie['title'],
                                 'original_title' => $englishDetails['title'] ?? ($movieDetails['original_title'] ?? null),
                                 'poster_path' => $localPosterPath,
                                 'box_office' => $movieDetails['revenue'] ?? 0,
                                 'budget' => $movieDetails['budget'] ?? 0,
-                                'release_date' => !empty($movie['release_date']) ? $movie['release_date'] : null,
+                                'release_date' => $releaseDate,
+                                'release_date_precision' => $releaseDate ? 'day' : null,
                                 'rank' => $rank,
                                 'region' => 'global',
+                                'is_active' => $isActive ? 1 : 0,
                                 'genres' => $genres,  // JSON文字列として保存
                                 'production_country' => isset($movieDetails['production_countries'][0]) 
                                     ? $movieDetails['production_countries'][0]['iso_3166_1'] 
@@ -184,7 +211,20 @@ class FetchGlobalBoxOffice extends Command
 
             // データベースへの一括登録
             if (!empty($movies)) {
+                if (count($movies) < HistoryRecorder::MINIMUM_MOVIES) {
+                    $this->error(sprintf(
+                        '取得件数が%d件で下限%d件を下回ったため、履歴もデータベースも更新しません',
+                        count($movies),
+                        HistoryRecorder::MINIMUM_MOVIES
+                    ));
+                    return self::FAILURE;
+                }
+
                 $this->info('データベースへの一括登録を開始...');
+
+                foreach ($this->history->recordSnapshot('global', $movies, now('Asia/Tokyo')) as $warning) {
+                    $this->warn($warning);
+                }
                 
                 // 既存のトランザクションがあれば終了
                 try {

@@ -4,6 +4,7 @@ namespace App\Console\Traits;
 
 use App\Models\GlobalMovie;
 use App\Models\JapaneseMovie;
+use App\Services\BoxOffice\MovieIdentity;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 
@@ -33,6 +34,11 @@ trait FetchesTmdbMovieDetails
     {
         if (! empty($movie->tmdb_id)) {
             return (int) $movie->tmdb_id;
+        }
+
+        $fromKey = MovieIdentity::tmdbIdFromKey((string) $movie->movie_id);
+        if ($fromKey) {
+            return $fromKey;
         }
 
         if (str_starts_with($movie->movie_id, 'global_')) {

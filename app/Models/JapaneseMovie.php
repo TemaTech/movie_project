@@ -25,6 +25,7 @@ class JapaneseMovie extends Model
         'box_office',
         'budget',
         'release_date',
+        'release_date_precision',
         'genres',
         'production_country',
         'distributor',

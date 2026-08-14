@@ -5,6 +5,9 @@ namespace App\Console\Commands;
 use App\Console\Traits\FetchesTmdbMovieDetails;
 use App\Models\GlobalMovie;
 use App\Models\JapaneseMovie;
+use App\Services\BoxOffice\HistoryRecorder;
+use App\Services\BoxOffice\Insights;
+use App\Services\BoxOffice\MovieIdentity;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
@@ -34,9 +37,15 @@ class ExportStaticSite extends Command
         $this->exportMovieDetails($japanModels, $output . '/data/details', $refreshDetails);
 
         $global = $globalModels->values()
-            ->map(fn (GlobalMovie $movie, int $index) => $this->movieData($movie, $index + 1, false));
+            ->map(fn (GlobalMovie $movie, int $index) => $this->movieData($movie, $index + 1, false))
+            ->all();
         $japan = $japanModels->values()
-            ->map(fn (JapaneseMovie $movie, int $index) => $this->movieData($movie, $index + 1, true));
+            ->map(fn (JapaneseMovie $movie, int $index) => $this->movieData($movie, $index + 1, true))
+            ->all();
+
+        $history = HistoryRecorder::fromBasePath(base_path('data/history'));
+        [$global, $globalInsights] = $this->attachInsights('global', $global, $history);
+        [$japan, $japanInsights] = $this->attachInsights('japan', $japan, $history);
 
         File::put($output . '/data/movies.json', json_encode([
             'generatedAt' => now('Asia/Tokyo')->toIso8601String(),
@@ -46,16 +55,26 @@ class ExportStaticSite extends Command
             'japan' => $japan,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT));
 
+        $this->exportNowPlaying($output, $global, $japan, $globalInsights, $japanInsights);
+        $this->exportRedirects($output, $history);
+        $this->exportLegacyMap($output, $history);
+        $this->exportFeed($output, $globalInsights, $japanInsights);
+
         $this->copyPublicAssets($output);
         $this->exportRobotsTxt($output);
-        $this->exportMoviePages($output, $global, $japan);
+        $boardOnly = $this->boardOnlyMovies($globalInsights, $japanInsights, $global, $japan);
+        $this->exportMoviePages($output, collect($global), collect($japan));
+        foreach ($boardOnly as $movie) {
+            $this->writeMoviePage($output, $movie, ($movie['region'] ?? '') === 'japan');
+        }
         $this->exportTrustPages($output);
-        $this->exportSitemap($output, $globalModels, $japanModels);
+        $this->exportNowPage($output);
+        $this->exportSitemap($output, $global, $japan, $boardOnly);
         File::put($output . '/index.html', $this->indexHtml());
 
-        $moviePageCount = $global->count() + $japan->count();
+        $moviePageCount = count($global) + count($japan) + count($boardOnly);
         $this->info("Static site exported to {$output}");
-        $this->line("Global: {$global->count()} movies / Japan: {$japan->count()} movies");
+        $this->line("Global: ".count($global)." movies / Japan: ".count($japan)." movies");
         $this->line("Movie pages: {$moviePageCount}");
 
         return self::SUCCESS;
@@ -120,9 +139,10 @@ class ExportStaticSite extends Command
             fn (string $genre) => $this->genreMap()[$genre] ?? $genre,
             $rawGenres,
         ));
-        $isActive = $isJapan
-            ? (bool) $movie->is_active
-            : ($releaseDate && Carbon::parse($releaseDate)->greaterThanOrEqualTo(now()->subMonths(6)));
+        $isActive = (bool) $movie->is_active;
+        if (! $isJapan && ! $movie->is_active && $releaseDate) {
+            $isActive = Carbon::parse($releaseDate)->greaterThanOrEqualTo(now('Asia/Tokyo')->subMonths(6));
+        }
 
         $revenueBillion = $isJapan
             ? number_format($movie->box_office / 100000000, 1)
@@ -133,12 +153,14 @@ class ExportStaticSite extends Command
 
         return [
             'id' => $movie->movie_id,
+            'slug' => $movie->movie_id,
             'tmdbId' => $movie->tmdb_id,
             'rank' => $rank,
             'title' => $title,
             'originalTitle' => $movie->original_title,
             'releaseDate' => $releaseDate,
             'releaseYear' => $releaseDate ? (int) substr($releaseDate, 0, 4) : null,
+            'releaseDatePrecision' => $movie->release_date_precision ?? null,
             'genres' => array_values($genres),
             'posterUrl' => $poster,
             'isActive' => $isActive,
@@ -226,11 +248,272 @@ TXT);
 
     private function movieSlug(string $movieId): string
     {
-        if (str_starts_with($movieId, 'global_')) {
-            return str_replace('global_', '', $movieId);
+        return $movieId;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $movies
+     * @return array{0: list<array<string, mixed>>, 1: array<string, mixed>}
+     */
+    private function attachInsights(string $region, array $movies, HistoryRecorder $history): array
+    {
+        $current = array_map(fn (array $movie) => [
+            'key' => $movie['id'],
+            'title' => $movie['title'],
+            'boxOffice' => $movie['boxOffice'],
+            'isActive' => $movie['isActive'],
+            'rank' => $movie['rank'],
+            'releaseDate' => $movie['releaseDate'],
+            'releaseDatePrecision' => $movie['releaseDatePrecision'] ?? null,
+            'posterUrl' => $movie['posterUrl'] ?? null,
+            'revenue' => $movie['revenue'] ?? null,
+        ], $movies);
+
+        $computed = Insights::compute(
+            $region,
+            $current,
+            $history->observations()->loadByKey($region),
+            $history->registry()->movies(),
+            now('Asia/Tokyo')->toDateTimeImmutable(),
+        );
+
+        foreach ($movies as $index => $movie) {
+            $insight = $computed['movies'][$movie['id']] ?? null;
+            if (! $insight) {
+                continue;
+            }
+            $movies[$index]['momentum'] = [
+                'delta' => $insight['delta'],
+                'deltaLabel' => $insight['deltaLabel'],
+                'daysSincePrev' => $insight['daysSincePrev'],
+                'dailyPaceLabel' => $insight['dailyPaceLabel'],
+                'rankDelta' => $insight['rankDelta'],
+                'rankDeltaLabel' => $insight['rankDeltaLabel'],
+                'passedLabel' => $insight['passedLabel'],
+                'hasHistory' => $insight['hasHistory'],
+                'daysSinceRelease' => $insight['daysSinceRelease'],
+            ];
         }
 
-        return $movieId;
+        foreach (['board', 'today', 'milestones'] as $bucket) {
+            $computed[$bucket] = array_map(function (array $item) use ($movies) {
+                $movie = collect($movies)->firstWhere('id', $item['key']) ?? [];
+                return array_merge($item, [
+                    'posterUrl' => $movie['posterUrl'] ?? null,
+                    'slug' => $item['key'],
+                    'revenue' => $movie['revenue'] ?? ($item['revenueLabel'] ?? null),
+                ]);
+            }, $computed[$bucket]);
+        }
+
+        return [$movies, $computed];
+    }
+
+    /**
+     * @param  array<string, mixed>  $globalInsights
+     * @param  array<string, mixed>  $japanInsights
+     * @param  list<array<string, mixed>>  $global
+     * @param  list<array<string, mixed>>  $japan
+     * @return list<array<string, mixed>>
+     */
+    private function boardOnlyMovies(array $globalInsights, array $japanInsights, array $global, array $japan): array
+    {
+        $known = [];
+        foreach (array_merge($global, $japan) as $movie) {
+            $known[$movie['id']] = true;
+        }
+
+        $extra = [];
+        foreach (['global' => $globalInsights['board'] ?? [], 'japan' => $japanInsights['board'] ?? []] as $region => $board) {
+            foreach ($board as $item) {
+                $key = $item['key'] ?? null;
+                if (! $key || isset($known[$key])) {
+                    continue;
+                }
+                $known[$key] = true;
+                $isJapan = $region === 'japan';
+                $extra[] = [
+                    'id' => $key,
+                    'slug' => $key,
+                    'title' => $item['title'] ?? $key,
+                    'originalTitle' => null,
+                    'rank' => $item['rank'] ?: '圏外',
+                    'releaseDate' => $item['releaseDate'] ?? null,
+                    'releaseDatePrecision' => $item['releaseDatePrecision'] ?? null,
+                    'genres' => [],
+                    'posterUrl' => $item['posterUrl'] ?? null,
+                    'boxOffice' => $item['boxOffice'] ?? 0,
+                    'revenue' => $item['revenueLabel'] ?? ($item['revenue'] ?? ''),
+                    'revenueYen' => null,
+                    'region' => $region,
+                    'momentum' => [
+                        'delta' => $item['delta'] ?? null,
+                        'deltaLabel' => $item['deltaLabel'] ?? null,
+                        'daysSincePrev' => $item['daysSincePrev'] ?? null,
+                        'dailyPaceLabel' => $item['dailyPaceLabel'] ?? null,
+                        'rankDelta' => $item['rankDelta'] ?? null,
+                        'rankDeltaLabel' => $item['rankDeltaLabel'] ?? null,
+                        'passedLabel' => $item['passedLabel'] ?? null,
+                        'hasHistory' => $item['hasHistory'] ?? false,
+                        'daysSinceRelease' => $item['daysSinceRelease'] ?? null,
+                    ],
+                ];
+            }
+        }
+
+        return $extra;
+    }
+
+    private function exportNowPlaying(string $output, array $global, array $japan, array $globalInsights, array $japanInsights): void
+    {
+        File::put($output . '/data/now-playing.json', json_encode([
+            'generatedAt' => now('Asia/Tokyo')->toIso8601String(),
+            'disclaimer' => '日本の興行収入は配給会社の発表ベースです。数字は毎日は動きません。伸びは前回の発表との差です。',
+            'japanLastUpdated' => $this->maxLastUpdated(JapaneseMovie::class),
+            'globalLastUpdated' => $this->maxLastUpdated(GlobalMovie::class),
+            'japan' => [
+                'board' => $japanInsights['board'],
+                'today' => $japanInsights['today'],
+                'milestones' => $japanInsights['milestones'],
+            ],
+            'global' => [
+                'board' => $globalInsights['board'],
+                'today' => $globalInsights['today'],
+                'milestones' => $globalInsights['milestones'],
+            ],
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT));
+    }
+
+    private function exportRedirects(string $output, HistoryRecorder $history): void
+    {
+        $lines = [
+            '/now /now/ 301',
+        ];
+        foreach ($history->registry()->redirects() as $rule) {
+            $from = rtrim($rule['from'], '/');
+            $to = $rule['to'];
+            $lines[] = $from.' '.$to.' 301';
+            $lines[] = $from.'/ '.$to.' 301';
+        }
+
+        File::put($output.'/_redirects', implode("\n", array_unique($lines))."\n");
+    }
+
+    private function exportLegacyMap(string $output, HistoryRecorder $history): void
+    {
+        $ids = [];
+        $japanHashes = [];
+
+        foreach ($history->registry()->movies() as $key => $movie) {
+            foreach ($movie['legacyIds'] ?? [] as $legacyId) {
+                $legacyId = (string) $legacyId;
+                $ids[$legacyId] = $key;
+                $fromSlug = str_starts_with($legacyId, 'global_')
+                    ? substr($legacyId, strlen('global_'))
+                    : $legacyId;
+                $ids[$fromSlug] = $key;
+                $hash = MovieIdentity::japanHashFromLegacyId($legacyId);
+                if ($hash) {
+                    $japanHashes[$hash] = $key;
+                }
+            }
+        }
+
+        File::put($output.'/data/legacy-map.json', json_encode([
+            'ids' => $ids,
+            'japanHashes' => $japanHashes,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT));
+    }
+
+    private function exportFeed(string $output, array $globalInsights, array $japanInsights): void
+    {
+        $baseUrl = rtrim(config('app.url'), '/');
+        $items = [];
+        foreach (array_merge($japanInsights['today'], $globalInsights['today']) as $movie) {
+            $items[] = [
+                'title' => ($movie['title'] ?? '').' '.$movie['deltaLabel'],
+                'link' => $baseUrl.'/movies/'.$movie['key'].'/',
+                'date' => $movie['lastChangeAt'] ?? $movie['lastObservedAt'] ?? now('Asia/Tokyo')->toAtomString(),
+                'body' => trim(($movie['deltaLabel'] ?? '').' / '.($movie['dailyPaceLabel'] ?? '').' / '.($movie['passedLabel'] ?? '')),
+            ];
+        }
+        foreach (array_merge($japanInsights['milestones'], $globalInsights['milestones']) as $milestone) {
+            $items[] = [
+                'title' => ($milestone['title'] ?? '').'が'.$milestone['label'],
+                'link' => $baseUrl.'/movies/'.$milestone['key'].'/',
+                'date' => $milestone['reachedAt'],
+                'body' => ($milestone['daysToReach'] !== null ? '公開'.$milestone['daysToReach'].'日目（発表ベース）' : '発表ベース'),
+            ];
+        }
+
+        usort($items, fn (array $a, array $b) => strcmp($b['date'] ?? '', $a['date'] ?? ''));
+        $items = array_slice($items, 0, 30);
+        $now = now('Asia/Tokyo')->toRfc2822String();
+
+        $entries = '';
+        foreach ($items as $item) {
+            $date = Carbon::parse($item['date'])->toRfc2822String();
+            $entries .= '    <item>'
+                .'<title>'.$this->h($item['title']).'</title>'
+                .'<link>'.$this->h($item['link']).'</link>'
+                .'<guid>'.$this->h($item['link'].'#'.$item['date']).'</guid>'
+                .'<pubDate>'.$this->h($date).'</pubDate>'
+                .'<description>'.$this->h($item['body']).'</description>'
+                ."</item>\n";
+        }
+
+        File::put($output.'/feed.xml', <<<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>MUBIRAN 公開中の興行収入</title>
+    <link>{$baseUrl}/now/</link>
+    <description>公開中作品の興行収入の伸びとマイルストーン</description>
+    <language>ja</language>
+    <lastBuildDate>{$now}</lastBuildDate>
+{$entries}  </channel>
+</rss>
+XML);
+    }
+
+    private function exportNowPage(string $output): void
+    {
+        File::ensureDirectoryExists($output.'/now');
+        File::put($output.'/now/index.html', $this->indexHtml('/now/'));
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function movieMomentumHtml(array $movie): string
+    {
+        $momentum = $movie['momentum'] ?? null;
+        if (! is_array($momentum) || empty($momentum['hasHistory'])) {
+            return '';
+        }
+
+        $items = [];
+        if (! empty($momentum['deltaLabel'])) {
+            $label = $momentum['deltaLabel'];
+            if (! empty($momentum['daysSincePrev'])) {
+                $label .= '（'.$momentum['daysSincePrev'].'日前の発表比）';
+            }
+            $items[] = '<div><dt>前回からの伸び</dt><dd>'.$this->h($label).'</dd></div>';
+        }
+        if (! empty($momentum['dailyPaceLabel'])) {
+            $items[] = '<div><dt>1日あたり</dt><dd>'.$this->h($momentum['dailyPaceLabel']).'</dd></div>';
+        }
+        if (! empty($momentum['rankDeltaLabel'])) {
+            $items[] = '<div><dt>順位変動</dt><dd>'.$this->h($momentum['rankDeltaLabel']).'</dd></div>';
+        }
+        if (! empty($momentum['passedLabel'])) {
+            $items[] = '<div><dt>追い抜き</dt><dd>'.$this->h($momentum['passedLabel']).'</dd></div>';
+        }
+        if ($items === []) {
+            return '';
+        }
+
+        return '<section class="movie-section hit-scale"><h2>最近の伸び</h2><dl class="movie-stats">'.implode('', $items).'</dl><p class="hit-scale-disclaimer">発表ベースの記録です。チケット料金のインフレは未調整です。</p></section>';
     }
 
     private function exportMoviePages(string $output, $global, $japan): void
@@ -335,7 +618,7 @@ TXT);
         return '/build/' . e($this->viteEntry()['file']);
     }
 
-    private function exportSitemap(string $output, $globalModels, $japanModels): void
+    private function exportSitemap(string $output, array $global, array $japan, array $boardOnly = []): void
     {
         $baseUrl = rtrim(config('app.url'), '/');
         $defaultLastmod = now('Asia/Tokyo')->toAtomString();
@@ -345,6 +628,16 @@ TXT);
             'lastmod' => $defaultLastmod,
             'changefreq' => 'daily',
             'priority' => '1.0',
+        ], [
+            'loc' => "{$baseUrl}/now/",
+            'lastmod' => $defaultLastmod,
+            'changefreq' => 'daily',
+            'priority' => '0.8',
+        ], [
+            'loc' => "{$baseUrl}/feed.xml",
+            'lastmod' => $defaultLastmod,
+            'changefreq' => 'daily',
+            'priority' => '0.4',
         ], [
             'loc' => "{$baseUrl}/about/",
             'lastmod' => $defaultLastmod,
@@ -357,31 +650,10 @@ TXT);
             'priority' => '0.3',
         ]];
 
-        foreach ($globalModels as $movie) {
-            if (! str_starts_with($movie->movie_id, 'global_')) {
-                continue;
-            }
-
+        foreach (array_merge($global, $japan, $boardOnly) as $movie) {
             $urls[] = [
-                'loc' => "{$baseUrl}/movies/" . $this->movieSlug($movie->movie_id),
-                'lastmod' => $movie->last_updated
-                    ? Carbon::parse($movie->last_updated)->toAtomString()
-                    : $defaultLastmod,
-                'changefreq' => 'weekly',
-                'priority' => '0.6',
-            ];
-        }
-
-        foreach ($japanModels as $movie) {
-            if (! str_starts_with($movie->movie_id, 'jp_')) {
-                continue;
-            }
-
-            $urls[] = [
-                'loc' => "{$baseUrl}/movies/" . $movie->movie_id,
-                'lastmod' => $movie->last_updated
-                    ? Carbon::parse($movie->last_updated)->toAtomString()
-                    : $defaultLastmod,
+                'loc' => "{$baseUrl}/movies/" . $this->movieSlug($movie['id']) . '/',
+                'lastmod' => $defaultLastmod,
                 'changefreq' => 'weekly',
                 'priority' => '0.6',
             ];
@@ -408,7 +680,7 @@ TXT);
         $baseUrl = rtrim(config('app.url'), '/');
         $detail = $this->loadExportedDetail($output, $movie['id']) ?? [];
         $slug = $this->movieSlug($movie['id']);
-        $pageUrl = "{$baseUrl}/movies/{$slug}";
+        $pageUrl = "{$baseUrl}/movies/{$slug}/";
         $homeUrl = $baseUrl . '/?tab=' . ($isJapan ? 'japan' : 'global');
 
         $title = $movie['title'];
@@ -418,8 +690,9 @@ TXT);
         $rankLabel = $isJapan ? '日本ランキング' : '世界ランキング';
         $revenueText = $movie['revenue'] . ($movie['revenueYen'] ? "（{$movie['revenueYen']}）" : '');
 
-        $pageTitle = "{$title} の興行収入 {$movie['revenue']} | {$rankLabel}第{$movie['rank']}位 - MUBIRAN";
-        $description = "{$title}の興行収入は{$revenueText}（{$rankLabel}第{$movie['rank']}位）。";
+        $rankValue = is_numeric($movie['rank'] ?? null) ? '第'.$movie['rank'].'位' : (string) ($movie['rank'] ?? '圏外');
+        $pageTitle = "{$title} の興行収入 {$movie['revenue']} | {$rankLabel}{$rankValue} - MUBIRAN";
+        $description = "{$title}の興行収入は{$revenueText}（{$rankLabel}{$rankValue}）。";
         if ($originalTitle && $originalTitle !== $title) {
             $description .= "原題: {$originalTitle}。";
         }
@@ -516,6 +789,7 @@ TXT);
         $eOgImage = $this->h($ogImage);
         $eTitle = $this->h($title);
         $eRankLabel = $this->h($rankLabel);
+        $eRankValue = $this->h($rankValue);
         $eRevenue = $this->h($movie['revenue']);
         $eRevenueYen = $this->h($isJapan ? ($movie['revenue'] ?? '-') : ($movie['revenueYen'] ?? '-'));
         $yenRow = $isJapan ? '' : "<div><dt>日本換算</dt><dd>{$eRevenueYen}</dd></div>\n            ";
@@ -526,6 +800,7 @@ TXT);
         $eTagline = $this->h($tagline);
         $eHomeUrl = $this->h($homeUrl);
         $footerInner = $this->siteFooterInnerHtml();
+        $momentumHtml = $this->movieMomentumHtml($movie);
 
         return <<<HTML
 <!doctype html>
@@ -579,7 +854,7 @@ TXT);
         <div class="movie-hero">
           {$posterHtml}
           <dl class="movie-stats">
-            <div><dt>{$eRankLabel}</dt><dd>第{$movie['rank']}位</dd></div>
+            <div><dt>{$eRankLabel}</dt><dd>{$eRankValue}</dd></div>
             <div><dt>興行収入</dt><dd>{$eRevenue}</dd></div>
             {$yenRow}
             <div><dt>公開日</dt><dd>{$eReleaseDate}</dd></div>
@@ -590,6 +865,7 @@ TXT);
         </div>
         <p class="movie-tagline">{$eTagline}</p>
         {$genreHtml}
+        {$momentumHtml}
         <section class="movie-section">
           <h2>あらすじ</h2>
           {$overviewHtml}
@@ -623,7 +899,7 @@ HTML;
         $year = $this->h((string) now('Asia/Tokyo')->year);
 
         return <<<HTML
-        <p class="site-footer-links"><a href="/about/">このサイトについて</a> · <a href="/privacy/">プライバシーポリシー</a></p>
+        <p class="site-footer-links"><a href="/now/">公開中の動向</a> · <a href="/about/">このサイトについて</a> · <a href="/privacy/">プライバシーポリシー</a> · <a href="/feed.xml">RSS</a></p>
         <p>&copy; {$year} MUBIRAN. All rights reserved.</p>
         <p>Data provided by <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDb</a> and <a href="https://ja.wikipedia.org/" target="_blank" rel="noreferrer">Wikipedia</a>.</p>
 HTML;
@@ -715,7 +991,11 @@ HTML;
         $body = <<<'HTML'
         <section class="content-section">
           <h2>MUBIRAN（ムビラン）とは</h2>
-          <p>MUBIRANは、世界と日本の映画興行収入ランキングをわかりやすく掲載する情報サイトです。歴代ヒット作の興行成績を比較し、作品ごとの詳細情報も確認できます。</p>
+          <p>MUBIRANは、世界と日本の映画興行収入ランキングをわかりやすく掲載する情報サイトです。歴代ヒット作の興行成績に加え、公開中作品の伸びや順位変動も追えます。</p>
+        </section>
+        <section class="content-section">
+          <h2>公開中の動向について</h2>
+          <p>日本の興行収入は配給会社の発表ベースで更新されるため、毎日数字が動くわけではありません。当サイトは発表のたびに記録し、前回発表からの伸び・1日あたりのペース・順位変動を表示します。チケット料金のインフレは未調整です。</p>
         </section>
         <section class="content-section">
           <h2>掲載データについて</h2>
@@ -777,7 +1057,7 @@ HTML;
         </section>
         <section class="content-section">
           <h2>Cookie・ローカルストレージ</h2>
-          <p>当サイトでは、表示の利便性向上のため Service Worker を利用することがあります。ブラウザに保存されるデータは、サイトの高速表示やオフライン対応を目的としたものであり、広告配信や第三者への販売には使用しません。</p>
+          <p>当サイトでは、表示の利便性向上のため Service Worker を利用することがあります。公開中ボードでは、前回訪問時からの興収差を表示するためにブラウザのローカルストレージを使います。これらのデータは端末内にのみ保存され、広告配信や第三者への販売には使用しません。</p>
         </section>
         <section class="content-section">
           <h2>第三者サービス</h2>
@@ -814,6 +1094,30 @@ HTML;
         $body = <<<'HTML'
         <p class="content-lead">お探しのページは見つかりませんでした。URLが変更されたか、削除された可能性があります。</p>
         <p class="content-back-link"><a href="/">ランキングトップへ戻る</a></p>
+        <script>
+        (function () {
+          var path = location.pathname.replace(/\/+$/, '');
+          var prefix = '/movies/';
+          if (path.indexOf(prefix) !== 0) return;
+          var slug = decodeURIComponent(path.slice(prefix.length));
+          if (!slug || slug.indexOf('/') !== -1) return;
+          var global = slug.match(/^(\d{3})_(\d+)$/);
+          if (global) {
+            location.replace('/movies/tmdb-' + global[2] + '/');
+            return;
+          }
+          var japan = slug.match(/^jp_\d{3}_([0-9a-f]{8})$/);
+          fetch('/data/legacy-map.json').then(function (response) {
+            return response.ok ? response.json() : null;
+          }).then(function (map) {
+            if (!map) return;
+            var key = (map.ids && map.ids[slug]) || (japan && map.japanHashes && map.japanHashes[japan[1]]);
+            if (key && key !== slug) {
+              location.replace('/movies/' + encodeURIComponent(key) + '/');
+            }
+          }).catch(function () {});
+        })();
+        </script>
 HTML;
 
         return $this->contentPageHtml(
@@ -827,15 +1131,21 @@ HTML;
         );
     }
 
-    private function indexHtml(): string
+    private function indexHtml(string $path = '/'): string
     {
         $styles = $this->viteStyles();
         $script = $this->viteScript();
 
         $baseUrl = rtrim(config('app.url'), '/');
-        $title = '歴代映画興行収入ランキング | 世界・日本のヒット作を徹底分析 - MUBIRAN';
-        $description = '「アバター」「鬼滅の刃」など、世界と日本の歴代ヒット映画の興行収入ランキングを完全網羅。興収だけでなく制作費や利益率まで可視化。あなたの好きな映画は今何位？最新データを毎日更新。';
-        $keywords = '映画,興行収入,ランキング,売上,日本映画,世界の映画,最新,ムビラン,ボックスオフィス,映画統計,映画データ,映画売上,興行成績,映画ランキング,最新映画';
+        $canonical = $baseUrl.($path === '/' ? '/' : rtrim($path, '/').'/');
+        $isNow = $path === '/now/';
+        $title = $isNow
+            ? '公開中の興行収入動向 | MUBIRAN'
+            : '歴代映画興行収入ランキング | 世界・日本のヒット作を徹底分析 - MUBIRAN';
+        $description = $isNow
+            ? '公開中の映画がどれくらいのペースで興行収入を伸ばしているかを追跡。前回発表からの伸び、1日あたりのペース、順位変動を毎日確認できます。'
+            : '「アバター」「鬼滅の刃」など、世界と日本の歴代ヒット映画の興行収入ランキングを完全網羅。興収だけでなく制作費や利益率まで可視化。あなたの好きな映画は今何位？最新データを毎日更新。';
+        $keywords = '映画,興行収入,ランキング,売上,日本映画,世界の映画,最新,ムビラン,ボックスオフィス,映画統計,映画データ,映画売上,興行成績,映画ランキング,最新映画,公開中';
         $ogImage = $baseUrl . '/images/android-chrome-512x512.png';
 
         return <<<HTML
@@ -849,7 +1159,7 @@ HTML;
     <meta name="robots" content="index, follow">
     <meta name="author" content="ムビラン">
     <meta name="language" content="ja">
-    <link rel="canonical" href="{$baseUrl}/">
+    <link rel="canonical" href="{$canonical}">
     <title>{$title}</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
@@ -860,7 +1170,7 @@ HTML;
     <meta property="og:title" content="{$title}">
     <meta property="og:description" content="{$description}">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="{$baseUrl}/">
+    <meta property="og:url" content="{$canonical}">
     <meta property="og:image" content="{$ogImage}">
     <meta property="og:locale" content="ja_JP">
     <meta property="og:site_name" content="MUBIRAN - 映画興行収入ランキング">

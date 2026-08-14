@@ -2,20 +2,24 @@
 
 namespace App\Console\Commands;
 
+use App\Mail\BoxOfficeFetchError;
 use App\Models\JapaneseMovie;
+use App\Services\BoxOffice\HistoryRecorder;
+use App\Services\BoxOffice\MovieIdentity;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Mail;
-use App\Mail\BoxOfficeFetchError;
+use Illuminate\Support\Str;
 use App\Console\Traits\SavesMovieImages;
 
 class FetchJapaneseBoxOffice extends Command
 {
     use SavesMovieImages;
+
+    private HistoryRecorder $history;
 
     /**
      * The name and signature of the console command.
@@ -45,6 +49,7 @@ class FetchJapaneseBoxOffice extends Command
             Log::withoutContext();
             
             $this->info('Wikipediaからデータ取得を開始...');
+            $this->history = HistoryRecorder::fromBasePath(base_path('data/history'));
             
             // 既存のAI分析データを事前に退避（DB接続タイムアウト回避のため早期に取得）
             $existingAnalyses = JapaneseMovie::whereNotNull('ai_analysis')
@@ -104,6 +109,19 @@ class FetchJapaneseBoxOffice extends Command
                         }
                     }
                     unset($m);
+
+                    if (count($moviesData) < HistoryRecorder::MINIMUM_MOVIES) {
+                        $this->error(sprintf(
+                            '取得件数が%d件で下限%d件を下回ったため、履歴もデータベースも更新しません',
+                            count($moviesData),
+                            HistoryRecorder::MINIMUM_MOVIES
+                        ));
+                        return self::FAILURE;
+                    }
+
+                    foreach ($this->history->recordSnapshot('japan', $moviesData, now('Asia/Tokyo')) as $warning) {
+                        $this->warn($warning);
+                    }
 
                     // 既存のトランザクションがあれば終了
                     try {
@@ -196,6 +214,7 @@ class FetchJapaneseBoxOffice extends Command
             $this->info('Wikiテキストの解析を開始...');
             
             $movies = [];
+            $seenKeys = [];
             $currentRank = null;
             $rankBoxOfficeMap = []; // 順位ごとの興行収入を保存
 
@@ -343,7 +362,11 @@ class FetchJapaneseBoxOffice extends Command
 
                         // TMDBからジャンルと制作費をまとめて取得（APIリクエスト削減）
                         $tmdbDetails = $this->fetchTMDBDetails($title, $wikidataReleaseDate);
-                        
+                        $releasePrecision = $tmdbDetails['release_date_precision'] ?? 'year';
+                        if (!empty($tmdbDetails['release_date']) && $releasePrecision === 'day') {
+                            $wikidataReleaseDate = $this->sanitizeReleaseDate($tmdbDetails['release_date'], $wikidataReleaseDate);
+                        }
+
                         $tmdbGenres = $tmdbDetails['genres'];
                         $tmdbBudgetYen = $tmdbDetails['budget'];
 
@@ -362,17 +385,46 @@ class FetchJapaneseBoxOffice extends Command
 
                         $genresToSave = !empty($tmdbGenres) ? $tmdbGenres : $wikidataGenres;
                         
+                        $year = $wikidataReleaseDate ? (int) substr($wikidataReleaseDate, 0, 4) : null;
+                        $resolved = $this->history->resolve([
+                            'region' => 'japan',
+                            'title' => $title,
+                            'tmdbId' => $tmdbDetails['tmdb_id'] ?? null,
+                            'releaseYear' => $year,
+                            'releaseDate' => $wikidataReleaseDate,
+                            'releaseDatePrecision' => $releasePrecision,
+                            'legacyIds' => [
+                                MovieIdentity::japanLegacyId(
+                                    (int) $currentRank,
+                                    $title,
+                                    $distributor,
+                                    $releaseYear ?? ''
+                                ),
+                            ],
+                            'now' => now('Asia/Tokyo')->toIso8601String(),
+                        ]);
+
+                        if (isset($seenKeys[$resolved['key']])) {
+                            $this->warn(sprintf(
+                                '安定キーが重複したためスキップ: %s（%s / 順位%d）',
+                                $resolved['key'],
+                                $title,
+                                $currentRank
+                            ));
+                            continue;
+                        }
+                        $seenKeys[$resolved['key']] = true;
+
                         $localPosterPath = null;
                         if (!empty($tmdbDetails['poster_path'])) {
-                             $filenameBase = 'jp_' . sprintf('%03d', $currentRank) . '_' . ($tmdbDetails['tmdb_id'] ?? 'unknown');
-                             $localPosterPath = $this->downloadAndSaveImage($tmdbDetails['poster_path'], $filenameBase);
+                             $localPosterPath = $this->downloadAndSaveImage($tmdbDetails['poster_path'], $resolved['key']);
                              if ($localPosterPath) {
                                  $this->info("ポスター画像を保存しました: {$localPosterPath}");
                              }
                         }
 
                         $movieData = [
-                            'movie_id' => $this->createMovieId($currentRank, $title, $distributor, $wikidataReleaseDate),
+                            'movie_id' => $resolved['key'],
                             'tmdb_id' => $tmdbDetails['tmdb_id'] ?? null,
                             'title' => $title,
                             'original_title' => $tmdbDetails['original_title'] ?? null,
@@ -382,6 +434,7 @@ class FetchJapaneseBoxOffice extends Command
                             'production_country' => $productionCountry,
                             'distributor' => $distributor,
                             'release_date' => $wikidataReleaseDate,
+                            'release_date_precision' => $releasePrecision,
                             'last_updated' => now(),
                             'genres' => json_encode($genresToSave),
                             'budget' => $budgetToSave,
@@ -692,7 +745,15 @@ class FetchJapaneseBoxOffice extends Command
     // TMDBから作品詳細（ジャンル、制作費）を一括取得
     private function fetchTMDBDetails(string $title, ?string $releaseDate = null): array
     {
-        $defaultResult = ['genres' => [], 'budget' => 0, 'original_title' => null, 'tmdb_id' => null, 'poster_path' => null];
+        $defaultResult = [
+            'genres' => [],
+            'budget' => 0,
+            'original_title' => null,
+            'tmdb_id' => null,
+            'poster_path' => null,
+            'release_date' => null,
+            'release_date_precision' => 'year',
+        ];
         $apiKey = config('services.tmdb.api_key');
         if (empty($apiKey)) {
             return $defaultResult;
@@ -767,7 +828,8 @@ class FetchJapaneseBoxOffice extends Command
             // 2. 詳細取得
             $detailsResponse = Http::get("https://api.themoviedb.org/3/movie/{$bestMatch['id']}", [
                 'api_key' => $apiKey,
-                'language' => 'ja-JP'
+                'language' => 'ja-JP',
+                'append_to_response' => 'release_dates',
             ]);
             usleep(100000);
 
@@ -787,18 +849,52 @@ class FetchJapaneseBoxOffice extends Command
                 $budgetYen = (int) round($budgetUsd * 150);
             }
 
+            $japanReleaseDate = $this->extractJapanTheatricalDate($details);
+            $tmdbReleaseDate = $this->sanitizeReleaseDate($details['release_date'] ?? null);
+            $releaseDate = $japanReleaseDate ?: $tmdbReleaseDate;
+            $releasePrecision = $releaseDate && ! str_ends_with($releaseDate, '-01-01') ? 'day' : 'year';
+            if ($japanReleaseDate) {
+                $releasePrecision = 'day';
+            }
+
             return [
                 'genres' => $genres,
                 'budget' => $budgetYen,
                 'original_title' => $details['original_title'] ?? null,
                 'tmdb_id' => $details['id'],
-                'poster_path' => $details['poster_path']
+                'poster_path' => $details['poster_path'],
+                'release_date' => $releaseDate,
+                'release_date_precision' => $releasePrecision,
             ];
 
         } catch (\Exception $e) {
             $this->warn('TMDB詳細取得に失敗: ' . $e->getMessage());
             return $defaultResult;
         }
+    }
+
+    private function extractJapanTheatricalDate(array $details): ?string
+    {
+        $results = $details['release_dates']['results'] ?? [];
+        $fallback = null;
+
+        foreach ($results as $country) {
+            if (($country['iso_3166_1'] ?? '') !== 'JP') {
+                continue;
+            }
+            foreach ($country['release_dates'] ?? [] as $release) {
+                $date = isset($release['release_date']) ? substr((string) $release['release_date'], 0, 10) : null;
+                if (! $date) {
+                    continue;
+                }
+                if ((int) ($release['type'] ?? 0) === 3) {
+                    return $this->sanitizeReleaseDate($date);
+                }
+                $fallback ??= $date;
+            }
+        }
+
+        return $this->sanitizeReleaseDate($fallback);
     }
 
     private function createMovieData($movie, $tmdbDetails, $now)

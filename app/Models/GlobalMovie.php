@@ -26,11 +26,13 @@ class GlobalMovie extends Model
         'box_office',
         'budget',
         'release_date',
+        'release_date_precision',
         'region',
         'genres',
         'data_source',
         'data_source_url',
-        'last_updated'
+        'last_updated',
+        'is_active'
     ];
 
     protected $casts = [
@@ -38,7 +40,8 @@ class GlobalMovie extends Model
         'release_date' => 'date',
         'box_office' => 'integer',
         'budget' => 'integer',
-        'last_updated' => 'datetime'
+        'last_updated' => 'datetime',
+        'is_active' => 'boolean',
     ];
 
     protected $attributes = [

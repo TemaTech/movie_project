@@ -6,7 +6,7 @@
  */
 
 // キャッシュバージョン - デプロイ時に自動更新される
-const CACHE_VERSION = 'v20260101064500';
+const CACHE_VERSION = 'v20260814180000';
 const CACHE_NAME = `mubiran-cache-${CACHE_VERSION}`;
 
 // キャッシュするスタティックアセット

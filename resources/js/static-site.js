@@ -11,10 +11,19 @@ import {
     renderFilterModal,
     updateFilterBadges,
 } from './static-filters';
+import {
+    bindNowPlaying,
+    readVisit,
+    renderNowPlaying,
+    writeVisit,
+} from './now-playing';
 
 const PER_PAGE = 100;
 const app = document.querySelector('#app');
 let siteData = null;
+let nowPlayingData = null;
+let nowPlayingRequest = null;
+let visitRecorded = false;
 
 const defaultState = () => ({
     tab: 'global',
@@ -24,6 +33,8 @@ const defaultState = () => ({
     matchMode: 'and',
     globalPage: 1,
     japanPage: 1,
+    nowRegion: 'japan',
+    nowSort: 'delta',
 });
 
 const state = defaultState();
@@ -80,7 +91,16 @@ const aiOverlay = (analysis) => {
 function parseStateFromUrl() {
     const params = new URLSearchParams(window.location.search);
     const next = defaultState();
-    next.tab = params.get('tab') === 'japan' ? 'japan' : 'global';
+    const path = window.location.pathname.replace(/\/+$/, '') || '/';
+    if (path === '/now') {
+        next.tab = 'now';
+    } else if (params.get('tab') === 'japan' || params.get('tab') === 'now') {
+        next.tab = params.get('tab');
+    } else {
+        next.tab = 'global';
+    }
+    next.nowRegion = params.get('now_region') === 'global' ? 'global' : 'japan';
+    next.nowSort = ['pace', 'total', 'rank', 'days'].includes(params.get('now_sort')) ? params.get('now_sort') : 'delta';
     next.category = params.get('category') || 'all';
     next.genres = params.get('genres') ? params.get('genres').split(',').filter(Boolean) : [];
     next.years = params.get('years') ? params.get('years').split(',').filter(Boolean) : [];
@@ -91,8 +111,17 @@ function parseStateFromUrl() {
 }
 
 function buildUrl(nextState) {
+    if (nextState.tab === 'now' && (window.location.pathname.replace(/\/+$/, '') === '/now')) {
+        const params = new URLSearchParams();
+        if (nextState.nowRegion !== 'japan') params.set('now_region', nextState.nowRegion);
+        if (nextState.nowSort !== 'delta') params.set('now_sort', nextState.nowSort);
+        const query = params.toString();
+        return query ? `/now/?${query}` : '/now/';
+    }
     const params = new URLSearchParams();
     if (nextState.tab && nextState.tab !== 'global') params.set('tab', nextState.tab);
+    if (nextState.tab === 'now' && nextState.nowRegion !== 'japan') params.set('now_region', nextState.nowRegion);
+    if (nextState.tab === 'now' && nextState.nowSort !== 'delta') params.set('now_sort', nextState.nowSort);
     if (nextState.category && nextState.category !== 'all') params.set('category', nextState.category);
     if (nextState.genres.length) params.set('genres', nextState.genres.join(','));
     if (nextState.years.length) params.set('years', nextState.years.join(','));
@@ -147,6 +176,7 @@ function movieCard(movie) {
         <div class="revenue-container">
             <div class="revenue-main" style="color: var(--accent-gold);">${escapeHtml(movie.revenue)}</div>
             ${movie.revenueYen ? `<div class="revenue-sub">${escapeHtml(movie.revenueYen)}</div>` : ''}
+            ${movie.momentum?.deltaLabel ? `<div class="momentum-badge">${escapeHtml(movie.momentum.deltaLabel)}</div>` : ''}
         </div>
         ${aiOverlay(movie.analysis)}
     </article>`;
@@ -170,6 +200,7 @@ function movieRow(movie, isJapan) {
         <div class="list-revenue">
             <span class="revenue-main">${escapeHtml(movie.revenue)}</span>
             ${movie.revenueYen ? `<span class="revenue-sub">${escapeHtml(movie.revenueYen)}</span>` : ''}
+            ${movie.momentum?.deltaLabel ? `<span class="momentum-badge">${escapeHtml(movie.momentum.deltaLabel)}</span>` : ''}
         </div>
         ${aiOverlay(movie.analysis)}
     </article>`;
@@ -196,9 +227,12 @@ function renderPagination(totalItems) {
 }
 
 function findMovie(data, movieId) {
-    return data[state.tab].find((movie) => movie.id === movieId)
-        || [...data.global, ...data.japan].find((movie) => movie.id === movieId)
-        || null;
+    const pools = [...(data.global || []), ...(data.japan || [])];
+    const fromRankings = pools.find((movie) => movie.id === movieId);
+    if (fromRankings) return fromRankings;
+    const boards = [...(nowPlayingData?.japan?.board || []), ...(nowPlayingData?.global?.board || [])];
+    const fromBoard = boards.find((movie) => movie.key === movieId || movie.id === movieId);
+    return fromBoard ? { ...fromBoard, id: fromBoard.key || fromBoard.id } : null;
 }
 
 function bindAiOverlays() {
@@ -246,6 +280,7 @@ function bindMovieInteractions(data) {
 }
 
 function renderFilterTrigger() {
+    if (state.tab === 'now') return '';
     return `<button type="button" class="filter-trigger-btn filter-mobile" aria-label="絞り込み">
         <svg class="filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
@@ -254,13 +289,100 @@ function renderFilterTrigger() {
     </button>`;
 }
 
+function headerHtml() {
+    const desktopFilter = state.tab === 'now' ? '' : `<button type="button" class="filter-trigger-btn filter-desktop" aria-label="絞り込み">
+        <svg class="filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
+        </svg>
+        <span class="filter-text">絞り込み</span>
+    </button>`;
+    return `<header>
+        <a href="/" class="logo-link" aria-label="MUBIRAN トップ"><img src="/images/logo.png" alt="MUBIRAN" class="logo-img"></a>
+        <div class="header-controls">
+            <div class="toggle-container">
+                <a href="/" class="toggle-btn ${state.tab === 'global' ? 'active' : ''}" data-tab="global" id="btn-global">世界</a>
+                <a href="/?tab=japan" class="toggle-btn ${state.tab === 'japan' ? 'active' : ''}" data-tab="japan" id="btn-japan">日本</a>
+                <a href="/now/" class="toggle-btn ${state.tab === 'now' ? 'active' : ''}" data-tab="now" id="btn-now">公開中</a>
+            </div>
+            ${renderFilterTrigger()}
+        </div>
+        ${desktopFilter}
+    </header>`;
+}
+
+function footerHtml() {
+    return `<footer><div class="container"><p class="site-footer-links"><a href="/now/">公開中の動向</a> · <a href="/about/">このサイトについて</a> · <a href="/privacy/">プライバシーポリシー</a> · <a href="/feed.xml">RSS</a></p><p>&copy; ${new Date().getFullYear()} MUBIRAN. All rights reserved.</p><p>Data provided by <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDb</a> and <a href="https://ja.wikipedia.org/" target="_blank" rel="noreferrer">Wikipedia</a>.</p></div></footer>`;
+}
+
+function ensureNowPlaying() {
+    if (nowPlayingData) return Promise.resolve(nowPlayingData);
+    if (!nowPlayingRequest) {
+        nowPlayingRequest = fetch('/data/now-playing.json')
+            .then((response) => (response.ok ? response.json() : Promise.reject(new Error('公開中データを読み込めませんでした。'))))
+            .then((json) => {
+                nowPlayingData = json;
+                return json;
+            });
+    }
+    return nowPlayingRequest;
+}
+
 function switchTab(tab, { updateHistory = true } = {}) {
     state.tab = tab;
     if (updateHistory) syncUrl();
+    if (tab === 'now') {
+        ensureNowPlaying()
+            .then(() => render(siteData))
+            .catch((error) => { app.innerHTML = `<p class="static-error">${escapeHtml(error.message)}</p>`; });
+        return;
+    }
     render(siteData);
 }
 
+function renderNowBoard(data) {
+    const visit = readVisit();
+    const title = '公開中の興行収入';
+    app.innerHTML = `${headerHtml()}
+    <main class="container">
+        <h1 class="page-title">${title}</h1>
+        ${renderNowPlaying(nowPlayingData, state, visit)}
+    </main>
+    ${footerHtml()}`;
+
+    document.querySelectorAll('[data-tab]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            switchTab(button.dataset.tab);
+        });
+    });
+    bindNowPlaying(app, (next) => {
+        Object.assign(state, next);
+        syncUrl();
+        render(data);
+    });
+    bindMovieInteractions(data);
+    const boardMovies = [
+        ...(nowPlayingData.japan?.board || []),
+        ...(nowPlayingData.global?.board || []),
+    ];
+    if (!visitRecorded) {
+        writeVisit(boardMovies);
+        visitRecorded = true;
+    }
+}
+
 function render(data) {
+    if (state.tab === 'now') {
+        if (!nowPlayingData) {
+            ensureNowPlaying()
+                .then(() => render(data))
+                .catch((error) => { app.innerHTML = `<p class="static-error">${escapeHtml(error.message)}</p>`; });
+            return;
+        }
+        renderNowBoard(data);
+        return;
+    }
+
     const allGenres = [...new Set([...data.global, ...data.japan].flatMap((movie) => movie.genres || []))]
         .filter((genre) => genre !== 'アニメーション' && genre !== 'アニメ')
         .sort((a, b) => a.localeCompare(b, 'ja'));
@@ -281,22 +403,7 @@ function render(data) {
     const title = isJapan ? '日本興行収入ランキング' : '世界興行収入ランキング';
     const lastUpdated = isJapan ? data.japanLastUpdated : data.globalLastUpdated;
 
-    app.innerHTML = `<header>
-        <a href="/" class="logo-link" aria-label="MUBIRAN トップ"><img src="/images/logo.png" alt="MUBIRAN" class="logo-img"></a>
-        <div class="header-controls">
-            <div class="toggle-container">
-                <a href="#" class="toggle-btn ${state.tab === 'global' ? 'active' : ''}" data-tab="global" id="btn-global">世界興行収入</a>
-                <a href="#" class="toggle-btn ${state.tab === 'japan' ? 'active' : ''}" data-tab="japan" id="btn-japan">日本興行収入</a>
-            </div>
-            ${renderFilterTrigger()}
-        </div>
-        <button type="button" class="filter-trigger-btn filter-desktop" aria-label="絞り込み">
-            <svg class="filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
-            </svg>
-            <span class="filter-text">絞り込み</span>
-        </button>
-    </header>
+    app.innerHTML = `${headerHtml()}
     <main class="container">
         <h1 class="page-title" id="page-title">${title}</h1>
         ${movies.length
@@ -305,7 +412,7 @@ function render(data) {
         ${lastUpdated ? `<div class="text-center mt-4 mb-5"><small class="static-updated">最終更新: ${escapeHtml(lastUpdated)}</small></div>` : ''}
         <div class="d-flex justify-content-center mt-4">${renderPagination(totalItems)}</div>
     </main>
-    <footer><div class="container"><p class="site-footer-links"><a href="/about/">このサイトについて</a> · <a href="/privacy/">プライバシーポリシー</a></p><p>&copy; ${new Date().getFullYear()} MUBIRAN. All rights reserved.</p><p>Data provided by <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDb</a> and <a href="https://ja.wikipedia.org/" target="_blank" rel="noreferrer">Wikipedia</a>.</p></div></footer>
+    ${footerHtml()}
     ${renderFilterModal(allGenres, state)}`;
 
     document.querySelectorAll('[data-tab]').forEach((button) => {

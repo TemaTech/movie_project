@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  packages: read
 
 concurrency:
   group: publish-static-site
@@ -55,6 +56,7 @@ jobs:
           php-version: '8.2'
           extensions: mbstring, pdo_mysql, zip
           coverage: none
+          tools: composer:v2
 
       - uses: actions/setup-node@v4
         with:
@@ -82,11 +84,32 @@ jobs:
           key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
           restore-keys: composer-${{ runner.os }}-
 
-      - name: Install dependencies
+      - name: Restore vendor cache
+        uses: actions/cache@v4
+        id: vendor-cache
+        with:
+          path: vendor
+          key: vendor-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+
+      - name: Install PHP dependencies
         env:
-          COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.GITHUB_TOKEN }}"}}'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMPOSER_MAX_PARALLEL_HTTP: 4
+          COMPOSER_IPRESOLVE: 4
         run: |
-          composer install --no-interaction --prefer-dist --no-progress --no-dev
+          composer config -g --auth http-basic.github.com x-access-token "${GITHUB_TOKEN}"
+          for attempt in 1 2 3 4 5; do
+            if composer install --no-interaction --prefer-dist --no-progress --no-dev; then
+              exit 0
+            fi
+            echo "composer install failed (attempt ${attempt}), retrying in 45s..."
+            sleep 45
+          done
+          echo "prefer-dist failed after retries, trying prefer-source..."
+          composer install --no-interaction --prefer-source --no-progress --no-dev
+
+      - name: Install Node dependencies and build
+        run: |
           npm ci
           npm run build
 

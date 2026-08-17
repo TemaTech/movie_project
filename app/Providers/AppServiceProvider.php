@@ -35,7 +35,7 @@ class AppServiceProvider extends ServiceProvider
         if (!method_exists(Http::class, 'wikimedia')) {
             Http::macro('wikimedia', function () {
                 $appUrl = rtrim((string) config('app.url'), '/');
-                $contact = 'mailto:horiuchi.cadd9@gmail.com';
+                $contact = 'mailto:' . config('app.contact_email');
                 $userAgent = sprintf('MovieRankingBot/1.0 (+%s/; %s)', $appUrl ?: 'https://example.com', $contact);
 
                 return Http::timeout(30)

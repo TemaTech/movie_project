@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\BoxOffice;
 
+use App\Services\BoxOffice\HistoryPath;
 use App\Services\BoxOffice\HistoryRecorder;
 use App\Services\BoxOffice\Insights;
 use App\Services\BoxOffice\MovieIdentity;
@@ -199,6 +200,27 @@ class BoxOfficeHistoryTest extends TestCase
         $this->assertCount(2, $rows);
         $this->assertFalse($rows[1]['isActive']);
         $this->assertSame(2_000_000_000, $rows[1]['boxOffice']);
+    }
+
+    public function test_local_history_path_bootstraps_from_canonical_directory(): void
+    {
+        $canonical = sys_get_temp_dir().'/boxoffice-canonical-'.bin2hex(random_bytes(4));
+        $local = sys_get_temp_dir().'/boxoffice-local-'.bin2hex(random_bytes(4));
+        mkdir($canonical.'/observations/japan', 0777, true);
+        file_put_contents($canonical.'/registry.json', '{"movies":{"jp-a":{"key":"jp-a"}},"aliases":{}}');
+        file_put_contents(
+            $canonical.'/observations/japan/2026-08.ndjson',
+            json_encode(['key' => 'jp-a', 'observedAt' => '2026-08-01T03:00:00+09:00', 'boxOffice' => 1, 'isActive' => true])."\n"
+        );
+
+        HistoryPath::bootstrapFrom($local, $canonical);
+
+        $this->assertFileExists($local.'/registry.json');
+        $this->assertFileExists($local.'/observations/japan/2026-08.ndjson');
+        $this->assertStringContainsString('jp-a', (string) file_get_contents($local.'/registry.json'));
+
+        $this->removeDir($canonical);
+        $this->removeDir($local);
     }
 
     public function test_stable_keys_can_be_parsed_from_identity(): void

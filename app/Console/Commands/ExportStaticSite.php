@@ -43,7 +43,7 @@ class ExportStaticSite extends Command
             ->map(fn (JapaneseMovie $movie, int $index) => $this->movieData($movie, $index + 1, true))
             ->all();
 
-        $history = HistoryRecorder::fromBasePath(base_path('data/history'));
+        $history = HistoryRecorder::fromConfig();
         [$global, $globalInsights] = $this->attachInsights('global', $global, $history);
         [$japan, $japanInsights] = $this->attachInsights('japan', $japan, $history);
 
@@ -988,7 +988,8 @@ HTML;
 
     private function aboutPageHtml(): string
     {
-        $body = <<<'HTML'
+        $contactEmail = $this->h((string) config('app.contact_email'));
+        $body = <<<HTML
         <section class="content-section">
           <h2>MUBIRAN（ムビラン）とは</h2>
           <p>MUBIRANは、世界と日本の映画興行収入ランキングをわかりやすく掲載する情報サイトです。歴代ヒット作の興行成績に加え、公開中作品の伸びや順位変動も追えます。</p>
@@ -1020,7 +1021,7 @@ HTML;
         </section>
         <section class="content-section">
           <h2>お問い合わせ</h2>
-          <p>掲載内容の修正依頼やお問い合わせは、<a href="mailto:horiuchi.cadd9@gmail.com">horiuchi.cadd9@gmail.com</a> までご連絡ください。</p>
+          <p>掲載内容の修正依頼やお問い合わせは、<a href="mailto:{$contactEmail}">{$contactEmail}</a> までご連絡ください。</p>
         </section>
         <p class="content-back-link"><a href="/">ランキングトップへ戻る</a></p>
 HTML;
@@ -1039,6 +1040,7 @@ HTML;
     {
         $updated = now('Asia/Tokyo')->format('Y年n月j日');
         $eUpdated = $this->h($updated);
+        $contactEmail = $this->h((string) config('app.contact_email'));
         $body = <<<HTML
         <p class="content-updated">最終更新日: {$eUpdated}</p>
         <section class="content-section">
@@ -1074,7 +1076,7 @@ HTML;
         </section>
         <section class="content-section">
           <h2>お問い合わせ</h2>
-          <p>本ポリシーに関するお問い合わせは、<a href="mailto:horiuchi.cadd9@gmail.com">horiuchi.cadd9@gmail.com</a> までご連絡ください。</p>
+          <p>本ポリシーに関するお問い合わせは、<a href="mailto:{$contactEmail}">{$contactEmail}</a> までご連絡ください。</p>
         </section>
         <p class="content-back-link"><a href="/">ランキングトップへ戻る</a></p>
 HTML;

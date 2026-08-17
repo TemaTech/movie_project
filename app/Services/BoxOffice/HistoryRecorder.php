@@ -2,33 +2,48 @@
 
 namespace App\Services\BoxOffice;
 
+use App\Services\BoxOffice\Contracts\ObservationRepository;
+use App\Services\BoxOffice\Contracts\RegistryRepository;
 use DateTimeImmutable;
 use DateTimeInterface;
+use RuntimeException;
 
 class HistoryRecorder
 {
     public const MINIMUM_MOVIES = 150;
 
     public function __construct(
-        private readonly Registry $registry,
-        private readonly ObservationStore $observations,
+        private readonly RegistryRepository $registry,
+        private readonly ObservationRepository $observations,
     ) {
+    }
+
+    public static function fromConfig(): self
+    {
+        $driver = (string) config('box_office.driver', 'file');
+        if ($driver !== 'file') {
+            throw new RuntimeException("Unsupported box office history driver [{$driver}].");
+        }
+
+        return self::fromBasePath(HistoryPath::resolve());
     }
 
     public static function fromBasePath(string $historyDir): self
     {
+        $historyDir = rtrim($historyDir, '/');
+
         return new self(
-            new Registry(rtrim($historyDir, '/').'/registry.json'),
-            new ObservationStore(rtrim($historyDir, '/').'/observations'),
+            new Registry($historyDir.'/registry.json'),
+            new ObservationStore($historyDir.'/observations'),
         );
     }
 
-    public function registry(): Registry
+    public function registry(): RegistryRepository
     {
         return $this->registry;
     }
 
-    public function observations(): ObservationStore
+    public function observations(): ObservationRepository
     {
         return $this->observations;
     }

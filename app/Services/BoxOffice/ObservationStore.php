@@ -2,11 +2,12 @@
 
 namespace App\Services\BoxOffice;
 
+use App\Services\BoxOffice\Contracts\ObservationRepository;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
 
-class ObservationStore
+class ObservationStore implements ObservationRepository
 {
     public function __construct(private readonly string $directory)
     {

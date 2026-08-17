@@ -49,7 +49,7 @@ class FetchJapaneseBoxOffice extends Command
             Log::withoutContext();
             
             $this->info('Wikipediaからデータ取得を開始...');
-            $this->history = HistoryRecorder::fromBasePath(base_path('data/history'));
+            $this->history = HistoryRecorder::fromConfig();
             
             // 既存のAI分析データを事前に退避（DB接続タイムアウト回避のため早期に取得）
             $existingAnalyses = JapaneseMovie::whereNotNull('ai_analysis')
@@ -184,7 +184,7 @@ class FetchJapaneseBoxOffice extends Command
 
             // エラーメール送信（一時停止中）
             // try {
-            //     Mail::to('horiuchi.cadd9@gmail.com')->send(new BoxOfficeFetchError($e, '日本歴代興行成績'));
+            //     Mail::to(config('app.contact_email'))->send(new BoxOfficeFetchError($e, '日本歴代興行成績'));
             //     $this->info('エラー通知メールを送信しました');
             // } catch (\Exception $mailException) {
             //     $this->error('エラー通知メールの送信に失敗しました: ' . $mailException->getMessage());

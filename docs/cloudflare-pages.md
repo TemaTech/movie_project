@@ -74,3 +74,7 @@ php artisan site:export-static
 ```
 
 出力先は `dist/` です。ここには生成済みのデータや画像を含むため、Gitへは追加しません。
+
+## 興行収入履歴
+
+ローカル開発での履歴の扱いと、将来の DB 移行方針は [box-office-history.md](./box-office-history.md) を参照してください。

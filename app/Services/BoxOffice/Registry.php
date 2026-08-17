@@ -2,7 +2,9 @@
 
 namespace App\Services\BoxOffice;
 
-class Registry
+use App\Services\BoxOffice\Contracts\RegistryRepository;
+
+class Registry implements RegistryRepository
 {
     /** @var array<string, array<string, mixed>> */
     private array $movies = [];

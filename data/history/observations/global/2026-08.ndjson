@@ -199,3 +199,5 @@
 {"key":"tmdb-82702","observedAt":"2026-08-15T03:40:40+09:00","boxOffice":621537519,"isActive":false}
 {"key":"tmdb-263115","observedAt":"2026-08-15T03:40:40+09:00","boxOffice":619021436,"isActive":false}
 {"key":"tmdb-1084244","observedAt":"2026-08-17T03:20:06+09:00","boxOffice":1114768651,"isActive":true}
+{"key":"tmdb-969681","observedAt":"2026-08-17T09:49:11+09:00","boxOffice":2021832000,"isActive":true}
+{"key":"tmdb-1368337","observedAt":"2026-08-17T09:49:11+09:00","boxOffice":1200006606,"isActive":true}

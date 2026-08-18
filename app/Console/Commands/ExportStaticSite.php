@@ -388,6 +388,7 @@ TXT);
     {
         $lines = [
             '/now /now/ 301',
+            '/now/global /now/global/ 301',
         ];
         foreach ($history->registry()->redirects() as $rule) {
             $from = rtrim($rule['from'], '/');
@@ -478,8 +479,9 @@ XML);
 
     private function exportNowPage(string $output): void
     {
-        File::ensureDirectoryExists($output.'/now');
+        File::ensureDirectoryExists($output.'/now/global');
         File::put($output.'/now/index.html', $this->indexHtml('/now/'));
+        File::put($output.'/now/global/index.html', $this->indexHtml('/now/global/'));
     }
 
     /**
@@ -630,6 +632,11 @@ XML);
             'priority' => '1.0',
         ], [
             'loc' => "{$baseUrl}/now/",
+            'lastmod' => $defaultLastmod,
+            'changefreq' => 'daily',
+            'priority' => '0.8',
+        ], [
+            'loc' => "{$baseUrl}/now/global/",
             'lastmod' => $defaultLastmod,
             'changefreq' => 'daily',
             'priority' => '0.8',
@@ -1140,13 +1147,18 @@ HTML;
 
         $baseUrl = rtrim(config('app.url'), '/');
         $canonical = $baseUrl.($path === '/' ? '/' : rtrim($path, '/').'/');
-        $isNow = $path === '/now/';
-        $title = $isNow
-            ? '公開中の興行収入動向 | MUBIRAN'
-            : '歴代映画興行収入ランキング | 世界・日本のヒット作を徹底分析 - MUBIRAN';
-        $description = $isNow
-            ? '公開中の映画がどれくらいのペースで興行収入を伸ばしているかを追跡。前回発表からの伸び、1日あたりのペース、順位変動を毎日確認できます。'
-            : '「アバター」「鬼滅の刃」など、世界と日本の歴代ヒット映画の興行収入ランキングを完全網羅。興収だけでなく制作費や利益率まで可視化。あなたの好きな映画は今何位？最新データを毎日更新。';
+        $isNow = str_starts_with($path, '/now');
+        $isNowGlobal = $path === '/now/global/';
+        if ($isNowGlobal) {
+            $title = '公開中映画の興行収入の勢い（世界） | MUBIRAN';
+            $description = '世界で公開中の映画がどれくらいのペースで興行収入を伸ばしているかを追跡。前回発表からの伸び、1日あたりのペース、マイルストーン到達を毎日確認できます。';
+        } elseif ($isNow) {
+            $title = '公開中映画の興行収入の勢い（日本） | MUBIRAN';
+            $description = '日本で公開中の映画がどれくらいのペースで興行収入を伸ばしているかを追跡。前回発表からの伸び、1日あたりのペース、マイルストーン到達を毎日確認できます。';
+        } else {
+            $title = '歴代映画興行収入ランキング | 世界・日本のヒット作を徹底分析 - MUBIRAN';
+            $description = '「アバター」「鬼滅の刃」など、世界と日本の歴代ヒット映画の興行収入ランキングを完全網羅。興収だけでなく制作費や利益率まで可視化。あなたの好きな映画は今何位？最新データを毎日更新。';
+        }
         $keywords = '映画,興行収入,ランキング,売上,日本映画,世界の映画,最新,ムビラン,ボックスオフィス,映画統計,映画データ,映画売上,興行成績,映画ランキング,最新映画,公開中';
         $ogImage = $baseUrl . '/images/android-chrome-512x512.png';
 

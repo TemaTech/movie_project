@@ -7,7 +7,7 @@ use DateTimeImmutable;
 
 class Insights
 {
-    public const BOARD_MOVED_WITHIN_DAYS = 30;
+    public const RECENT_MILESTONE_WITHIN_DAYS = 30;
 
     public const TODAY_WITHIN_HOURS = 72;
 
@@ -210,11 +210,10 @@ class Insights
         $releaseDate = $registry['releaseDate'] ?? ($movie['releaseDate'] ?? null);
         $daysSinceRelease = self::daysSinceRelease($releaseDate, $precision, $now);
         $lastChangeAt = self::lastChangeAt($observations);
-        $movedRecently = $lastChangeAt !== null
-            && self::hoursBetween(new DateTimeImmutable($lastChangeAt), $now) <= (self::BOARD_MOVED_WITHIN_DAYS * 24);
         $isActive = (bool) ($movie['isActive'] ?? false);
-        $onBoard = $isActive || $movedRecently;
-        $changedRecently = $lastChangeAt !== null
+        $onBoard = $isActive;
+        $changedRecently = $isActive
+            && $lastChangeAt !== null
             && self::hoursBetween(new DateTimeImmutable($lastChangeAt), $now) <= self::TODAY_WITHIN_HOURS
             && count($observations) > 1;
 
@@ -222,7 +221,7 @@ class Insights
         $recentMilestones = array_values(array_filter(
             $milestones,
             fn (array $item) => isset($item['reachedAt'])
-                && self::hoursBetween(new DateTimeImmutable($item['reachedAt']), $now) <= (self::BOARD_MOVED_WITHIN_DAYS * 24),
+                && self::hoursBetween(new DateTimeImmutable($item['reachedAt']), $now) <= (self::RECENT_MILESTONE_WITHIN_DAYS * 24),
         ));
 
         $passed = [];
@@ -260,6 +259,7 @@ class Insights
             'passedLabel' => $passed === [] ? null : self::passedLabel($passed),
             'milestones' => $milestones,
             'recentMilestones' => $recentMilestones,
+            'nextMilestone' => self::nextMilestone($region, $boxOffice, $isJapan),
             'sparkline' => self::sparkline($observations),
             'hasHistory' => count($observations) > 1,
         ];
@@ -401,14 +401,22 @@ class Insights
         $thresholds = $region === 'japan' ? self::JAPAN_MILESTONES : self::GLOBAL_MILESTONES;
         $isJapan = $region === 'japan';
         $reached = [];
+        $rows = array_values(array_filter($observations, fn (array $row) => empty($row['correction'])));
 
         foreach ($thresholds as $threshold) {
+            // 「閾値未満 → 以上」の横断を実際に観測できた場合のみ到達扱い。
+            // 初回観測時点で既に超えていた過去の到達は、時期不明なので記録しない。
             $hit = null;
-            foreach ($observations as $row) {
-                if ((int) $row['boxOffice'] >= $threshold) {
-                    $hit = $row;
-                    break;
+            $seenBelow = false;
+            foreach ($rows as $row) {
+                if ((int) $row['boxOffice'] < $threshold) {
+                    $seenBelow = true;
+                    continue;
                 }
+                if ($seenBelow) {
+                    $hit = $row;
+                }
+                break;
             }
             if ($hit === null) {
                 continue;
@@ -425,6 +433,28 @@ class Insights
         }
 
         return $reached;
+    }
+
+    /**
+     * @return array{threshold: int, label: string, remaining: int, remainingLabel: string}|null
+     */
+    public static function nextMilestone(string $region, int $boxOffice, bool $isJapan): ?array
+    {
+        $thresholds = $region === 'japan' ? self::JAPAN_MILESTONES : self::GLOBAL_MILESTONES;
+        foreach ($thresholds as $threshold) {
+            if ($threshold > $boxOffice) {
+                $remaining = $threshold - $boxOffice;
+
+                return [
+                    'threshold' => $threshold,
+                    'label' => self::formatAmount($threshold, $isJapan),
+                    'remaining' => $remaining,
+                    'remainingLabel' => self::formatAmount($remaining, $isJapan),
+                ];
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -489,13 +519,15 @@ class Insights
      */
     private static function lastChangeAt(array $observations): ?string
     {
-        if (count($observations) < 2) {
+        // 修正（correction）は「発表があった」とは扱わない
+        $rows = array_values(array_filter($observations, fn (array $row) => empty($row['correction'])));
+        if (count($rows) < 2) {
             return null;
         }
 
-        for ($i = count($observations) - 1; $i >= 1; $i--) {
-            if ((int) $observations[$i]['boxOffice'] !== (int) $observations[$i - 1]['boxOffice']) {
-                return $observations[$i]['observedAt'] ?? null;
+        for ($i = count($rows) - 1; $i >= 1; $i--) {
+            if ((int) $rows[$i]['boxOffice'] !== (int) $rows[$i - 1]['boxOffice']) {
+                return $rows[$i]['observedAt'] ?? null;
             }
         }
 

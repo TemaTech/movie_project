@@ -155,6 +155,75 @@ class BoxOfficeHistoryTest extends TestCase
         $this->assertSame('jp-a', $result['board'][0]['key']);
         $this->assertTrue($result['movies']['jp-d']['onBoard']);
         $this->assertContains('jp-d', array_column($result['board'], 'key'));
+        $this->assertSame(10_000_000_000, $result['movies']['jp-a']['nextMilestone']['threshold']);
+        $this->assertSame('あと48.0億円', 'あと'.$result['movies']['jp-a']['nextMilestone']['remainingLabel']);
+    }
+
+    public function test_inactive_movies_stay_off_board_even_when_numbers_move(): void
+    {
+        $now = new DateTimeImmutable('2026-08-19T12:00:00+09:00');
+        $observations = [
+            'jp-old' => [
+                $this->obs('jp-old', '2026-08-15T03:00:00+09:00', 8_070_000_000, false),
+                $this->obs('jp-old', '2026-08-15T09:00:00+09:00', 8_100_000_000, false),
+                $this->obs('jp-old', '2026-08-17T21:00:00+09:00', 8_070_000_000, false, true),
+            ],
+        ];
+        $current = [$this->current('jp-old', '公開終了の過去作', 8_070_000_000, false)];
+
+        $result = Insights::compute('japan', $current, $observations, [], $now);
+
+        $this->assertFalse($result['movies']['jp-old']['onBoard']);
+        $this->assertFalse($result['movies']['jp-old']['changedRecently']);
+        $this->assertSame([], $result['board']);
+        $this->assertSame([], $result['today']);
+    }
+
+    public function test_corrections_are_not_treated_as_announcements(): void
+    {
+        $now = new DateTimeImmutable('2026-08-19T12:00:00+09:00');
+        $observations = [
+            'jp-a' => [
+                $this->obs('jp-a', '2026-08-01T03:00:00+09:00', 5_000_000_000, true),
+                $this->obs('jp-a', '2026-08-10T03:00:00+09:00', 5_500_000_000, true),
+                $this->obs('jp-a', '2026-08-19T03:00:00+09:00', 5_400_000_000, true, true),
+            ],
+        ];
+        $current = [$this->current('jp-a', '修正が入った公開中映画', 5_400_000_000, true)];
+
+        $result = Insights::compute('japan', $current, $observations, [], $now);
+
+        $this->assertSame('2026-08-10T03:00:00+09:00', $result['movies']['jp-a']['lastChangeAt']);
+        $this->assertFalse($result['movies']['jp-a']['changedRecently']);
+        $this->assertTrue($result['movies']['jp-a']['onBoard']);
+    }
+
+    public function test_milestones_require_an_observed_crossing(): void
+    {
+        $now = new DateTimeImmutable('2026-08-19T12:00:00+09:00');
+        $observations = [
+            'jp-first-seen' => [
+                $this->obs('jp-first-seen', '2026-08-18T03:00:00+09:00', 5_600_000_000, true),
+            ],
+            'jp-crossed' => [
+                $this->obs('jp-crossed', '2026-08-10T03:00:00+09:00', 2_800_000_000, true),
+                $this->obs('jp-crossed', '2026-08-17T03:00:00+09:00', 3_300_000_000, true),
+            ],
+        ];
+        $current = [
+            $this->current('jp-first-seen', '初観測で既に56億', 5_600_000_000, true),
+            $this->current('jp-crossed', '30億を跨いだ映画', 3_300_000_000, true),
+        ];
+
+        $result = Insights::compute('japan', $current, $observations, [], $now);
+
+        $this->assertSame([], $result['movies']['jp-first-seen']['milestones']);
+        $crossed = $result['movies']['jp-crossed']['milestones'];
+        $this->assertCount(1, $crossed);
+        $this->assertSame(3_000_000_000, $crossed[0]['threshold']);
+        $this->assertSame('2026-08-17T03:00:00+09:00', $crossed[0]['reachedAt']);
+        $this->assertCount(1, $result['milestones']);
+        $this->assertSame('jp-crossed', $result['milestones'][0]['key']);
     }
 
     public function test_negative_or_correction_deltas_are_hidden(): void

@@ -26,14 +26,14 @@ let nowPlayingRequest = null;
 let visitRecorded = false;
 
 const defaultState = () => ({
-    tab: 'global',
+    view: 'ranking',
+    region: 'global',
     category: 'all',
     genres: [],
     years: [],
     matchMode: 'and',
     globalPage: 1,
     japanPage: 1,
-    nowRegion: 'japan',
     nowSort: 'delta',
 });
 
@@ -92,14 +92,20 @@ function parseStateFromUrl() {
     const params = new URLSearchParams(window.location.search);
     const next = defaultState();
     const path = window.location.pathname.replace(/\/+$/, '') || '/';
-    if (path === '/now') {
-        next.tab = 'now';
-    } else if (params.get('tab') === 'japan' || params.get('tab') === 'now') {
-        next.tab = params.get('tab');
+    if (path === '/now/global') {
+        next.view = 'now';
+        next.region = 'global';
+    } else if (path === '/now') {
+        next.view = 'now';
+        next.region = params.get('now_region') === 'global' ? 'global' : 'japan';
+    } else if (params.get('tab') === 'now') {
+        // 旧URL互換: /?tab=now&now_region=global
+        next.view = 'now';
+        next.region = params.get('now_region') === 'global' ? 'global' : 'japan';
     } else {
-        next.tab = 'global';
+        next.view = 'ranking';
+        next.region = params.get('tab') === 'japan' ? 'japan' : 'global';
     }
-    next.nowRegion = params.get('now_region') === 'global' ? 'global' : 'japan';
     next.nowSort = ['pace', 'total', 'rank', 'days'].includes(params.get('now_sort')) ? params.get('now_sort') : 'delta';
     next.category = params.get('category') || 'all';
     next.genres = params.get('genres') ? params.get('genres').split(',').filter(Boolean) : [];
@@ -111,17 +117,15 @@ function parseStateFromUrl() {
 }
 
 function buildUrl(nextState) {
-    if (nextState.tab === 'now' && (window.location.pathname.replace(/\/+$/, '') === '/now')) {
+    if (nextState.view === 'now') {
+        const base = nextState.region === 'global' ? '/now/global/' : '/now/';
         const params = new URLSearchParams();
-        if (nextState.nowRegion !== 'japan') params.set('now_region', nextState.nowRegion);
         if (nextState.nowSort !== 'delta') params.set('now_sort', nextState.nowSort);
         const query = params.toString();
-        return query ? `/now/?${query}` : '/now/';
+        return query ? `${base}?${query}` : base;
     }
     const params = new URLSearchParams();
-    if (nextState.tab && nextState.tab !== 'global') params.set('tab', nextState.tab);
-    if (nextState.tab === 'now' && nextState.nowRegion !== 'japan') params.set('now_region', nextState.nowRegion);
-    if (nextState.tab === 'now' && nextState.nowSort !== 'delta') params.set('now_sort', nextState.nowSort);
+    if (nextState.region === 'japan') params.set('tab', 'japan');
     if (nextState.category && nextState.category !== 'all') params.set('category', nextState.category);
     if (nextState.genres.length) params.set('genres', nextState.genres.join(','));
     if (nextState.years.length) params.set('years', nextState.years.join(','));
@@ -129,7 +133,7 @@ function buildUrl(nextState) {
     if (nextState.globalPage > 1) params.set('global_page', String(nextState.globalPage));
     if (nextState.japanPage > 1) params.set('japan_page', String(nextState.japanPage));
     const query = params.toString();
-    return query ? `?${query}` : window.location.pathname;
+    return query ? `/?${query}` : '/';
 }
 
 function syncUrl(replace = false) {
@@ -139,11 +143,11 @@ function syncUrl(replace = false) {
 }
 
 function currentPage() {
-    return state.tab === 'japan' ? state.japanPage : state.globalPage;
+    return state.region === 'japan' ? state.japanPage : state.globalPage;
 }
 
 function setCurrentPage(page) {
-    if (state.tab === 'japan') {
+    if (state.region === 'japan') {
         state.japanPage = page;
     } else {
         state.globalPage = page;
@@ -151,7 +155,7 @@ function setCurrentPage(page) {
 }
 
 function getRankedMovies(data) {
-    const filtered = filterMovies(data[state.tab], state);
+    const filtered = filterMovies(data[state.region], state);
     return filtered.map((movie, index) => ({ ...movie, rank: index + 1 }));
 }
 
@@ -212,9 +216,9 @@ function renderPagination(totalItems) {
 
     const page = currentPage();
     const prevState = { ...state };
-    prevState[state.tab === 'japan' ? 'japanPage' : 'globalPage'] = Math.max(1, page - 1);
+    prevState[state.region === 'japan' ? 'japanPage' : 'globalPage'] = Math.max(1, page - 1);
     const nextState = { ...state };
-    nextState[state.tab === 'japan' ? 'japanPage' : 'globalPage'] = Math.min(totalPages, page + 1);
+    nextState[state.region === 'japan' ? 'japanPage' : 'globalPage'] = Math.min(totalPages, page + 1);
 
     const prev = page > 1
         ? `<a href="${buildUrl(prevState)}" class="pagination-btn" data-page="${page - 1}" rel="prev">&lsaquo; 前へ</a>`
@@ -280,7 +284,7 @@ function bindMovieInteractions(data) {
 }
 
 function renderFilterTrigger() {
-    if (state.tab === 'now') return '';
+    if (state.view === 'now') return '';
     return `<button type="button" class="filter-trigger-btn filter-mobile" aria-label="絞り込み">
         <svg class="filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
@@ -290,19 +294,25 @@ function renderFilterTrigger() {
 }
 
 function headerHtml() {
-    const desktopFilter = state.tab === 'now' ? '' : `<button type="button" class="filter-trigger-btn filter-desktop" aria-label="絞り込み">
+    const desktopFilter = state.view === 'now' ? '' : `<button type="button" class="filter-trigger-btn filter-desktop" aria-label="絞り込み">
         <svg class="filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
         </svg>
         <span class="filter-text">絞り込み</span>
     </button>`;
+    const nowUrl = state.region === 'global' ? '/now/global/' : '/now/';
+    const rankingUrl = state.region === 'japan' ? '/?tab=japan' : '/';
+    const regionUrl = (region) => buildUrl({ ...state, region });
     return `<header>
         <a href="/" class="logo-link" aria-label="MUBIRAN トップ"><img src="/images/logo.png" alt="MUBIRAN" class="logo-img"></a>
         <div class="header-controls">
-            <div class="toggle-container">
-                <a href="/" class="toggle-btn ${state.tab === 'global' ? 'active' : ''}" data-tab="global" id="btn-global">世界</a>
-                <a href="/?tab=japan" class="toggle-btn ${state.tab === 'japan' ? 'active' : ''}" data-tab="japan" id="btn-japan">日本</a>
-                <a href="/now/" class="toggle-btn ${state.tab === 'now' ? 'active' : ''}" data-tab="now" id="btn-now">公開中</a>
+            <div class="toggle-container view-toggle" role="group" aria-label="表示切替">
+                <a href="${nowUrl}" class="toggle-btn ${state.view === 'now' ? 'active' : ''}" data-view="now" id="btn-now">公開中</a>
+                <a href="${rankingUrl}" class="toggle-btn ${state.view === 'ranking' ? 'active' : ''}" data-view="ranking" id="btn-ranking">歴代</a>
+            </div>
+            <div class="toggle-container region-toggle" role="group" aria-label="地域切替">
+                <a href="${regionUrl('japan')}" class="toggle-btn ${state.region === 'japan' ? 'active' : ''}" data-region="japan" id="btn-japan">日本</a>
+                <a href="${regionUrl('global')}" class="toggle-btn ${state.region === 'global' ? 'active' : ''}" data-region="global" id="btn-global">世界</a>
             </div>
             ${renderFilterTrigger()}
         </div>
@@ -327,10 +337,10 @@ function ensureNowPlaying() {
     return nowPlayingRequest;
 }
 
-function switchTab(tab, { updateHistory = true } = {}) {
-    state.tab = tab;
-    if (updateHistory) syncUrl();
-    if (tab === 'now') {
+function navigate(next) {
+    Object.assign(state, next);
+    syncUrl();
+    if (state.view === 'now') {
         ensureNowPlaying()
             .then(() => render(siteData))
             .catch((error) => { app.innerHTML = `<p class="static-error">${escapeHtml(error.message)}</p>`; });
@@ -339,22 +349,32 @@ function switchTab(tab, { updateHistory = true } = {}) {
     render(siteData);
 }
 
+function bindHeader() {
+    document.querySelectorAll('[data-view]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            navigate({ view: button.dataset.view });
+        });
+    });
+    document.querySelectorAll('[data-region]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            navigate({ region: button.dataset.region });
+        });
+    });
+}
+
 function renderNowBoard(data) {
     const visit = readVisit();
-    const title = '公開中の興行収入';
+    const title = state.region === 'japan' ? '公開中映画の勢い（日本）' : '公開中映画の勢い（世界）';
     app.innerHTML = `${headerHtml()}
     <main class="container">
-        <h1 class="page-title">${title}</h1>
+        <h1 class="page-title now-page-title">${title}</h1>
         ${renderNowPlaying(nowPlayingData, state, visit)}
     </main>
     ${footerHtml()}`;
 
-    document.querySelectorAll('[data-tab]').forEach((button) => {
-        button.addEventListener('click', (event) => {
-            event.preventDefault();
-            switchTab(button.dataset.tab);
-        });
-    });
+    bindHeader();
     bindNowPlaying(app, (next) => {
         Object.assign(state, next);
         syncUrl();
@@ -372,7 +392,7 @@ function renderNowBoard(data) {
 }
 
 function render(data) {
-    if (state.tab === 'now') {
+    if (state.view === 'now') {
         if (!nowPlayingData) {
             ensureNowPlaying()
                 .then(() => render(data))
@@ -399,7 +419,7 @@ function render(data) {
     const movies = getPageMovies(rankedMovies);
     const top = movies.filter((movie) => movie.rank <= 3);
     const rest = movies.filter((movie) => movie.rank > 3);
-    const isJapan = state.tab === 'japan';
+    const isJapan = state.region === 'japan';
     const title = isJapan ? '日本興行収入ランキング' : '世界興行収入ランキング';
     const lastUpdated = isJapan ? data.japanLastUpdated : data.globalLastUpdated;
 
@@ -415,12 +435,7 @@ function render(data) {
     ${footerHtml()}
     ${renderFilterModal(allGenres, state)}`;
 
-    document.querySelectorAll('[data-tab]').forEach((button) => {
-        button.addEventListener('click', (event) => {
-            event.preventDefault();
-            switchTab(button.dataset.tab);
-        });
-    });
+    bindHeader();
 
     document.querySelectorAll('.pagination-btn[data-page]').forEach((link) => {
         link.addEventListener('click', (event) => {

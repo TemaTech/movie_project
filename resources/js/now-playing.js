@@ -8,7 +8,7 @@ export const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, (cha
 
 export function sparklineSvg(points = []) {
     if (points.length < 2) {
-        return '<span class="now-sparkline now-sparkline-empty" aria-hidden="true"></span>';
+        return '';
     }
     const values = points.map((point) => Number(point.boxOffice) || 0);
     const min = Math.min(...values);
@@ -62,11 +62,18 @@ export function visitDiffs(movies, previous) {
         .sort((left, right) => right.visitDelta - left.visitDelta);
 }
 
-function formatVisitAt(iso) {
+function formatDateTime(iso) {
     if (!iso) return '';
     const date = new Date(iso);
     if (Number.isNaN(date.getTime())) return '';
     return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+function formatDate(iso) {
+    if (!iso) return '';
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return '';
+    return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
 function sortMovies(movies, sort) {
@@ -92,102 +99,201 @@ function movieHref(movie) {
     return `/movies/${encodeURIComponent(movie.slug || movie.key)}/`;
 }
 
-function boardCard(movie, unreadKeys) {
-    const unread = unreadKeys.has(movie.key) ? '<span class="now-unread">更新</span>' : '';
-    const active = movie.isActive ? '<span class="now-pill now-pill-active">公開中</span>' : '';
-    const delta = movie.deltaLabel
-        ? `<span class="now-delta">${escapeHtml(movie.deltaLabel)}</span>`
-        : '<span class="now-delta now-delta-muted">伸び待ち</span>';
-    const pace = movie.dailyPaceLabel ? `<span>${escapeHtml(movie.dailyPaceLabel)}</span>` : '';
-    const days = movie.daysSincePrev ? `<span>${movie.daysSincePrev}日前の発表比</span>` : '';
-    const rank = movie.rank ? `<span>歴代${movie.rank}位</span>` : '';
-    const rankDelta = movie.rankDeltaLabel ? `<span>${escapeHtml(movie.rankDeltaLabel)}</span>` : '';
-    const released = movie.daysSinceRelease != null ? `<span>公開${movie.daysSinceRelease}日目</span>` : '';
-    const passed = movie.passedLabel ? `<p class="now-passed">${escapeHtml(movie.passedLabel)}</p>` : '';
-    const poster = movie.posterUrl
-        ? `<div class="now-poster" style="background-image:url('${escapeHtml(movie.posterUrl)}')"></div>`
-        : '<div class="now-poster now-poster-empty"></div>';
+function nextMilestoneText(movie) {
+    const next = movie.nextMilestone;
+    if (!next?.label || !next?.remainingLabel) return '';
+    return `${next.label}まで あと${next.remainingLabel}`;
+}
 
-    return `<article class="now-card ${movie.isActive ? 'is-active' : ''}" data-movie-id="${escapeHtml(movie.key)}" role="button" tabindex="0" aria-label="${escapeHtml(movie.title)}の詳細">
-        ${poster}
+function posterDiv(movie, className) {
+    return movie.posterUrl
+        ? `<div class="${className}" style="background-image:url('${escapeHtml(movie.posterUrl)}')"></div>`
+        : `<div class="${className} now-poster-empty"></div>`;
+}
+
+function heroSection(movie, unreadKeys) {
+    if (!movie) return '';
+    const backdrop = movie.posterUrl
+        ? `<div class="now-hero-backdrop" style="background-image:url('${escapeHtml(movie.posterUrl)}')"></div>`
+        : '';
+    const unread = unreadKeys.has(movie.key) ? '<span class="now-unread">更新</span>' : '';
+    const milestone = nextMilestoneText(movie);
+    const stats = [
+        movie.dailyPaceLabel ? `<div class="now-hero-stat"><span>ペース</span><strong>${escapeHtml(movie.dailyPaceLabel)}</strong></div>` : '',
+        `<div class="now-hero-stat"><span>累計</span><strong>${escapeHtml(movie.revenueLabel || movie.revenue || '')}</strong></div>`,
+        milestone ? `<div class="now-hero-stat now-hero-milestone"><span>次の節目</span><strong>${escapeHtml(milestone)}</strong></div>` : '',
+    ].filter(Boolean).join('');
+    const context = [
+        movie.daysSinceRelease != null ? `公開${movie.daysSinceRelease}日目` : '',
+        movie.rank ? `歴代${movie.rank}位` : '',
+        movie.rankDeltaLabel ? escapeHtml(movie.rankDeltaLabel) : '',
+    ].filter(Boolean).join('・');
+
+    return `<section class="now-hero" data-movie-id="${escapeHtml(movie.key)}" role="button" tabindex="0" aria-label="${escapeHtml(movie.title)}の詳細">
+        ${backdrop}
+        <div class="now-hero-inner">
+            ${posterDiv(movie, 'now-hero-poster')}
+            <div class="now-hero-body">
+                <p class="now-hero-tag">今いちばん伸びている</p>
+                <h2 class="now-hero-title">${escapeHtml(movie.title)} ${unread}</h2>
+                <p class="now-hero-delta">${escapeHtml(movie.deltaLabel || '')}<small>${movie.daysSincePrev ? ` ${movie.daysSincePrev}日ぶりの発表` : ' 前回発表から'}</small></p>
+                <div class="now-hero-stats">${stats}</div>
+                ${movie.passedLabel ? `<p class="now-hero-passed">${escapeHtml(movie.passedLabel)}</p>` : ''}
+                ${context ? `<p class="now-hero-context">${context}</p>` : ''}
+            </div>
+        </div>
+    </section>`;
+}
+
+function movingCard(movie, unreadKeys) {
+    const unread = unreadKeys.has(movie.key) ? '<span class="now-unread">更新</span>' : '';
+    const milestone = nextMilestoneText(movie);
+    const context = [
+        movie.daysSinceRelease != null ? `公開${movie.daysSinceRelease}日目` : '',
+        movie.rank ? `歴代${movie.rank}位` : '',
+        movie.rankDeltaLabel ? escapeHtml(movie.rankDeltaLabel) : '',
+    ].filter(Boolean).join('・');
+
+    return `<article class="now-card" data-movie-id="${escapeHtml(movie.key)}" role="button" tabindex="0" aria-label="${escapeHtml(movie.title)}の詳細">
+        ${posterDiv(movie, 'now-poster')}
         <div class="now-card-body">
             <div class="now-card-top">
-                <h3 class="now-title">${escapeHtml(movie.title)} ${unread}${active}</h3>
+                <h3 class="now-title">${escapeHtml(movie.title)} ${unread}</h3>
                 <a class="now-permalink" href="${movieHref(movie)}" onclick="event.stopPropagation()">作品ページ</a>
             </div>
-            <div class="now-metrics">
-                ${delta}${pace}${days}${rank}${rankDelta}${released}
+            <p class="now-card-delta">${escapeHtml(movie.deltaLabel || '')}<small>${movie.daysSincePrev ? ` ${movie.daysSincePrev}日ぶりの発表` : ''}</small></p>
+            <div class="now-card-stats">
+                ${movie.dailyPaceLabel ? `<span class="now-stat">ペース ${escapeHtml(movie.dailyPaceLabel)}</span>` : ''}
+                <span class="now-stat">累計 ${escapeHtml(movie.revenueLabel || movie.revenue || '')}</span>
+                ${milestone ? `<span class="now-stat now-stat-milestone">${escapeHtml(milestone)}</span>` : ''}
             </div>
-            <div class="now-card-bottom">
-                <div>
-                    <div class="now-total">${escapeHtml(movie.revenueLabel || movie.revenue || '')}</div>
-                    ${passed}
-                </div>
+            ${movie.passedLabel ? `<p class="now-passed">${escapeHtml(movie.passedLabel)}</p>` : ''}
+            <div class="now-card-foot">
+                <span class="now-context">${context}</span>
                 ${sparklineSvg(movie.sparkline)}
             </div>
         </div>
     </article>`;
 }
 
+function waitingRow(movie) {
+    const meta = [
+        `累計 ${movie.revenueLabel || movie.revenue || ''}`,
+        movie.daysSinceRelease != null ? `公開${movie.daysSinceRelease}日目` : '',
+        movie.lastObservedAt ? `${formatDate(movie.lastObservedAt)}記録` : '',
+    ].filter(Boolean).join('・');
+
+    return `<li class="now-waiting-row" data-movie-id="${escapeHtml(movie.key)}" role="button" tabindex="0" aria-label="${escapeHtml(movie.title)}の詳細">
+        ${posterDiv(movie, 'now-waiting-poster')}
+        <div class="now-waiting-body">
+            <span class="now-waiting-title">${escapeHtml(movie.title)}</span>
+            <span class="now-waiting-meta">${escapeHtml(meta)}</span>
+        </div>
+        <span class="now-waiting-status">次の発表待ち</span>
+    </li>`;
+}
+
+function timelineSection(bucket) {
+    const items = [];
+    (bucket.today || []).forEach((movie) => {
+        if (!movie.deltaLabel) return;
+        items.push({
+            at: movie.lastChangeAt || movie.lastObservedAt || '',
+            type: 'delta',
+            title: movie.title,
+            text: `${movie.deltaLabel}${movie.dailyPaceLabel ? `（${movie.dailyPaceLabel}のペース）` : ''}`,
+        });
+    });
+    (bucket.milestones || []).forEach((milestone) => {
+        items.push({
+            at: milestone.reachedAt || '',
+            type: 'milestone',
+            title: milestone.title,
+            text: `${milestone.label}${milestone.daysToReach != null ? `（公開${milestone.daysToReach}日目）` : ''}`,
+        });
+    });
+    items.sort((left, right) => (right.at > left.at ? 1 : -1));
+
+    const list = items.slice(0, 10).map((item) => `<li class="now-timeline-item now-timeline-${item.type}">
+        <span class="now-timeline-date">${escapeHtml(formatDate(item.at))}</span>
+        <span class="now-timeline-text"><strong>${escapeHtml(item.title)}</strong> ${escapeHtml(item.text)}</span>
+    </li>`).join('');
+
+    return `<section class="now-timeline" aria-label="最近の動き">
+        <h2>最近の動き</h2>
+        ${list ? `<ul>${list}</ul>` : '<p class="now-quiet">直近の発表・節目の到達はまだありません。</p>'}
+    </section>`;
+}
+
+function visitBanner(diffs, visit) {
+    if (diffs.length) {
+        const when = visit?.visitAt ? formatDateTime(visit.visitAt) : '';
+        const chips = diffs.slice(0, 4)
+            .map((item) => `<span class="now-visit-chip"><strong>${escapeHtml(item.title)}</strong> ${escapeHtml(item.visitDeltaLabel)}</span>`)
+            .join('');
+        return `<section class="now-visit"><p class="now-visit-label">前回の訪問${when ? `（${escapeHtml(when)}）` : ''}から伸びた作品</p><div class="now-visit-chips">${chips}</div></section>`;
+    }
+    if (visit) {
+        return '<section class="now-visit now-visit-quiet"><p>前回の訪問から数字の動いた作品はありません。次の発表を待っています。</p></section>';
+    }
+    return '<section class="now-visit now-visit-quiet"><p>次にこのページを開いたとき、前回からの変化をここに表示します。</p></section>';
+}
+
 export function renderNowPlaying(data, state, visit) {
-    const region = state.nowRegion === 'global' ? 'global' : 'japan';
+    const region = state.region === 'global' ? 'global' : 'japan';
     const bucket = data[region] || { board: [], today: [], milestones: [] };
-    const sorted = sortMovies(bucket.board || [], state.nowSort || 'delta');
-    const diffs = visitDiffs(sorted, visit);
+    const board = bucket.board || [];
+    const moving = sortMovies(board.filter((movie) => movie.delta != null), state.nowSort || 'delta');
+    const waiting = board.filter((movie) => movie.delta == null)
+        .sort((left, right) => right.boxOffice - left.boxOffice);
+    const diffs = visitDiffs(board, visit);
     const unreadKeys = new Set(diffs.map((item) => item.key));
-    const lastVisitLabel = visit?.visitAt ? formatVisitAt(visit.visitAt) : '';
 
-    const banner = diffs.length
-        ? `<section class="now-banner">
-            <h2>前回から伸びた作品</h2>
-            <p>前回訪問（${escapeHtml(lastVisitLabel)}）からの累計差です。</p>
-            <ul>${diffs.slice(0, 6).map((item) => `<li><strong>${escapeHtml(item.title)}</strong> ${escapeHtml(item.visitDeltaLabel)}</li>`).join('')}</ul>
+    const hero = [...moving].sort((left, right) => (right.delta || 0) - (left.delta || 0))[0] || null;
+    const rest = moving.filter((movie) => movie !== hero);
+
+    const toolbar = rest.length > 1 ? `<div class="now-toolbar">
+        <h2 class="now-section-title">伸びている作品</h2>
+        <label class="now-sort">並び替え
+            <select data-now-sort>
+                <option value="delta" ${state.nowSort === 'delta' ? 'selected' : ''}>伸び額</option>
+                <option value="pace" ${state.nowSort === 'pace' ? 'selected' : ''}>1日ペース</option>
+                <option value="total" ${state.nowSort === 'total' ? 'selected' : ''}>累計興収</option>
+                <option value="rank" ${state.nowSort === 'rank' ? 'selected' : ''}>順位上昇</option>
+                <option value="days" ${state.nowSort === 'days' ? 'selected' : ''}>公開日が新しい</option>
+            </select>
+        </label>
+    </div>` : (rest.length ? '<h2 class="now-section-title">伸びている作品</h2>' : '');
+
+    const movingSection = rest.length
+        ? `<section class="now-board" aria-label="伸びている作品">${rest.map((movie) => movingCard(movie, unreadKeys)).join('')}</section>`
+        : (hero ? '' : '<p class="now-quiet now-board-empty">いまは次の発表待ちです。数字が動いた作品がここに並びます。</p>');
+
+    const waitingSection = waiting.length
+        ? `<section class="now-waiting" aria-label="次の発表待ち">
+            <h2 class="now-section-title">次の発表待ち</h2>
+            <ul class="now-waiting-list">${waiting.map(waitingRow).join('')}</ul>
         </section>`
-        : (visit
-            ? '<section class="now-banner now-banner-quiet"><p>前回訪問から、数字の動いた作品はありません。次の発表を待っています。</p></section>'
-            : '<section class="now-banner now-banner-quiet"><p>このブラウザで次回訪れたときに、前回からの変化を表示します。</p></section>');
-
-    const today = (bucket.today || []).length
-        ? `<section class="now-today"><h2>直近の発表</h2><ul>${bucket.today.map((item) => `<li><strong>${escapeHtml(item.title)}</strong> ${escapeHtml(item.deltaLabel || '')} ${escapeHtml(item.dailyPaceLabel || '')}</li>`).join('')}</ul></section>`
-        : '<section class="now-today"><h2>直近の発表</h2><p>直近72時間で新しい発表はありません。</p></section>';
-
-    const milestones = (bucket.milestones || []).length
-        ? `<section class="now-milestones"><h2>最近の到達</h2><ul>${bucket.milestones.map((item) => `<li><strong>${escapeHtml(item.title)}</strong> ${escapeHtml(item.label)}${item.daysToReach != null ? `（公開${item.daysToReach}日目）` : ''} <small>発表ベース</small></li>`).join('')}</ul></section>`
         : '';
 
-    const empty = sorted.length
-        ? sorted.map((movie) => boardCard(movie, unreadKeys)).join('')
-        : '<p class="now-empty">いま動いている作品はまだありません。公開中フラグ、または直近30日で数字が動いた作品がここに並びます。</p>';
+    const emptyBoard = board.length
+        ? ''
+        : '<p class="now-quiet now-board-empty">いま公開中として追跡している作品はありません。データが入り次第ここに並びます。</p>';
 
     return `<div class="now-page">
-        <p class="now-lead">公開中の作品が、どれくらいの勢いで伸びているかを追う板です。日本の興収は配給発表ベースのため、毎日は動きません。</p>
-        ${banner}
-        <div class="now-toolbar">
-            <div class="now-region" role="group" aria-label="対象">
-                <button type="button" class="now-chip ${region === 'japan' ? 'active' : ''}" data-now-region="japan">日本</button>
-                <button type="button" class="now-chip ${region === 'global' ? 'active' : ''}" data-now-region="global">世界</button>
-            </div>
-            <label class="now-sort">並び替え
-                <select data-now-sort>
-                    <option value="delta" ${state.nowSort === 'delta' ? 'selected' : ''}>伸び額</option>
-                    <option value="pace" ${state.nowSort === 'pace' ? 'selected' : ''}>1日ペース</option>
-                    <option value="total" ${state.nowSort === 'total' ? 'selected' : ''}>累計興収</option>
-                    <option value="rank" ${state.nowSort === 'rank' ? 'selected' : ''}>順位上昇</option>
-                    <option value="days" ${state.nowSort === 'days' ? 'selected' : ''}>公開日が新しい</option>
-                </select>
-            </label>
-        </div>
-        ${today}
-        ${milestones}
-        <section class="now-board" aria-label="公開中の勢い">${empty}</section>
+        <p class="now-lead">${region === 'japan' ? '日本の興行収入は配給会社の発表ベース。発表のたびに、伸びとペースを記録しています。' : '世界興行収入の動きを記録しています。数字は集計サイトの更新ベースです。'}</p>
+        ${visitBanner(diffs, visit)}
+        ${heroSection(hero, unreadKeys)}
+        ${toolbar}
+        ${movingSection}
+        ${emptyBoard}
+        ${waitingSection}
+        ${timelineSection(bucket)}
         <p class="now-disclaimer">${escapeHtml(data.disclaimer || '')}</p>
     </div>`;
 }
 
 export function bindNowPlaying(root, onChange) {
-    root.querySelectorAll('[data-now-region]').forEach((button) => {
-        button.addEventListener('click', () => onChange({ nowRegion: button.dataset.nowRegion }));
-    });
     root.querySelector('[data-now-sort]')?.addEventListener('change', (event) => {
         onChange({ nowSort: event.target.value });
     });

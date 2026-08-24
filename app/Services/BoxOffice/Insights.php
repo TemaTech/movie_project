@@ -11,6 +11,13 @@ class Insights
 
     public const TODAY_WITHIN_HOURS = 72;
 
+    /** @var array<int, string> */
+    public const PERIOD_LABELS = [
+        1 => '昨日から',
+        7 => '1週間で',
+        30 => '1ヶ月で',
+    ];
+
     /** @var list<int> */
     public const JAPAN_MILESTONES = [
         1_000_000_000,
@@ -260,9 +267,41 @@ class Insights
             'milestones' => $milestones,
             'recentMilestones' => $recentMilestones,
             'nextMilestone' => self::nextMilestone($region, $boxOffice, $isJapan),
+            'periodGrowth' => self::periodGrowth($observations, $boxOffice, $now, $isJapan),
             'sparkline' => self::sparkline($observations),
             'hasHistory' => count($observations) > 1,
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $observations
+     * @return list<array{days: int, delta: int, label: string}>
+     */
+    public static function periodGrowth(
+        array $observations,
+        int $current,
+        DateTimeImmutable $now,
+        bool $isJapan,
+    ): array {
+        $periods = [];
+        foreach (self::PERIOD_LABELS as $days => $prefix) {
+            $then = $now->sub(new DateInterval('P'.$days.'D'));
+            $previous = self::boxOfficeAt($observations, $then);
+            if ($previous === null) {
+                continue;
+            }
+            $delta = $current - $previous;
+            if ($delta <= 0) {
+                continue;
+            }
+            $periods[] = [
+                'days' => $days,
+                'delta' => $delta,
+                'label' => $prefix.self::formatDelta($delta, $isJapan),
+            ];
+        }
+
+        return $periods;
     }
 
     /**

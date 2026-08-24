@@ -7,26 +7,24 @@
 .now-lead { margin-bottom: 20px; text-align: center; font-size: .95rem; }
 .now-section-title { font-size: 1.05rem; margin: 28px 0 12px; color: var(--text-secondary); font-weight: 600; letter-spacing: .02em; }
 
-/* 前回訪問との差分 */
-.now-visit {
-    background: var(--bg-card);
-    border: 1px solid var(--glass-border);
-    border-radius: 14px;
-    padding: 12px 16px;
-    margin-bottom: 16px;
-}
-.now-visit-quiet p { color: var(--text-secondary); font-size: .85rem; margin: 0; }
-.now-visit-label { color: var(--text-secondary); font-size: .8rem; margin-bottom: 8px; }
-.now-visit-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.now-visit-chip {
-    background: rgba(74, 222, 128, .12);
-    border: 1px solid rgba(74, 222, 128, .3);
-    color: #d1fae5;
-    border-radius: 999px;
-    padding: 4px 12px;
+/* 期間別の伸び */
+.now-period {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    margin: 0 0 10px;
     font-size: .85rem;
+    color: #a7f3d0;
 }
-.now-visit-chip strong { color: #fff; font-weight: 600; }
+.now-period span {
+    background: rgba(74, 222, 128, .1);
+    border: 1px solid rgba(74, 222, 128, .25);
+    border-radius: 999px;
+    padding: 2px 10px;
+}
+.now-card .now-period { margin: 0 0 8px; font-size: .8rem; }
+.now-waiting-meta .now-period,
+.now-waiting-meta { color: var(--text-secondary); }
 
 /* ヒーロー: 今いちばん伸びている作品 */
 .now-hero {
@@ -149,18 +147,8 @@
 }
 .now-context { color: var(--text-secondary); font-size: .78rem; }
 .now-sparkline { color: #4ade80; flex-shrink: 0; opacity: .9; }
-.now-unread {
-    display: inline-block;
-    font-size: .65rem;
-    padding: 2px 6px;
-    border-radius: 999px;
-    margin-left: 6px;
-    vertical-align: middle;
-    background: #e50914;
-    color: #fff;
-}
 
-/* 次の発表待ち */
+/* 歴代ランキング側の伸びバッジ */
 .now-waiting-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .now-waiting-row {
     display: grid;

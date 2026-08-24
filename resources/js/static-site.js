@@ -13,9 +13,7 @@ import {
 } from './static-filters';
 import {
     bindNowPlaying,
-    readVisit,
     renderNowPlaying,
-    writeVisit,
 } from './now-playing';
 
 const PER_PAGE = 100;
@@ -23,7 +21,6 @@ const app = document.querySelector('#app');
 let siteData = null;
 let nowPlayingData = null;
 let nowPlayingRequest = null;
-let visitRecorded = false;
 
 const defaultState = () => ({
     view: 'ranking',
@@ -365,12 +362,11 @@ function bindHeader() {
 }
 
 function renderNowBoard(data) {
-    const visit = readVisit();
     const title = state.region === 'japan' ? '公開中映画の勢い（日本）' : '公開中映画の勢い（世界）';
     app.innerHTML = `${headerHtml()}
     <main class="container">
         <h1 class="page-title now-page-title">${title}</h1>
-        ${renderNowPlaying(nowPlayingData, state, visit)}
+        ${renderNowPlaying(nowPlayingData, state)}
     </main>
     ${footerHtml()}`;
 
@@ -381,14 +377,6 @@ function renderNowBoard(data) {
         render(data);
     });
     bindMovieInteractions(data);
-    const boardMovies = [
-        ...(nowPlayingData.japan?.board || []),
-        ...(nowPlayingData.global?.board || []),
-    ];
-    if (!visitRecorded) {
-        writeVisit(boardMovies);
-        visitRecorded = true;
-    }
 }
 
 function render(data) {

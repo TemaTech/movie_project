@@ -226,6 +226,44 @@ class BoxOfficeHistoryTest extends TestCase
         $this->assertSame('jp-crossed', $result['milestones'][0]['key']);
     }
 
+    public function test_period_growth_compares_box_office_at_fixed_intervals(): void
+    {
+        $now = new DateTimeImmutable('2026-08-19T12:00:00+09:00');
+        $observations = [
+            'jp-a' => [
+                $this->obs('jp-a', '2026-08-01T03:00:00+09:00', 4_000_000_000, true),
+                $this->obs('jp-a', '2026-08-12T03:00:00+09:00', 4_800_000_000, true),
+                $this->obs('jp-a', '2026-08-17T03:00:00+09:00', 5_000_000_000, true),
+                $this->obs('jp-a', '2026-08-18T21:00:00+09:00', 5_200_000_000, true),
+            ],
+        ];
+        $current = [$this->current('jp-a', '期間伸びの映画', 5_200_000_000, true)];
+
+        $result = Insights::compute('japan', $current, $observations, [], $now);
+        $periods = $result['movies']['jp-a']['periodGrowth'];
+
+        $this->assertNotEmpty($periods);
+        $labels = array_column($periods, 'label');
+        $this->assertContains('昨日から+2.0億円', $labels);
+        $this->assertContains('1週間で+4.0億円', $labels);
+    }
+
+    public function test_period_growth_skips_non_positive_deltas(): void
+    {
+        $now = new DateTimeImmutable('2026-08-19T12:00:00+09:00');
+        $observations = [
+            'jp-flat' => [
+                $this->obs('jp-flat', '2026-08-10T03:00:00+09:00', 5_000_000_000, true),
+                $this->obs('jp-flat', '2026-08-18T03:00:00+09:00', 5_000_000_000, true),
+            ],
+        ];
+        $current = [$this->current('jp-flat', '横ばいの映画', 5_000_000_000, true)];
+
+        $result = Insights::compute('japan', $current, $observations, [], $now);
+
+        $this->assertSame([], $result['movies']['jp-flat']['periodGrowth']);
+    }
+
     public function test_negative_or_correction_deltas_are_hidden(): void
     {
         $observations = [

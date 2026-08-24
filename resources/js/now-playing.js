@@ -1,7 +1,5 @@
 import '../css/now-playing.css';
 
-const VISIT_KEY = 'mubiran.now.v1';
-
 export const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, (char) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
 }[char]));
@@ -22,51 +20,6 @@ export function sparklineSvg(points = []) {
         return `${x.toFixed(1)},${y.toFixed(1)}`;
     });
     return `<svg class="now-sparkline" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-hidden="true"><polyline fill="none" stroke="currentColor" stroke-width="2" points="${coords.join(' ')}"/></svg>`;
-}
-
-export function readVisit() {
-    try {
-        return JSON.parse(localStorage.getItem(VISIT_KEY) || 'null');
-    } catch {
-        return null;
-    }
-}
-
-export function writeVisit(movies) {
-    const totals = {};
-    movies.forEach((movie) => {
-        totals[movie.key] = movie.boxOffice;
-    });
-    localStorage.setItem(VISIT_KEY, JSON.stringify({
-        visitAt: new Date().toISOString(),
-        totals,
-    }));
-}
-
-export function visitDiffs(movies, previous) {
-    if (!previous?.totals) return [];
-
-    return movies
-        .map((movie) => {
-            const before = previous.totals[movie.key];
-            if (typeof before !== 'number' || movie.boxOffice <= before) return null;
-            return {
-                ...movie,
-                visitDelta: movie.boxOffice - before,
-                visitDeltaLabel: movie.region === 'global'
-                    ? `+${((movie.boxOffice - before) / 100000000).toFixed(2)}億ドル`
-                    : `+${((movie.boxOffice - before) / 100000000).toFixed(1)}億円`,
-            };
-        })
-        .filter(Boolean)
-        .sort((left, right) => right.visitDelta - left.visitDelta);
-}
-
-function formatDateTime(iso) {
-    if (!iso) return '';
-    const date = new Date(iso);
-    if (Number.isNaN(date.getTime())) return '';
-    return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
 function formatDate(iso) {
@@ -111,12 +64,17 @@ function posterDiv(movie, className) {
         : `<div class="${className} now-poster-empty"></div>`;
 }
 
-function heroSection(movie, unreadKeys) {
+function periodGrowthLine(movie) {
+    const items = movie.periodGrowth || [];
+    if (!items.length) return '';
+    return `<p class="now-period">${items.map((item) => `<span>${escapeHtml(item.label)}</span>`).join('')}</p>`;
+}
+
+function heroSection(movie) {
     if (!movie) return '';
     const backdrop = movie.posterUrl
         ? `<div class="now-hero-backdrop" style="background-image:url('${escapeHtml(movie.posterUrl)}')"></div>`
         : '';
-    const unread = unreadKeys.has(movie.key) ? '<span class="now-unread">更新</span>' : '';
     const milestone = nextMilestoneText(movie);
     const stats = [
         movie.dailyPaceLabel ? `<div class="now-hero-stat"><span>ペース</span><strong>${escapeHtml(movie.dailyPaceLabel)}</strong></div>` : '',
@@ -135,8 +93,9 @@ function heroSection(movie, unreadKeys) {
             ${posterDiv(movie, 'now-hero-poster')}
             <div class="now-hero-body">
                 <p class="now-hero-tag">今いちばん伸びている</p>
-                <h2 class="now-hero-title">${escapeHtml(movie.title)} ${unread}</h2>
+                <h2 class="now-hero-title">${escapeHtml(movie.title)}</h2>
                 <p class="now-hero-delta">${escapeHtml(movie.deltaLabel || '')}<small>${movie.daysSincePrev ? ` ${movie.daysSincePrev}日ぶりの発表` : ' 前回発表から'}</small></p>
+                ${periodGrowthLine(movie)}
                 <div class="now-hero-stats">${stats}</div>
                 ${movie.passedLabel ? `<p class="now-hero-passed">${escapeHtml(movie.passedLabel)}</p>` : ''}
                 ${context ? `<p class="now-hero-context">${context}</p>` : ''}
@@ -145,8 +104,7 @@ function heroSection(movie, unreadKeys) {
     </section>`;
 }
 
-function movingCard(movie, unreadKeys) {
-    const unread = unreadKeys.has(movie.key) ? '<span class="now-unread">更新</span>' : '';
+function movingCard(movie) {
     const milestone = nextMilestoneText(movie);
     const context = [
         movie.daysSinceRelease != null ? `公開${movie.daysSinceRelease}日目` : '',
@@ -158,10 +116,11 @@ function movingCard(movie, unreadKeys) {
         ${posterDiv(movie, 'now-poster')}
         <div class="now-card-body">
             <div class="now-card-top">
-                <h3 class="now-title">${escapeHtml(movie.title)} ${unread}</h3>
+                <h3 class="now-title">${escapeHtml(movie.title)}</h3>
                 <a class="now-permalink" href="${movieHref(movie)}" onclick="event.stopPropagation()">作品ページ</a>
             </div>
             <p class="now-card-delta">${escapeHtml(movie.deltaLabel || '')}<small>${movie.daysSincePrev ? ` ${movie.daysSincePrev}日ぶりの発表` : ''}</small></p>
+            ${periodGrowthLine(movie)}
             <div class="now-card-stats">
                 ${movie.dailyPaceLabel ? `<span class="now-stat">ペース ${escapeHtml(movie.dailyPaceLabel)}</span>` : ''}
                 <span class="now-stat">累計 ${escapeHtml(movie.revenueLabel || movie.revenue || '')}</span>
@@ -177,8 +136,10 @@ function movingCard(movie, unreadKeys) {
 }
 
 function waitingRow(movie) {
+    const period = (movie.periodGrowth || []).map((item) => item.label).join(' · ');
     const meta = [
         `累計 ${movie.revenueLabel || movie.revenue || ''}`,
+        period || null,
         movie.daysSinceRelease != null ? `公開${movie.daysSinceRelease}日目` : '',
         movie.lastObservedAt ? `${formatDate(movie.lastObservedAt)}記録` : '',
     ].filter(Boolean).join('・');
@@ -225,29 +186,13 @@ function timelineSection(bucket) {
     </section>`;
 }
 
-function visitBanner(diffs, visit) {
-    if (diffs.length) {
-        const when = visit?.visitAt ? formatDateTime(visit.visitAt) : '';
-        const chips = diffs.slice(0, 4)
-            .map((item) => `<span class="now-visit-chip"><strong>${escapeHtml(item.title)}</strong> ${escapeHtml(item.visitDeltaLabel)}</span>`)
-            .join('');
-        return `<section class="now-visit"><p class="now-visit-label">前回の訪問${when ? `（${escapeHtml(when)}）` : ''}から伸びた作品</p><div class="now-visit-chips">${chips}</div></section>`;
-    }
-    if (visit) {
-        return '<section class="now-visit now-visit-quiet"><p>前回の訪問から数字の動いた作品はありません。次の発表を待っています。</p></section>';
-    }
-    return '<section class="now-visit now-visit-quiet"><p>次にこのページを開いたとき、前回からの変化をここに表示します。</p></section>';
-}
-
-export function renderNowPlaying(data, state, visit) {
+export function renderNowPlaying(data, state) {
     const region = state.region === 'global' ? 'global' : 'japan';
     const bucket = data[region] || { board: [], today: [], milestones: [] };
     const board = bucket.board || [];
     const moving = sortMovies(board.filter((movie) => movie.delta != null), state.nowSort || 'delta');
     const waiting = board.filter((movie) => movie.delta == null)
         .sort((left, right) => right.boxOffice - left.boxOffice);
-    const diffs = visitDiffs(board, visit);
-    const unreadKeys = new Set(diffs.map((item) => item.key));
 
     const hero = [...moving].sort((left, right) => (right.delta || 0) - (left.delta || 0))[0] || null;
     const rest = moving.filter((movie) => movie !== hero);
@@ -266,7 +211,7 @@ export function renderNowPlaying(data, state, visit) {
     </div>` : (rest.length ? '<h2 class="now-section-title">伸びている作品</h2>' : '');
 
     const movingSection = rest.length
-        ? `<section class="now-board" aria-label="伸びている作品">${rest.map((movie) => movingCard(movie, unreadKeys)).join('')}</section>`
+        ? `<section class="now-board" aria-label="伸びている作品">${rest.map((movie) => movingCard(movie)).join('')}</section>`
         : (hero ? '' : '<p class="now-quiet now-board-empty">いまは次の発表待ちです。数字が動いた作品がここに並びます。</p>');
 
     const waitingSection = waiting.length
@@ -282,8 +227,7 @@ export function renderNowPlaying(data, state, visit) {
 
     return `<div class="now-page">
         <p class="now-lead">${region === 'japan' ? '日本の興行収入は配給会社の発表ベース。発表のたびに、伸びとペースを記録しています。' : '世界興行収入の動きを記録しています。数字は集計サイトの更新ベースです。'}</p>
-        ${visitBanner(diffs, visit)}
-        ${heroSection(hero, unreadKeys)}
+        ${heroSection(hero)}
         ${toolbar}
         ${movingSection}
         ${emptyBoard}

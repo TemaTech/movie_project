@@ -327,12 +327,12 @@ function headerHtml() {
         <a href="/" class="logo-link" aria-label="MUBIRAN トップ"><img src="/images/logo.png" alt="MUBIRAN" class="logo-img"></a>
         <div class="header-controls">
             <div class="toggle-container view-toggle" role="group" aria-label="表示切替">
-                <a href="${nowUrl}" class="toggle-btn ${state.view === 'now' ? 'active' : ''}" data-view="now" id="btn-now">公開中</a>
                 <a href="${rankingUrl}" class="toggle-btn ${state.view === 'ranking' ? 'active' : ''}" data-view="ranking" id="btn-ranking">歴代</a>
+                <a href="${nowUrl}" class="toggle-btn ${state.view === 'now' ? 'active' : ''}" data-view="now" id="btn-now">公開中</a>
             </div>
             <div class="toggle-container region-toggle" role="group" aria-label="地域切替">
-                <a href="${regionUrl('japan')}" class="toggle-btn ${state.region === 'japan' ? 'active' : ''}" data-region="japan" id="btn-japan">日本</a>
                 <a href="${regionUrl('global')}" class="toggle-btn ${state.region === 'global' ? 'active' : ''}" data-region="global" id="btn-global">世界</a>
+                <a href="${regionUrl('japan')}" class="toggle-btn ${state.region === 'japan' ? 'active' : ''}" data-region="japan" id="btn-japan">日本</a>
             </div>
             ${renderFilterTrigger()}
         </div>

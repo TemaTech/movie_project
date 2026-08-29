@@ -228,6 +228,4 @@
     .now-poster { width: 56px; height: 84px; }
     .now-title { font-size: .95rem; }
     .now-card-delta { font-size: 1.3rem; }
-    .toggle-btn { padding: 8px 12px; font-size: .8rem; }
-    .header-controls { flex-wrap: wrap; justify-content: center; }
 }

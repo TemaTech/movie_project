@@ -3,7 +3,7 @@ import '../css/movie-modal.css';
 import '../css/ai-analysis.css';
 import '../css/filter-modal.css';
 import '../css/static-site.css';
-import { openMovieModal } from './static-modal';
+import { openMovieModal, setUsdJpy } from './static-modal';
 import {
     activeFilterCount,
     bindFilterModal,
@@ -270,8 +270,12 @@ function bindMovieInteractions(data) {
             const movie = findMovie(data, element.dataset.movieId);
             if (movie) openMovieModal(movie);
         };
-        element.addEventListener('click', open);
+        element.addEventListener('click', (event) => {
+            if (event.target.closest('a')) return;
+            open();
+        });
         element.addEventListener('keydown', (event) => {
+            if (event.target.closest('a')) return;
             if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
                 open();
@@ -318,7 +322,22 @@ function headerHtml() {
 }
 
 function footerHtml() {
-    return `<footer><div class="container"><p class="site-footer-links"><a href="/now/">公開中の動向</a> · <a href="/about/">このサイトについて</a> · <a href="/privacy/">プライバシーポリシー</a> · <a href="/feed.xml">RSS</a></p><p>&copy; ${new Date().getFullYear()} MUBIRAN. All rights reserved.</p><p>Data provided by <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDb</a> and <a href="https://ja.wikipedia.org/" target="_blank" rel="noreferrer">Wikipedia</a>.</p></div></footer>`;
+    const year = new Date().getFullYear();
+    const usdJpy = Number.isFinite(Number(siteData?.usdJpy)) && Number(siteData.usdJpy) > 0
+        ? String(Math.round(Number(siteData.usdJpy)))
+        : '150';
+    return `<footer><div class="container">
+        <p class="site-footer-links"><a href="/now/">公開中の動向</a> · <a href="/about/">このサイトについて</a> · <a href="/privacy/">プライバシーポリシー</a> · <a href="/feed.xml">RSS</a></p>
+        <p>&copy; ${year} MUBIRAN. All rights reserved.</p>
+        <p class="site-footer-attr">
+            <a class="tmdb-attr" href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">
+                <img src="/images/tmdb-logo.svg" alt="The Movie Database (TMDB)" class="tmdb-logo" width="80" height="10">
+            </a>
+            日本の歴代興行収入は Wikipedia『<a href="https://ja.wikipedia.org/wiki/${encodeURIComponent('日本歴代興行成績上位の映画一覧')}" target="_blank" rel="noreferrer">日本歴代興行成績上位の映画一覧</a>』（<a href="https://creativecommons.org/licenses/by-sa/4.0/deed.ja" target="_blank" rel="noreferrer">CC BY-SA 4.0</a>）を出典としています。
+        </p>
+        <p class="site-footer-disclaimer">This website uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.</p>
+        <p class="site-footer-disclaimer">世界興収の円換算は 1ドル=${usdJpy}円の概算です。</p>
+    </div></footer>`;
 }
 
 function ensureNowPlaying() {
@@ -448,6 +467,7 @@ function render(data) {
 
 function init(data) {
     siteData = data;
+    if (data.usdJpy) setUsdJpy(data.usdJpy);
     Object.assign(state, parseStateFromUrl());
     syncUrl(true);
     render(data);

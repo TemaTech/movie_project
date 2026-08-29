@@ -267,6 +267,9 @@ class Insights
             'milestones' => $milestones,
             'recentMilestones' => $recentMilestones,
             'nextMilestone' => self::nextMilestone($region, $boxOffice, $isJapan),
+            'nextToOvertake' => $isActive
+                ? self::nextToOvertake($movie['key'], $boxOffice, $currentByKey, $isJapan)
+                : null,
             'periodGrowth' => self::periodGrowth($observations, $boxOffice, $now, $isJapan),
             'sparkline' => self::sparkline($observations),
             'hasHistory' => count($observations) > 1,
@@ -494,6 +497,56 @@ class Insights
         }
 
         return null;
+    }
+
+    /**
+     * Immediate next film above this one on the current ranking snapshot.
+     *
+     * @param  array<string, array<string, mixed>>  $currentByKey
+     * @return array{key: string, title: string, rank: int, remaining: int, remainingLabel: string}|null
+     */
+    public static function nextToOvertake(string $key, int $boxOffice, array $currentByKey, bool $isJapan): ?array
+    {
+        $bestKey = null;
+        $bestValue = null;
+
+        foreach ($currentByKey as $otherKey => $other) {
+            if ($otherKey === $key) {
+                continue;
+            }
+            $value = (int) ($other['boxOffice'] ?? 0);
+            if ($value <= $boxOffice) {
+                continue;
+            }
+            if ($bestValue === null || $value < $bestValue) {
+                $bestKey = $otherKey;
+                $bestValue = $value;
+            }
+        }
+
+        if ($bestKey === null || $bestValue === null) {
+            return null;
+        }
+
+        $rank = 1;
+        foreach ($currentByKey as $otherKey => $other) {
+            if ($otherKey === $bestKey) {
+                continue;
+            }
+            if ((int) ($other['boxOffice'] ?? 0) > $bestValue) {
+                $rank++;
+            }
+        }
+
+        $remaining = $bestValue - $boxOffice;
+
+        return [
+            'key' => $bestKey,
+            'title' => (string) ($currentByKey[$bestKey]['title'] ?? $bestKey),
+            'rank' => $rank,
+            'remaining' => $remaining,
+            'remainingLabel' => self::formatAmount($remaining, $isJapan),
+        ];
     }
 
     /**

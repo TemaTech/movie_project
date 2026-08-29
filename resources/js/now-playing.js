@@ -52,6 +52,10 @@ function movieHref(movie) {
     return `/movies/${encodeURIComponent(movie.slug || movie.key)}/`;
 }
 
+function historyPermalink(movie) {
+    return `<a class="now-permalink" href="${movieHref(movie)}" onclick="event.stopPropagation()">興収の推移</a>`;
+}
+
 function nextMilestoneText(movie) {
     const next = movie.nextMilestone;
     if (!next?.label || !next?.remainingLabel) return '';
@@ -93,7 +97,10 @@ function heroSection(movie) {
             ${posterDiv(movie, 'now-hero-poster')}
             <div class="now-hero-body">
                 <p class="now-hero-tag">今いちばん伸びている</p>
-                <h2 class="now-hero-title">${escapeHtml(movie.title)}</h2>
+                <div class="now-hero-title-row">
+                    <h2 class="now-hero-title">${escapeHtml(movie.title)}</h2>
+                    ${historyPermalink(movie)}
+                </div>
                 <p class="now-hero-delta">${escapeHtml(movie.deltaLabel || '')}<small>${movie.daysSincePrev ? ` ${movie.daysSincePrev}日ぶりの発表` : ' 前回発表から'}</small></p>
                 ${periodGrowthLine(movie)}
                 <div class="now-hero-stats">${stats}</div>
@@ -117,7 +124,7 @@ function movingCard(movie) {
         <div class="now-card-body">
             <div class="now-card-top">
                 <h3 class="now-title">${escapeHtml(movie.title)}</h3>
-                <a class="now-permalink" href="${movieHref(movie)}" onclick="event.stopPropagation()">作品ページ</a>
+                ${historyPermalink(movie)}
             </div>
             <p class="now-card-delta">${escapeHtml(movie.deltaLabel || '')}<small>${movie.daysSincePrev ? ` ${movie.daysSincePrev}日ぶりの発表` : ''}</small></p>
             ${periodGrowthLine(movie)}
@@ -147,7 +154,10 @@ function waitingRow(movie) {
     return `<li class="now-waiting-row" data-movie-id="${escapeHtml(movie.key)}" role="button" tabindex="0" aria-label="${escapeHtml(movie.title)}の詳細">
         ${posterDiv(movie, 'now-waiting-poster')}
         <div class="now-waiting-body">
-            <span class="now-waiting-title">${escapeHtml(movie.title)}</span>
+            <div class="now-waiting-title-row">
+                <span class="now-waiting-title">${escapeHtml(movie.title)}</span>
+                ${historyPermalink(movie)}
+            </div>
             <span class="now-waiting-meta">${escapeHtml(meta)}</span>
         </div>
         <span class="now-waiting-status">次の発表待ち</span>

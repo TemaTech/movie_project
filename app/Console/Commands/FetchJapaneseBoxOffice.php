@@ -846,7 +846,7 @@ class FetchJapaneseBoxOffice extends Command
             $budgetYen = 0;
             $budgetUsd = (int) ($details['budget'] ?? 0);
             if ($budgetUsd > 0) {
-                $budgetYen = (int) round($budgetUsd * 150);
+                $budgetYen = (int) round($budgetUsd * (float) config('box_office.usd_jpy', 150));
             }
 
             $japanReleaseDate = $this->extractJapanTheatricalDate($details);

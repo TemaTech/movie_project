@@ -220,7 +220,26 @@
 }
 
 .modal-cast-section {
-    padding: 0 40px 40px 40px;
+    padding: 0 40px 16px 40px;
+}
+
+.modal-history-wrap {
+    padding: 0 40px 36px;
+    margin: 0;
+}
+
+.modal-history-link {
+    display: inline-block;
+    color: #7dd3fc;
+    font-size: 0.95rem;
+    text-decoration: none;
+    border: 1px solid rgba(125, 211, 252, 0.35);
+    border-radius: 999px;
+    padding: 8px 16px;
+}
+
+.modal-history-link:hover {
+    background: rgba(125, 211, 252, 0.12);
 }
 
 /* Cast Grid */
@@ -295,7 +314,11 @@
     }
 
     .modal-cast-section {
-        padding: 0 20px 30px 20px;
+        padding: 0 20px 12px 20px;
+    }
+
+    .modal-history-wrap {
+        padding: 0 20px 24px;
     }
 
     .modal-title {

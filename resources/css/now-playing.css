@@ -126,7 +126,11 @@
 .now-poster-empty { background: #2a2a2a; }
 .now-card-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
 .now-title { font-size: 1.02rem; line-height: 1.35; }
-.now-permalink { color: var(--accent-blue); font-size: .78rem; white-space: nowrap; }
+.now-hero-title-row,
+.now-waiting-title-row { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.now-hero-title-row .now-hero-title { margin: 0; }
+.now-waiting-title-row .now-waiting-title { min-width: 0; }
+.now-permalink { color: var(--accent-blue); font-size: .78rem; white-space: nowrap; flex-shrink: 0; }
 .now-card-delta {
     font-family: var(--font-num);
     font-size: 1.5rem;

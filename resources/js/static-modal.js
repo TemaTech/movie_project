@@ -80,7 +80,16 @@ function formatReleaseDate(releaseDate) {
 
 function toYen(usd) {
     if (!usd || usd === 0) return '-';
-    return `${((usd * 150) / 100000000).toFixed(1)}億円`;
+    return `${((usd * usdJpy) / 100000000).toFixed(1)}億円`;
+}
+
+let usdJpy = 150;
+
+export function setUsdJpy(rate) {
+    const value = Number(rate);
+    if (Number.isFinite(value) && value > 0) {
+        usdJpy = value;
+    }
 }
 
 function ensureModal() {
@@ -151,6 +160,9 @@ function ensureModal() {
                     <h3>主要キャスト</h3>
                     <div id="modalCast" class="cast-grid"></div>
                 </div>
+                <p class="modal-history-wrap">
+                    <a id="modalHistoryLink" class="modal-history-link" href="#">興収の推移を見る</a>
+                </p>
             </div>
         </div>
     </div>`);
@@ -237,6 +249,15 @@ function populateModal(detail, movie) {
         `;
         castContainer.appendChild(item);
     });
+
+    const historyLink = document.getElementById('modalHistoryLink');
+    const slug = movie.slug || movie.id || movie.key;
+    if (historyLink && slug) {
+        historyLink.href = `/movies/${encodeURIComponent(slug)}/`;
+        historyLink.hidden = false;
+    } else if (historyLink) {
+        historyLink.hidden = true;
+    }
 
     modalLoading.style.display = 'none';
     modalBody.style.display = 'block';

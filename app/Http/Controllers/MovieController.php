@@ -352,9 +352,9 @@ class MovieController extends Controller
                 if (empty($movie->original_title)) {
                     $movie->original_title = $dbTitle;
                 }
-                // ドルから円への換算（1ドル = 約150円で計算）
-                $movie->box_office_billion = number_format($movie->box_office * 150 / 100000000, 1);
-                $movie->budget_billion = number_format($movie->budget * 150 / 100000000, 1);
+                $usdJpy = (float) config('box_office.usd_jpy', 150);
+                $movie->box_office_billion = number_format($movie->box_office * $usdJpy / 100000000, 1);
+                $movie->budget_billion = number_format($movie->budget * $usdJpy / 100000000, 1);
 
                 // genres が配列でない場合の処理（防御的コード）
                 if (!is_array($movie->genres)) {
@@ -538,11 +538,12 @@ class MovieController extends Controller
 
                 // 既存の変換処理
                 if ($tab === 'global') {
+                    $usdJpy = (float) config('box_office.usd_jpy', 150);
                     if ($movie->box_office) {
-                        $movie->box_office_billion = number_format($movie->box_office * 150 / 100000000, 1);
+                        $movie->box_office_billion = number_format($movie->box_office * $usdJpy / 100000000, 1);
                     }
                     if ($movie->budget) {
-                        $movie->budget_billion = number_format($movie->budget * 150 / 100000000, 1);
+                        $movie->budget_billion = number_format($movie->budget * $usdJpy / 100000000, 1);
                     }
                 } else {
                     if ($movie->box_office) {

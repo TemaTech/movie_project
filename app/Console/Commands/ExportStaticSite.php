@@ -49,10 +49,11 @@ class ExportStaticSite extends Command
 
         File::put($output . '/data/movies.json', json_encode([
             'generatedAt' => now('Asia/Tokyo')->toIso8601String(),
+            'usdJpy' => $this->usdJpy(),
             'globalLastUpdated' => $this->maxLastUpdated(GlobalMovie::class),
             'japanLastUpdated' => $this->maxLastUpdated(JapaneseMovie::class),
-            'global' => $global,
-            'japan' => $japan,
+            'global' => $this->moviesForClientPayload($global),
+            'japan' => $this->moviesForClientPayload($japan),
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT));
 
         $this->exportNowPlaying($output, $global, $japan, $globalInsights, $japanInsights);
@@ -144,9 +145,10 @@ class ExportStaticSite extends Command
             $isActive = Carbon::parse($releaseDate)->greaterThanOrEqualTo(now('Asia/Tokyo')->subMonths(6));
         }
 
+        $usdJpy = $this->usdJpy();
         $revenueBillion = $isJapan
             ? number_format($movie->box_office / 100000000, 1)
-            : number_format($movie->box_office * 150 / 100000000, 1);
+            : number_format($movie->box_office * $usdJpy / 100000000, 1);
 
         $dbTitle = $movie->title;
         $title = $this->titleMap()[$dbTitle] ?? $dbTitle;
@@ -171,7 +173,7 @@ class ExportStaticSite extends Command
             'revenue' => $isJapan
                 ? number_format($movie->box_office / 100000000, 1) . '億円'
                 : number_format($movie->box_office / 100000000, 2) . '億ドル',
-            'revenueYen' => $isJapan ? null : number_format($movie->box_office * 150 / 100000000, 1) . '億円',
+            'revenueYen' => $isJapan ? null : number_format($movie->box_office * $usdJpy / 100000000, 1) . '億円',
             'analysis' => $movie->ai_analysis,
             'sourceUrl' => $movie->data_source_url,
         ];
@@ -246,6 +248,31 @@ Crawl-delay: 1
 TXT);
     }
 
+    private function usdJpy(): float
+    {
+        $rate = (float) config('box_office.usd_jpy', 150);
+
+        return $rate > 0 ? $rate : 150.0;
+    }
+
+    private function usdJpyLabel(): string
+    {
+        return (string) (int) round($this->usdJpy());
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $movies
+     * @return list<array<string, mixed>>
+     */
+    private function moviesForClientPayload(array $movies): array
+    {
+        return array_map(function (array $movie) {
+            unset($movie['pageHistory']);
+
+            return $movie;
+        }, $movies);
+    }
+
     private function movieSlug(string $movieId): string
     {
         return $movieId;
@@ -257,28 +284,34 @@ TXT);
      */
     private function attachInsights(string $region, array $movies, HistoryRecorder $history): array
     {
-        $current = array_map(fn (array $movie) => [
-            'key' => $movie['id'],
-            'title' => $movie['title'],
-            'boxOffice' => $movie['boxOffice'],
-            'isActive' => $movie['isActive'],
-            'rank' => $movie['rank'],
-            'releaseDate' => $movie['releaseDate'],
-            'releaseDatePrecision' => $movie['releaseDatePrecision'] ?? null,
-            'posterUrl' => $movie['posterUrl'] ?? null,
-            'revenue' => $movie['revenue'] ?? null,
-        ], $movies);
+        $registry = $history->registry();
+        $current = array_map(function (array $movie) use ($registry) {
+            $canonical = $registry->resolveCanonicalKey((string) $movie['id']);
+
+            return [
+                'key' => $canonical,
+                'title' => $movie['title'],
+                'boxOffice' => $movie['boxOffice'],
+                'isActive' => $movie['isActive'],
+                'rank' => $movie['rank'],
+                'releaseDate' => $movie['releaseDate'],
+                'releaseDatePrecision' => $movie['releaseDatePrecision'] ?? null,
+                'posterUrl' => $movie['posterUrl'] ?? null,
+                'revenue' => $movie['revenue'] ?? null,
+            ];
+        }, $movies);
 
         $computed = Insights::compute(
             $region,
             $current,
             $history->observations()->loadByKey($region),
-            $history->registry()->movies(),
+            $registry->movies(),
             now('Asia/Tokyo')->toDateTimeImmutable(),
         );
 
         foreach ($movies as $index => $movie) {
-            $insight = $computed['movies'][$movie['id']] ?? null;
+            $canonical = $registry->resolveCanonicalKey((string) $movie['id']);
+            $insight = $computed['movies'][$canonical] ?? $computed['movies'][$movie['id']] ?? null;
             if (! $insight) {
                 continue;
             }
@@ -292,6 +325,13 @@ TXT);
                 'passedLabel' => $insight['passedLabel'],
                 'hasHistory' => $insight['hasHistory'],
                 'daysSinceRelease' => $insight['daysSinceRelease'],
+            ];
+            $movies[$index]['pageHistory'] = [
+                'sparkline' => $insight['sparkline'] ?? [],
+                'milestones' => $insight['milestones'] ?? [],
+                'nextMilestone' => $insight['nextMilestone'] ?? null,
+                'nextToOvertake' => $insight['nextToOvertake'] ?? null,
+                'periodGrowth' => $insight['periodGrowth'] ?? [],
             ];
         }
 
@@ -356,6 +396,13 @@ TXT);
                         'passedLabel' => $item['passedLabel'] ?? null,
                         'hasHistory' => $item['hasHistory'] ?? false,
                         'daysSinceRelease' => $item['daysSinceRelease'] ?? null,
+                    ],
+                    'pageHistory' => [
+                        'sparkline' => $item['sparkline'] ?? [],
+                        'milestones' => $item['milestones'] ?? [],
+                        'nextMilestone' => $item['nextMilestone'] ?? null,
+                        'nextToOvertake' => $item['nextToOvertake'] ?? null,
+                        'periodGrowth' => $item['periodGrowth'] ?? [],
                     ],
                 ];
             }
@@ -487,35 +534,176 @@ XML);
     /**
      * @param  array<string, mixed>  $movie
      */
-    private function movieMomentumHtml(array $movie): string
+    private function movieHistoryHtml(array $movie, bool $isJapan): string
     {
-        $momentum = $movie['momentum'] ?? null;
-        if (! is_array($momentum) || empty($momentum['hasHistory'])) {
-            return '';
+        $history = is_array($movie['pageHistory'] ?? null) ? $movie['pageHistory'] : [];
+        $sections = [];
+
+        $next = $history['nextToOvertake'] ?? null;
+        if (is_array($next) && ! empty($next['title']) && ! empty($next['remainingLabel'])) {
+            $href = '/movies/'.$this->h((string) ($next['key'] ?? '')).'/';
+            $rankSuffix = is_numeric($next['rank'] ?? null)
+                ? 'を抜いて第'.(int) $next['rank'].'位'
+                : 'を抜く';
+            $sections[] = '<section class="movie-next">'
+                .'<h2>次に抜く作品</h2>'
+                .'<p>あと'.$this->h((string) $next['remainingLabel'])
+                .'で<a href="'.$href.'">『'.$this->h((string) $next['title']).'』</a>'
+                .$rankSuffix.'</p>'
+                .'</section>';
         }
 
-        $items = [];
-        if (! empty($momentum['deltaLabel'])) {
-            $label = $momentum['deltaLabel'];
-            if (! empty($momentum['daysSincePrev'])) {
-                $label .= '（'.$momentum['daysSincePrev'].'日前の発表比）';
+        $chart = $this->trajectorySvg($history['sparkline'] ?? [], $isJapan);
+        if ($chart !== '') {
+            $sections[] = '<section class="movie-section movie-trajectory"><h2>興収の推移</h2>'.$chart.'</section>';
+        }
+
+        $milestoneItems = [];
+        foreach ($history['milestones'] ?? [] as $milestone) {
+            if (! is_array($milestone) || ! isset($milestone['threshold'])) {
+                continue;
             }
-            $items[] = '<div><dt>前回からの伸び</dt><dd>'.$this->h($label).'</dd></div>';
+            $amount = Insights::formatAmount((int) $milestone['threshold'], $isJapan);
+            $days = $milestone['daysToReach'] ?? null;
+            $line = $days !== null
+                ? $amount.' — 公開'.(int) $days.'日目（発表ベース）'
+                : $amount.' — 発表ベース';
+            $milestoneItems[] = '<li>'.$this->h($line).'</li>';
         }
-        if (! empty($momentum['dailyPaceLabel'])) {
-            $items[] = '<div><dt>1日あたり</dt><dd>'.$this->h($momentum['dailyPaceLabel']).'</dd></div>';
+        if ($milestoneItems !== []) {
+            $sections[] = '<section class="movie-section movie-speed"><h2>到達スピード</h2><ul class="movie-speed-list">'
+                .implode('', $milestoneItems)
+                .'</ul></section>';
         }
-        if (! empty($momentum['rankDeltaLabel'])) {
-            $items[] = '<div><dt>順位変動</dt><dd>'.$this->h($momentum['rankDeltaLabel']).'</dd></div>';
+
+        $momentum = $movie['momentum'] ?? null;
+        if (is_array($momentum) && ! empty($momentum['hasHistory'])) {
+            $items = [];
+            if (! empty($momentum['deltaLabel'])) {
+                $label = $momentum['deltaLabel'];
+                if (! empty($momentum['daysSincePrev'])) {
+                    $label .= '（'.$momentum['daysSincePrev'].'日前の発表比）';
+                }
+                $items[] = '<div><dt>前回からの伸び</dt><dd>'.$this->h($label).'</dd></div>';
+            }
+            if (! empty($momentum['dailyPaceLabel'])) {
+                $items[] = '<div><dt>1日あたり</dt><dd>'.$this->h($momentum['dailyPaceLabel']).'</dd></div>';
+            }
+            if (! empty($momentum['rankDeltaLabel'])) {
+                $items[] = '<div><dt>順位変動</dt><dd>'.$this->h($momentum['rankDeltaLabel']).'</dd></div>';
+            }
+            if (! empty($momentum['passedLabel'])) {
+                $items[] = '<div><dt>追い抜き</dt><dd>'.$this->h($momentum['passedLabel']).'</dd></div>';
+            }
+            if ($items !== []) {
+                $sections[] = '<section class="movie-section hit-scale"><h2>最近の伸び</h2><dl class="movie-stats">'.implode('', $items).'</dl></section>';
+            }
         }
-        if (! empty($momentum['passedLabel'])) {
-            $items[] = '<div><dt>追い抜き</dt><dd>'.$this->h($momentum['passedLabel']).'</dd></div>';
-        }
-        if ($items === []) {
+
+        if ($sections === []) {
             return '';
         }
 
-        return '<section class="movie-section hit-scale"><h2>最近の伸び</h2><dl class="movie-stats">'.implode('', $items).'</dl><p class="hit-scale-disclaimer">発表ベースの記録です。チケット料金のインフレは未調整です。</p></section>';
+        return implode('', $sections)
+            .'<p class="hit-scale-disclaimer">発表ベースの記録です。チケット料金のインフレは未調整です。</p>';
+    }
+
+    /**
+     * @param  list<array{at?: string, boxOffice?: int}>  $points
+     */
+    private function trajectorySvg(array $points, bool $isJapan): string
+    {
+        $rows = [];
+        foreach ($points as $point) {
+            if (! is_array($point) || ! isset($point['boxOffice'], $point['at'])) {
+                continue;
+            }
+            $rows[] = [
+                'at' => (string) $point['at'],
+                'boxOffice' => (int) $point['boxOffice'],
+            ];
+        }
+        if (count($rows) < 2) {
+            return '';
+        }
+
+        $values = array_column($rows, 'boxOffice');
+        $min = min($values);
+        $max = max($values);
+        if ($min === $max) {
+            return '';
+        }
+
+        $width = 640;
+        $height = 168;
+        $padL = 58;
+        $padR = 16;
+        $padT = 18;
+        $padB = 36;
+        $plotW = $width - $padL - $padR;
+        $plotH = $height - $padT - $padB;
+        $span = $max - $min;
+        $count = count($rows);
+
+        $coords = [];
+        foreach ($values as $index => $value) {
+            $x = $padL + ($index / ($count - 1)) * $plotW;
+            $y = $padT + (1 - (($value - $min) / $span)) * $plotH;
+            $coords[] = sprintf('%.1f,%.1f', $x, $y);
+        }
+
+        $guides = $isJapan
+            ? [5_000_000_000, 10_000_000_000]
+            : [500_000_000, 1_000_000_000];
+        $guideSvg = '';
+        foreach ($guides as $threshold) {
+            if ($threshold < $min || $threshold > $max) {
+                continue;
+            }
+            $y = $padT + (1 - (($threshold - $min) / $span)) * $plotH;
+            $label = Insights::formatAmount($threshold, $isJapan);
+            $x2 = $padL + $plotW;
+            $guideSvg .= sprintf(
+                '<line x1="%d" y1="%.1f" x2="%.1f" y2="%.1f" class="movie-chart-guide" />',
+                $padL,
+                $y,
+                $x2,
+                $y,
+            );
+            $guideSvg .= '<text x="'.sprintf('%.1f', $x2 - 4).'" y="'.sprintf('%.1f', $y - 5).'" text-anchor="end" class="movie-chart-guide-label">'.$this->h($label).'</text>';
+        }
+
+        $unit = $isJapan ? '億円' : '億ドル';
+        $decimals = $isJapan ? 1 : 2;
+        $minLabel = number_format($min / 100_000_000, $decimals);
+        $maxLabel = number_format($max / 100_000_000, $decimals);
+        $firstDate = $this->h($this->chartDateLabel($rows[0]['at']));
+        $lastDate = $this->h($this->chartDateLabel($rows[$count - 1]['at']));
+        $polyline = implode(' ', $coords);
+        $yMinText = $padT + $plotH;
+        $xLast = $padL + $plotW;
+        $dateY = $height - 6;
+
+        return <<<HTML
+<svg class="movie-chart" viewBox="0 0 {$width} {$height}" role="img" aria-label="興行収入の推移（{$unit}）">
+  <text x="8" y="{$padT}" class="movie-chart-axis">{$maxLabel}</text>
+  <text x="8" y="{$yMinText}" class="movie-chart-axis">{$minLabel}</text>
+  {$guideSvg}
+  <polyline class="movie-chart-line" points="{$polyline}" />
+  <text x="{$padL}" y="{$dateY}" class="movie-chart-axis">{$firstDate}</text>
+  <text x="{$xLast}" y="{$dateY}" text-anchor="end" class="movie-chart-axis">{$lastDate}</text>
+</svg>
+<p class="movie-chart-caption">横軸: 観測日 / 縦軸: {$unit}（発表ベース）</p>
+HTML;
+    }
+
+    private function chartDateLabel(string $iso): string
+    {
+        try {
+            return Carbon::parse($iso)->timezone('Asia/Tokyo')->format('n/j');
+        } catch (\Throwable) {
+            return $iso;
+        }
     }
 
     private function exportMoviePages(string $output, $global, $japan): void
@@ -720,42 +908,29 @@ XML);
         $ogImage = $this->absoluteUrl($movie['posterUrl']);
         $styles = $this->viteStyles();
 
-        $director = collect($detail['credits']['crew'] ?? [])
-            ->first(fn (array $member) => ($member['job'] ?? '') === 'Director');
-        $directorName = $director['name'] ?? '-';
-
-        $genres = ! empty($detail['genres'])
-            ? collect($detail['genres'])->pluck('name')->all()
-            : ($movie['genres'] ?? []);
-        $genreHtml = $genres
-            ? '<div class="movie-genres">' . collect($genres)
-                ->map(fn (string $genre) => '<span class="genre-tag">' . $this->h($genre) . '</span>')
-                ->implode('') . '</div>'
-            : '';
-
         $cast = array_slice($detail['credits']['cast'] ?? [], 0, 6);
         $castHtml = '';
         if ($cast) {
-            $castHtml = '<section class="movie-section"><h2>主要キャスト</h2><div class="movie-cast">';
+            $castHtml = '<h3>主要キャスト</h3><div class="movie-cast">';
             foreach ($cast as $actor) {
                 $castHtml .= '<div class="cast-item"><span class="cast-name">' . $this->h($actor['name'] ?? '') . '</span></div>';
             }
-            $castHtml .= '</div></section>';
+            $castHtml .= '</div>';
         }
 
-        $runtime = ! empty($detail['runtime']) ? $detail['runtime'] . '分' : '-';
-        $rating = ! empty($detail['vote_average']) ? '★ ' . number_format((float) $detail['vote_average'], 1) : '-';
-        $tagline = $detail['tagline'] ?? '';
         $overviewHtml = $overview
-            ? '<p>' . nl2br($this->h($overview)) . '</p>'
-            : '<p>あらすじ情報は現在ありません。</p>';
+            ? '<h3>あらすじ</h3><p>' . nl2br($this->h($overview)) . '</p>'
+            : '';
+        $infoHtml = ($overviewHtml !== '' || $castHtml !== '')
+            ? '<section class="movie-section movie-info-secondary"><h2>作品情報</h2>'.$overviewHtml.$castHtml.'</section>'
+            : '';
 
         $subtitle = ($originalTitle && $originalTitle !== $title)
             ? '<p class="movie-original-title">' . $this->h($originalTitle) . '</p>'
             : '';
 
         $posterHtml = $movie['posterUrl']
-            ? '<img src="' . $this->h($this->absoluteUrl($movie['posterUrl'])) . '" alt="' . $this->h($title) . '" class="movie-poster" width="342" height="513" loading="lazy">'
+            ? '<img src="' . $this->h($this->absoluteUrl($movie['posterUrl'])) . '" alt="' . $this->h($title) . '" class="movie-poster" width="160" height="240" loading="lazy">'
             : '';
 
         $jsonLd = json_encode([
@@ -801,13 +976,17 @@ XML);
         $eRevenueYen = $this->h($isJapan ? ($movie['revenue'] ?? '-') : ($movie['revenueYen'] ?? '-'));
         $yenRow = $isJapan ? '' : "<div><dt>日本換算</dt><dd>{$eRevenueYen}</dd></div>\n            ";
         $eReleaseDate = $this->h($this->formatReleaseDate($releaseDate));
-        $eRuntime = $this->h($runtime);
-        $eRating = $this->h($rating);
-        $eDirectorName = $this->h($directorName);
-        $eTagline = $this->h($tagline);
         $eHomeUrl = $this->h($homeUrl);
         $footerInner = $this->siteFooterInnerHtml();
-        $momentumHtml = $this->movieMomentumHtml($movie);
+        $historyHtml = $this->movieHistoryHtml($movie, $isJapan);
+        $heading = $this->h($title.'の興行収入');
+        $backParts = [];
+        if (! empty($movie['isActive'])) {
+            $nowPath = $isJapan ? '/now/' : '/now/global/';
+            $backParts[] = '<a href="'.$this->h($nowPath).'">公開中の動向に戻る</a>';
+        }
+        $backParts[] = '<a href="'.$eHomeUrl.'">'.$eRankLabel.'一覧に戻る</a>';
+        $backHtml = '<p class="movie-back-link">'.implode(' · ', $backParts).'</p>';
 
         return <<<HTML
 <!doctype html>
@@ -856,30 +1035,23 @@ XML);
         <span>{$eTitle}</span>
       </nav>
       <article>
-        <h1 class="movie-page-title">{$eTitle}</h1>
-        {$subtitle}
         <div class="movie-hero">
           {$posterHtml}
-          <dl class="movie-stats">
+          <div class="movie-hero-body">
+            <h1 class="movie-page-title">{$heading}</h1>
+            {$subtitle}
+          </div>
+          <dl class="movie-hero-stats">
             <div><dt>{$eRankLabel}</dt><dd>{$eRankValue}</dd></div>
             <div><dt>興行収入</dt><dd>{$eRevenue}</dd></div>
             {$yenRow}
             <div><dt>公開日</dt><dd>{$eReleaseDate}</dd></div>
-            <div><dt>上映時間</dt><dd>{$eRuntime}</dd></div>
-            <div><dt>評価</dt><dd>{$eRating}</dd></div>
-            <div><dt>監督</dt><dd>{$eDirectorName}</dd></div>
           </dl>
         </div>
-        <p class="movie-tagline">{$eTagline}</p>
-        {$genreHtml}
-        {$momentumHtml}
-        <section class="movie-section">
-          <h2>あらすじ</h2>
-          {$overviewHtml}
-        </section>
-        {$castHtml}
+        {$historyHtml}
+        {$infoHtml}
       </article>
-      <p class="movie-back-link"><a href="{$eHomeUrl}">{$eRankLabel}一覧に戻る</a></p>
+      {$backHtml}
     </main>
     <footer>
       <div class="container">
@@ -904,11 +1076,21 @@ HTML;
     private function siteFooterInnerHtml(): string
     {
         $year = $this->h((string) now('Asia/Tokyo')->year);
+        $usdJpy = $this->usdJpyLabel();
+        $wikiUrl = 'https://ja.wikipedia.org/wiki/'.rawurlencode('日本歴代興行成績上位の映画一覧');
+        $ccUrl = 'https://creativecommons.org/licenses/by-sa/4.0/deed.ja';
 
         return <<<HTML
         <p class="site-footer-links"><a href="/now/">公開中の動向</a> · <a href="/about/">このサイトについて</a> · <a href="/privacy/">プライバシーポリシー</a> · <a href="/feed.xml">RSS</a></p>
         <p>&copy; {$year} MUBIRAN. All rights reserved.</p>
-        <p>Data provided by <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDb</a> and <a href="https://ja.wikipedia.org/" target="_blank" rel="noreferrer">Wikipedia</a>.</p>
+        <p class="site-footer-attr">
+            <a class="tmdb-attr" href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">
+                <img src="/images/tmdb-logo.svg" alt="The Movie Database (TMDB)" class="tmdb-logo" width="80" height="10">
+            </a>
+            日本の歴代興行収入は Wikipedia『<a href="{$wikiUrl}" target="_blank" rel="noreferrer">日本歴代興行成績上位の映画一覧</a>』（<a href="{$ccUrl}" target="_blank" rel="noreferrer">CC BY-SA 4.0</a>）を出典としています。
+        </p>
+        <p class="site-footer-disclaimer">This website uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.</p>
+        <p class="site-footer-disclaimer">世界興収の円換算は 1ドル={$usdJpy}円の概算です。</p>
 HTML;
     }
 
@@ -996,6 +1178,9 @@ HTML;
     private function aboutPageHtml(): string
     {
         $contactEmail = $this->h((string) config('app.contact_email'));
+        $usdJpy = $this->h($this->usdJpyLabel());
+        $wikiUrl = 'https://ja.wikipedia.org/wiki/'.rawurlencode('日本歴代興行成績上位の映画一覧');
+        $ccUrl = 'https://creativecommons.org/licenses/by-sa/4.0/deed.ja';
         $body = <<<HTML
         <section class="content-section">
           <h2>MUBIRAN（ムビラン）とは</h2>
@@ -1009,10 +1194,13 @@ HTML;
           <h2>掲載データについて</h2>
           <p>興行収入・作品情報は、主に以下の公開データをもとに整理・掲載しています。</p>
           <ul>
-            <li><a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDb（The Movie Database）</a></li>
-            <li><a href="https://ja.wikipedia.org/" target="_blank" rel="noreferrer">Wikipedia</a></li>
+            <li>世界の作品情報・ポスター: <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDB（The Movie Database）</a></li>
+            <li>日本の歴代興行収入: Wikipedia『<a href="{$wikiUrl}" target="_blank" rel="noreferrer">日本歴代興行成績上位の映画一覧</a>』（<a href="{$ccUrl}" target="_blank" rel="noreferrer">CC BY-SA 4.0</a>）</li>
           </ul>
-          <p>日本映画については、公開情報や各種データソースを参照しています。表示内容は参考情報であり、公式の興行成績と異なる場合があります。</p>
+          <p class="tmdb-about-logo"><a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer"><img src="/images/tmdb-logo.svg" alt="The Movie Database (TMDB)" class="tmdb-logo" width="120" height="16"></a></p>
+          <p>This website uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.</p>
+          <p>日本の興行収入は配給会社の発表ベースです。公開中作品の数字は毎日は動きません。世界興収の円換算は 1ドル={$usdJpy}円の概算です。チケット料金のインフレは未調整です。</p>
+          <p>表示内容は参考情報であり、公式の興行成績と異なる場合があります。</p>
         </section>
         <section class="content-section">
           <h2>データの更新</h2>

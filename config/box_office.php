@@ -28,4 +28,16 @@ return [
 
     'history_path' => env('BOX_OFFICE_HISTORY_PATH'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | USD to JPY (approximate)
+    |--------------------------------------------------------------------------
+    |
+    | Worldwide totals are stored in USD. The site shows a yen estimate at this
+    | fixed rate so ranking pages stay comparable without a live FX feed.
+    |
+    */
+
+    'usd_jpy' => (float) env('BOX_OFFICE_USD_JPY', 150),
+
 ];

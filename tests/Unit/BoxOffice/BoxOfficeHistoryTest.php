@@ -157,6 +157,11 @@ class BoxOfficeHistoryTest extends TestCase
         $this->assertContains('jp-d', array_column($result['board'], 'key'));
         $this->assertSame(10_000_000_000, $result['movies']['jp-a']['nextMilestone']['threshold']);
         $this->assertSame('あと48.0億円', 'あと'.$result['movies']['jp-a']['nextMilestone']['remainingLabel']);
+        $this->assertSame('jp-c', $result['movies']['jp-a']['nextToOvertake']['key']);
+        $this->assertSame(1, $result['movies']['jp-a']['nextToOvertake']['rank']);
+        $this->assertSame(2_800_000_000, $result['movies']['jp-a']['nextToOvertake']['remaining']);
+        $this->assertNull($result['movies']['jp-c']['nextToOvertake']);
+        $this->assertNull($result['movies']['jp-b']['nextToOvertake']);
     }
 
     public function test_inactive_movies_stay_off_board_even_when_numbers_move(): void
@@ -175,6 +180,7 @@ class BoxOfficeHistoryTest extends TestCase
 
         $this->assertFalse($result['movies']['jp-old']['onBoard']);
         $this->assertFalse($result['movies']['jp-old']['changedRecently']);
+        $this->assertNull($result['movies']['jp-old']['nextToOvertake']);
         $this->assertSame([], $result['board']);
         $this->assertSame([], $result['today']);
     }
@@ -262,6 +268,35 @@ class BoxOfficeHistoryTest extends TestCase
         $result = Insights::compute('japan', $current, $observations, [], $now);
 
         $this->assertSame([], $result['movies']['jp-flat']['periodGrowth']);
+    }
+
+    public function test_next_to_overtake_skips_equal_totals_and_is_null_for_first_place(): void
+    {
+        $now = new DateTimeImmutable('2026-08-19T12:00:00+09:00');
+        $current = [
+            $this->current('jp-first', '1位', 10_000_000_000, false),
+            $this->current('jp-tied-a', '同額A', 5_200_000_000, true),
+            $this->current('jp-tied-b', '同額B', 5_200_000_000, true),
+            $this->current('jp-third', 'その下', 4_000_000_000, true),
+        ];
+        $observations = [
+            'jp-first' => [$this->obs('jp-first', '2026-08-01T03:00:00+09:00', 10_000_000_000, false)],
+            'jp-tied-a' => [$this->obs('jp-tied-a', '2026-08-01T03:00:00+09:00', 5_200_000_000, true)],
+            'jp-tied-b' => [$this->obs('jp-tied-b', '2026-08-01T03:00:00+09:00', 5_200_000_000, true)],
+            'jp-third' => [$this->obs('jp-third', '2026-08-01T03:00:00+09:00', 4_000_000_000, true)],
+        ];
+
+        $result = Insights::compute('japan', $current, $observations, [], $now);
+
+        $this->assertNull($result['movies']['jp-first']['nextToOvertake']);
+        $this->assertSame('jp-first', $result['movies']['jp-tied-a']['nextToOvertake']['key']);
+        $this->assertSame('jp-first', $result['movies']['jp-tied-b']['nextToOvertake']['key']);
+        $this->assertContains(
+            $result['movies']['jp-third']['nextToOvertake']['key'],
+            ['jp-tied-a', 'jp-tied-b'],
+        );
+        $this->assertSame(1_200_000_000, $result['movies']['jp-third']['nextToOvertake']['remaining']);
+        $this->assertSame(2, $result['movies']['jp-third']['nextToOvertake']['rank']);
     }
 
     public function test_negative_or_correction_deltas_are_hidden(): void

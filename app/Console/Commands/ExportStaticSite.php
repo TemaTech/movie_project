@@ -22,6 +22,21 @@ class ExportStaticSite extends Command
 
     protected $description = 'Export the movie rankings as a static site for Cloudflare Pages';
 
+    /** @var array<string, list<array{key: string, title: string, points: list<array{at: string, boxOffice: int}>}>> */
+    private array $activeSeries = ['japan' => [], 'global' => []];
+
+    /** @var list<string> */
+    private const COMPARE_COLORS = [
+        '#7dd3fc',
+        '#c4b5fd',
+        '#34d399',
+        '#fb7185',
+        '#fbbf24',
+        '#22d3ee',
+        '#f472b6',
+        '#a78bfa',
+    ];
+
     public function handle(): int
     {
         $output = base_path($this->option('output'));
@@ -46,6 +61,11 @@ class ExportStaticSite extends Command
         $history = HistoryRecorder::fromConfig();
         [$global, $globalInsights] = $this->attachInsights('global', $global, $history);
         [$japan, $japanInsights] = $this->attachInsights('japan', $japan, $history);
+
+        $this->activeSeries = [
+            'global' => $this->buildActiveSeries($globalInsights),
+            'japan' => $this->buildActiveSeries($japanInsights),
+        ];
 
         File::put($output . '/data/movies.json', json_encode([
             'generatedAt' => now('Asia/Tokyo')->toIso8601String(),
@@ -327,11 +347,14 @@ TXT);
                 'daysSinceRelease' => $insight['daysSinceRelease'],
             ];
             $movies[$index]['pageHistory'] = [
+                'seriesKey' => $canonical,
                 'sparkline' => $insight['sparkline'] ?? [],
                 'milestones' => $insight['milestones'] ?? [],
                 'nextMilestone' => $insight['nextMilestone'] ?? null,
                 'nextToOvertake' => $insight['nextToOvertake'] ?? null,
                 'periodGrowth' => $insight['periodGrowth'] ?? [],
+                'releaseDate' => $insight['releaseDate'] ?? ($movie['releaseDate'] ?? null),
+                'releaseDatePrecision' => $insight['releaseDatePrecision'] ?? ($movie['releaseDatePrecision'] ?? null),
             ];
         }
 
@@ -386,6 +409,7 @@ TXT);
                     'revenue' => $item['revenueLabel'] ?? ($item['revenue'] ?? ''),
                     'revenueYen' => null,
                     'region' => $region,
+                    'isActive' => true,
                     'momentum' => [
                         'delta' => $item['delta'] ?? null,
                         'deltaLabel' => $item['deltaLabel'] ?? null,
@@ -398,11 +422,14 @@ TXT);
                         'daysSinceRelease' => $item['daysSinceRelease'] ?? null,
                     ],
                     'pageHistory' => [
+                        'seriesKey' => $key,
                         'sparkline' => $item['sparkline'] ?? [],
                         'milestones' => $item['milestones'] ?? [],
                         'nextMilestone' => $item['nextMilestone'] ?? null,
                         'nextToOvertake' => $item['nextToOvertake'] ?? null,
                         'periodGrowth' => $item['periodGrowth'] ?? [],
+                        'releaseDate' => $item['releaseDate'] ?? null,
+                        'releaseDatePrecision' => $item['releaseDatePrecision'] ?? null,
                     ],
                 ];
             }
@@ -553,9 +580,9 @@ XML);
                 .'</section>';
         }
 
-        $chart = $this->trajectorySvg($history['sparkline'] ?? [], $isJapan);
-        if ($chart !== '') {
-            $sections[] = '<section class="movie-section movie-trajectory"><h2>興収の推移</h2>'.$chart.'</section>';
+        $trajectory = $this->trajectorySection($movie, $isJapan);
+        if ($trajectory !== '') {
+            $sections[] = $trajectory;
         }
 
         $milestoneItems = [];
@@ -609,101 +636,508 @@ XML);
     }
 
     /**
+     * 公開中の作品だけを比較対象にする。累計が大きい順。
+     *
+     * @param  array<string, mixed>  $insights
+     * @return list<array{key: string, title: string, color: string, points: list<array{at: string, ts: int, day: int, boxOffice: int}>}>
+     */
+    private function buildActiveSeries(array $insights): array
+    {
+        $series = [];
+        foreach ($insights['movies'] ?? [] as $key => $insight) {
+            if (! is_array($insight) || empty($insight['isActive'])) {
+                continue;
+            }
+            $points = $this->chartRows(
+                $insight['sparkline'] ?? [],
+                $insight['releaseDate'] ?? null,
+                $insight['releaseDatePrecision'] ?? null,
+            );
+            if (count($points) < 2 || ($points[0]['day'] ?? null) === null) {
+                continue;
+            }
+            $series[] = [
+                'key' => (string) $key,
+                'title' => (string) ($insight['title'] ?? $key),
+                'color' => '',
+                'points' => $points,
+            ];
+        }
+
+        usort($series, fn (array $a, array $b) => $this->lastChartValue($b['points']) <=> $this->lastChartValue($a['points']));
+        foreach ($series as $index => $item) {
+            $series[$index]['color'] = self::COMPARE_COLORS[$index % count(self::COMPARE_COLORS)];
+        }
+
+        return $series;
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function trajectorySection(array $movie, bool $isJapan): string
+    {
+        $history = is_array($movie['pageHistory'] ?? null) ? $movie['pageHistory'] : [];
+        $self = $this->chartRows(
+            $history['sparkline'] ?? [],
+            $history['releaseDate'] ?? ($movie['releaseDate'] ?? null),
+            $history['releaseDatePrecision'] ?? ($movie['releaseDatePrecision'] ?? null),
+        );
+        $solo = $this->chartSvg($self, [], $isJapan, 'solo', (string) ($movie['title'] ?? 'この作品'));
+        if ($solo === '') {
+            return '';
+        }
+
+        $unit = $isJapan ? '億円' : '億ドル';
+        $fromRelease = ($self[0]['day'] ?? null) !== null;
+        $axisNote = $fromRelease
+            ? '横軸は公開からの日数、縦軸は累計興収（'.$unit.'）。点に触れるとその発表時点の数字が出ます。'
+            : '横軸は最初の観測からの日数、縦軸は累計興収（'.$unit.'）。公開日が日単位でないため、公開日数では揃えていません。';
+        $soloPanel = '<div class="movie-chart-panel" data-chart="solo">'.$solo
+            .'<p class="movie-chart-caption">'.$axisNote.'</p></div>';
+
+        $others = [];
+        if (! empty($movie['isActive']) && $fromRelease) {
+            $selfKey = (string) ($history['seriesKey'] ?? $movie['id'] ?? '');
+            $selfTitle = (string) ($movie['title'] ?? '');
+            foreach ($this->activeSeries[$isJapan ? 'japan' : 'global'] as $item) {
+                if ($item['key'] === $selfKey || $item['title'] === $selfTitle) {
+                    continue;
+                }
+                $others[] = $item;
+            }
+        }
+
+        $compare = $others === [] ? '' : $this->chartSvg($self, $others, $isJapan, 'compare', (string) ($movie['title'] ?? 'この作品'));
+        if ($compare === '') {
+            return '<section class="movie-section movie-trajectory"><h2>興収の推移</h2>'.$soloPanel.'</section>';
+        }
+
+        $legend = '<p class="movie-chart-legend"><span class="movie-chart-key is-self">'
+            .$this->h((string) ($movie['title'] ?? 'この作品')).'</span>';
+        foreach (array_slice($others, 0, 8) as $item) {
+            $legend .= '<span class="movie-chart-key" style="--swatch:'.$this->h($item['color']).'">'
+                .$this->h($item['title']).'</span>';
+        }
+        $legend .= '</p>';
+
+        return '<section class="movie-section movie-trajectory">'
+            .'<input class="movie-chart-mode" type="radio" name="chartMode" id="chartSolo" checked>'
+            .'<input class="movie-chart-mode" type="radio" name="chartMode" id="chartCompare">'
+            .'<div class="movie-chart-head"><h2>興収の推移</h2>'
+            .'<span class="movie-chart-tabs">'
+            .'<label for="chartSolo">この作品</label>'
+            .'<label for="chartCompare">公開中と比較</label>'
+            .'</span></div>'
+            .$soloPanel
+            .'<div class="movie-chart-panel" data-chart="compare">'.$compare.$legend
+            .'<p class="movie-chart-caption">横軸は公開からの日数です。公開時期が違っても、同じ「何日目」で比べられます。線に触れると作品名と累計が出ます。</p>'
+            .'</div></section>';
+    }
+
+    /**
      * @param  list<array{at?: string, boxOffice?: int}>  $points
      */
-    private function trajectorySvg(array $points, bool $isJapan): string
+    private function trajectorySvg(array $points, bool $isJapan, ?string $releaseDate = null): string
     {
+        return $this->chartSvg($this->chartRows($points, $releaseDate, $releaseDate ? 'day' : null), [], $isJapan, 'test');
+    }
+
+    /**
+     * @param  list<array{at: string, ts: int, day: int|null, boxOffice: int}>  $self
+     * @param  list<array{key: string, title: string, color: string, points: list<array{at: string, ts: int, day: int|null, boxOffice: int}>}>  $others
+     */
+    private function chartSvg(array $self, array $others, bool $isJapan, string $id, string $selfTitle = ''): string
+    {
+        if (count($self) < 2) {
+            return '';
+        }
+
+        $selfValues = array_column($self, 'boxOffice');
+        if (min($selfValues) === max($selfValues)) {
+            return '';
+        }
+
+        $useDays = $this->chartHasDays($self);
+        foreach ($others as $other) {
+            if (! $this->chartHasDays($other['points'])) {
+                return '';
+            }
+        }
+
+        $peak = max($selfValues);
+        if ($useDays) {
+            $days = array_map(fn (array $row) => (int) $row['day'], $self);
+            foreach ($others as $other) {
+                $days = array_merge($days, array_map(fn (array $row) => (int) $row['day'], $other['points']));
+                $peak = max($peak, max(array_column($other['points'], 'boxOffice')));
+            }
+            $xMin = $others === [] ? min(array_map(fn (array $row) => (int) $row['day'], $self)) : 0;
+            $xMax = max($days);
+        } else {
+            $xs = array_column($self, 'ts');
+            foreach ($others as $other) {
+                $xs = array_merge($xs, array_column($other['points'], 'ts'));
+                $peak = max($peak, max(array_column($other['points'], 'boxOffice')));
+            }
+            $xMin = min($xs);
+            $xMax = max($xs);
+        }
+        if ($xMax === $xMin) {
+            $xMax = $xMin + 1;
+        }
+
+        $width = 640;
+        $height = 236;
+        $padL = 62;
+        $padR = 18;
+        $padT = 28;
+        $padB = 36;
+        $plotW = $width - $padL - $padR;
+        $plotH = $height - $padT - $padB;
+        $yMax = max(1, (int) ceil($peak * 1.12));
+        $baseY = $padT + $plotH;
+        $xRight = $padL + $plotW;
+        $xPos = fn (int|float $x): float => $padL + (($x - $xMin) / ($xMax - $xMin)) * $plotW;
+        $yPos = fn (int $value): float => $padT + (1 - ($value / $yMax)) * $plotH;
+        $xOf = fn (array $row): float => $xPos($useDays ? (int) $row['day'] : (int) $row['ts']);
+
+        $guides = '';
+        foreach ($this->chartYTicks($yMax, $isJapan) as $threshold) {
+            $gy = $yPos($threshold);
+            $guides .= sprintf(
+                '<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" class="movie-chart-guide"/>',
+                $padL,
+                $gy,
+                $xRight,
+                $gy,
+            );
+            $guides .= '<text x="'.sprintf('%.1f', $padL - 8).'" y="'.sprintf('%.1f', $gy + 3.5)
+                .'" text-anchor="end" class="movie-chart-guide-label">'
+                .$this->h($this->chartAxisAmount($threshold, $isJapan)).'</text>';
+        }
+
+        $othersSvg = '';
+        foreach ($others as $index => $other) {
+            $color = $other['color'] ?: self::COMPARE_COLORS[$index % count(self::COMPARE_COLORS)];
+            $points = [];
+            foreach ($other['points'] as $row) {
+                $points[] = sprintf('%.1f,%.1f', $xOf($row), $yPos($row['boxOffice']));
+            }
+            $othersSvg .= '<g class="movie-chart-other-g" style="color:'.$this->h($color).'">'
+                .'<polyline class="movie-chart-other-hit" points="'.implode(' ', $points).'"/>'
+                .'<polyline class="movie-chart-other" points="'.implode(' ', $points).'"/>'
+                .'</g>';
+        }
+
+        $coords = [];
+        $dots = '';
+        $valueLabels = '';
+        $showLabels = $others === [] && count($self) <= 12;
+        foreach ($self as $row) {
+            $px = $xOf($row);
+            $py = $yPos($row['boxOffice']);
+            $coords[] = sprintf('%.1f,%.1f', $px, $py);
+            $dots .= sprintf('<circle cx="%.1f" cy="%.1f" r="3.2" class="movie-chart-dot"/>', $px, $py);
+            if ($showLabels) {
+                [$labelX, $anchor] = $this->chartPointLabelPlacement($px, $padL, $plotW);
+                $valueLabels .= '<text x="'.sprintf('%.1f', $labelX).'" y="'.sprintf('%.1f', $py - 9)
+                    .'" text-anchor="'.$anchor.'" class="movie-chart-point-label">'
+                    .$this->h($this->chartShortAmount((int) $row['boxOffice'], $isJapan)).'</text>';
+            }
+        }
+        $lastRow = $self[array_key_last($self)];
+        $lastX = $xOf($lastRow);
+        $lastY = $yPos($lastRow['boxOffice']);
+        $dots .= sprintf('<circle cx="%.1f" cy="%.1f" r="4.4" class="movie-chart-dot is-last"/>', $lastX, $lastY);
+
+        $polyline = implode(' ', $coords);
+        $area = 'M '.sprintf('%.1f,%.1f', $xOf($self[0]), $baseY)
+            .' L '.$polyline
+            .' L '.sprintf('%.1f,%.1f', $lastX, $baseY).' Z';
+
+        $xTicks = $this->chartXTicks($self, $others, $useDays);
+        $axis = '<line x1="'.sprintf('%.1f', $padL).'" y1="'.sprintf('%.1f', $baseY)
+            .'" x2="'.sprintf('%.1f', $xRight).'" y2="'.sprintf('%.1f', $baseY).'" class="movie-chart-baseline"/>';
+        foreach ($xTicks as $tick) {
+            $tx = $xPos($tick['x']);
+            $anchor = 'middle';
+            if ($tx <= $padL + 8) {
+                $anchor = 'start';
+            } elseif ($tx >= $xRight - 8) {
+                $anchor = 'end';
+            }
+            $axis .= '<text x="'.sprintf('%.1f', $tx).'" y="'.($height - 10).'" text-anchor="'.$anchor.'" class="movie-chart-axis">'
+                .$this->h($tick['label']).'</text>';
+        }
+
+        $fillId = 'chartFill-'.$this->h($id);
+        $defs = '<defs><linearGradient id="'.$fillId.'" x1="0" y1="0" x2="0" y2="1">'
+            .'<stop offset="0%" stop-color="#FFD700" stop-opacity="0.32"/>'
+            .'<stop offset="100%" stop-color="#FFD700" stop-opacity="0"/>'
+            .'</linearGradient></defs>';
+
+        $chartClass = $others === [] ? 'movie-chart' : 'movie-chart is-compare';
+        $svg = '<svg class="'.$chartClass.'" viewBox="0 0 '.$width.' '.$height.'" role="img" aria-label="興行収入の推移">'
+            .$defs
+            .$guides
+            .'<path class="movie-chart-area" fill="url(#'.$fillId.')" d="'.$area.'"/>'
+            .$othersSvg
+            .'<polyline class="movie-chart-line" points="'.$polyline.'"/>'
+            .$dots
+            .$valueLabels
+            .$axis
+            .'</svg>';
+
+        $hits = $this->chartHitsHtml($self, $others, $selfTitle, $isJapan, $useDays, $xOf, $yPos, $width, $height);
+
+        return '<div class="movie-chart-frame">'.$svg.$hits.'</div>';
+    }
+
+    /**
+     * @param  list<array{at: string, ts: int, day: int|null, boxOffice: int}>  $self
+     * @param  list<array{title: string, color: string, points: list<array{at: string, ts: int, day: int|null, boxOffice: int}>}>  $others
+     * @param  callable(array<string, mixed>): float  $xOf
+     * @param  callable(int): float  $yPos
+     */
+    private function chartHitsHtml(
+        array $self,
+        array $others,
+        string $selfTitle,
+        bool $isJapan,
+        bool $useDays,
+        callable $xOf,
+        callable $yPos,
+        int $width,
+        int $height,
+    ): string {
+        $hits = '';
+        $series = array_merge(
+            [['title' => $selfTitle !== '' ? $selfTitle : 'この作品', 'color' => '#FFD700', 'points' => $self, 'self' => true]],
+            array_map(fn (array $item) => $item + ['self' => false], $others),
+        );
+        foreach ($series as $item) {
+            foreach ($item['points'] as $row) {
+                $left = $xOf($row) / $width * 100;
+                $top = $yPos($row['boxOffice']) / $height * 100;
+                $dayLabel = $useDays
+                    ? (((int) $row['day'] === 0) ? '公開当日' : '公開'.(int) $row['day'].'日')
+                    : $this->chartTsLabel((int) $row['ts']);
+                $amount = Insights::formatAmount((int) $row['boxOffice'], $isJapan);
+                $title = (string) $item['title'];
+                $line = $item['self']
+                    ? '累計 '.$amount
+                    : '『'.$title.'』 '.$amount;
+                $hits .= '<button type="button" class="movie-chart-hit'.($item['self'] ? ' is-self' : '').'" style="left:'
+                    .sprintf('%.2f', $left).'%;--hit-top:'.sprintf('%.2f', $top).'%;--hit-color:'.$this->h((string) $item['color'])
+                    .'" aria-label="'.$this->h($dayLabel.' '.$line).'">'
+                    .'<span class="movie-chart-vline"></span>'
+                    .'<span class="movie-chart-tip"><strong>'.$this->h($dayLabel).'</strong>'
+                    .'<span>'.$this->h($line).'</span></span></button>';
+            }
+        }
+
+        return '<div class="movie-chart-hits">'.$hits.'</div>';
+    }
+
+    /**
+     * @return list<array{at: string, ts: int, day: int|null, boxOffice: int}>
+     */
+    private function chartRows(mixed $points, ?string $releaseDate = null, ?string $precision = null): array
+    {
+        if (! is_array($points)) {
+            return [];
+        }
+
         $rows = [];
         foreach ($points as $point) {
             if (! is_array($point) || ! isset($point['boxOffice'], $point['at'])) {
                 continue;
             }
+            try {
+                $at = Carbon::parse((string) $point['at'])->timezone('Asia/Tokyo');
+            } catch (\Throwable) {
+                continue;
+            }
             $rows[] = [
                 'at' => (string) $point['at'],
+                'ts' => $at->getTimestamp(),
+                'day' => $this->chartDayNumber($releaseDate, $precision, $at),
                 'boxOffice' => (int) $point['boxOffice'],
             ];
         }
-        if (count($rows) < 2) {
-            return '';
-        }
 
-        $values = array_column($rows, 'boxOffice');
-        $min = min($values);
-        $max = max($values);
-        if ($min === $max) {
-            return '';
-        }
+        usort($rows, fn (array $a, array $b) => $a['ts'] <=> $b['ts']);
 
-        $width = 640;
-        $height = 168;
-        $padL = 58;
-        $padR = 16;
-        $padT = 18;
-        $padB = 36;
-        $plotW = $width - $padL - $padR;
-        $plotH = $height - $padT - $padB;
-        $span = $max - $min;
-        $count = count($rows);
-
-        $coords = [];
-        foreach ($values as $index => $value) {
-            $x = $padL + ($index / ($count - 1)) * $plotW;
-            $y = $padT + (1 - (($value - $min) / $span)) * $plotH;
-            $coords[] = sprintf('%.1f,%.1f', $x, $y);
-        }
-
-        $guides = $isJapan
-            ? [5_000_000_000, 10_000_000_000]
-            : [500_000_000, 1_000_000_000];
-        $guideSvg = '';
-        foreach ($guides as $threshold) {
-            if ($threshold < $min || $threshold > $max) {
-                continue;
-            }
-            $y = $padT + (1 - (($threshold - $min) / $span)) * $plotH;
-            $label = Insights::formatAmount($threshold, $isJapan);
-            $x2 = $padL + $plotW;
-            $guideSvg .= sprintf(
-                '<line x1="%d" y1="%.1f" x2="%.1f" y2="%.1f" class="movie-chart-guide" />',
-                $padL,
-                $y,
-                $x2,
-                $y,
-            );
-            $guideSvg .= '<text x="'.sprintf('%.1f', $x2 - 4).'" y="'.sprintf('%.1f', $y - 5).'" text-anchor="end" class="movie-chart-guide-label">'.$this->h($label).'</text>';
-        }
-
-        $unit = $isJapan ? '億円' : '億ドル';
-        $decimals = $isJapan ? 1 : 2;
-        $minLabel = number_format($min / 100_000_000, $decimals);
-        $maxLabel = number_format($max / 100_000_000, $decimals);
-        $firstDate = $this->h($this->chartDateLabel($rows[0]['at']));
-        $lastDate = $this->h($this->chartDateLabel($rows[$count - 1]['at']));
-        $polyline = implode(' ', $coords);
-        $yMinText = $padT + $plotH;
-        $xLast = $padL + $plotW;
-        $dateY = $height - 6;
-
-        return <<<HTML
-<svg class="movie-chart" viewBox="0 0 {$width} {$height}" role="img" aria-label="興行収入の推移（{$unit}）">
-  <text x="8" y="{$padT}" class="movie-chart-axis">{$maxLabel}</text>
-  <text x="8" y="{$yMinText}" class="movie-chart-axis">{$minLabel}</text>
-  {$guideSvg}
-  <polyline class="movie-chart-line" points="{$polyline}" />
-  <text x="{$padL}" y="{$dateY}" class="movie-chart-axis">{$firstDate}</text>
-  <text x="{$xLast}" y="{$dateY}" text-anchor="end" class="movie-chart-axis">{$lastDate}</text>
-</svg>
-<p class="movie-chart-caption">横軸: 観測日 / 縦軸: {$unit}（発表ベース）</p>
-HTML;
+        return $rows;
     }
 
-    private function chartDateLabel(string $iso): string
+    private function chartDayNumber(?string $releaseDate, ?string $precision, Carbon $at): ?int
     {
-        try {
-            return Carbon::parse($iso)->timezone('Asia/Tokyo')->format('n/j');
-        } catch (\Throwable) {
-            return $iso;
+        if (! $releaseDate || ($precision !== null && $precision !== 'day')) {
+            return null;
         }
+
+        try {
+            $released = Carbon::parse($releaseDate)->timezone('Asia/Tokyo')->startOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $days = (int) floor(($at->copy()->startOfDay()->getTimestamp() - $released->getTimestamp()) / 86400);
+
+        return max(0, $days);
+    }
+
+    /**
+     * @param  list<array{day: int|null}>  $rows
+     */
+    private function chartHasDays(array $rows): bool
+    {
+        foreach ($rows as $row) {
+            if ($row['day'] === null) {
+                return false;
+            }
+        }
+
+        return $rows !== [];
+    }
+
+    /**
+     * @param  list<array{at: string, ts: int, day: int|null, boxOffice: int}>  $self
+     * @param  list<array{points: list<array{at: string, ts: int, day: int|null, boxOffice: int}>}>  $others
+     * @return list<array{x: int, label: string}>
+     */
+    private function chartXTicks(array $self, array $others, bool $useDays): array
+    {
+        $values = [];
+        foreach (array_merge([$self], array_column($others, 'points')) as $rows) {
+            foreach ($rows as $row) {
+                $values[] = $useDays ? (int) $row['day'] : (int) $row['ts'];
+            }
+        }
+        $values = array_values(array_unique($values));
+        sort($values);
+        if ($values === []) {
+            return [];
+        }
+
+        $picked = $this->spaceChartTicks($values);
+
+        $ticks = [];
+        foreach ($picked as $value) {
+            $ticks[] = [
+                'x' => $value,
+                'label' => $useDays
+                    ? ($value === 0 ? '当日' : $value.'日')
+                    : $this->chartTsLabel($value),
+            ];
+        }
+
+        return $ticks;
+    }
+
+    /**
+     * 横軸ラベルが重ならないよう、値の間隔を空けて選ぶ。両端は必ず残す。
+     *
+     * @param  list<int>  $sorted
+     * @return list<int>
+     */
+    private function spaceChartTicks(array $sorted, int $maxTicks = 6): array
+    {
+        if (count($sorted) <= 2) {
+            return $sorted;
+        }
+
+        $first = $sorted[0];
+        $last = $sorted[array_key_last($sorted)];
+        $span = max(1, $last - $first);
+        $minGap = $span / max(3, $maxTicks - 1);
+
+        $picked = [$first];
+        foreach (array_slice($sorted, 1, -1) as $value) {
+            if (count($picked) >= $maxTicks - 1) {
+                break;
+            }
+            if ($value - $picked[array_key_last($picked)] >= $minGap) {
+                $picked[] = $value;
+            }
+        }
+
+        $prev = $picked[array_key_last($picked)];
+        if ($last - $prev < $minGap && count($picked) > 1) {
+            $picked[array_key_last($picked)] = $last;
+        } elseif ($last !== $prev) {
+            $picked[] = $last;
+        }
+
+        return array_values(array_unique($picked));
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function chartYTicks(int $yMax, bool $isJapan): array
+    {
+        $oku = $yMax / 100_000_000;
+        if ($isJapan) {
+            $step = $oku > 120 ? 50.0 : ($oku > 40 ? 20.0 : 10.0);
+        } else {
+            $step = $oku > 20 ? 5.0 : ($oku > 8 ? 2.0 : 1.0);
+        }
+
+        $ticks = [0];
+        for ($value = $step; $value <= $oku + 0.001; $value += $step) {
+            $ticks[] = (int) round($value * 100_000_000);
+        }
+
+        return $ticks;
+    }
+
+    /**
+     * @return array{0: float, 1: 'start'|'middle'|'end'}
+     */
+    private function chartPointLabelPlacement(float $px, float $padL, float $plotW): array
+    {
+        if ($px <= $padL + 24) {
+            return [$px + 8, 'start'];
+        }
+        if ($px >= $padL + $plotW * 0.82) {
+            return [$px, 'end'];
+        }
+
+        return [$px, 'middle'];
+    }
+
+    private function chartAxisAmount(int $amount, bool $isJapan): string
+    {
+        $oku = (int) round($amount / 100_000_000);
+
+        return $isJapan
+            ? number_format($oku).'億円'
+            : number_format($oku).'億ドル';
+    }
+
+    private function chartShortAmount(int $amount, bool $isJapan): string
+    {
+        $oku = $amount / 100_000_000;
+
+        return $isJapan
+            ? rtrim(rtrim(number_format($oku, 1), '0'), '.').'億'
+            : number_format($oku, 2).'億';
+    }
+
+    /**
+     * @param  list<array{at: string, ts: int, boxOffice: int}>  $rows
+     */
+    private function lastChartValue(array $rows): int
+    {
+        return $rows === [] ? 0 : (int) $rows[array_key_last($rows)]['boxOffice'];
+    }
+
+    private function chartTsLabel(int $ts): string
+    {
+        return Carbon::createFromTimestamp($ts)->timezone('Asia/Tokyo')->format('n/j');
     }
 
     private function exportMoviePages(string $output, $global, $japan): void

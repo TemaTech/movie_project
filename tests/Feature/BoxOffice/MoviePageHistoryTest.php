@@ -25,12 +25,44 @@ class MoviePageHistoryTest extends TestCase
         $svg = $this->invoke($command, 'trajectorySvg', [
             ['at' => '2026-08-01T03:00:00+09:00', 'boxOffice' => 4_000_000_000],
             ['at' => '2026-08-10T03:00:00+09:00', 'boxOffice' => 6_000_000_000],
-        ], true);
+        ], true, '2026-08-01');
 
         $this->assertStringContainsString('movie-chart', $svg);
-        $this->assertStringContainsString('50.0億円', $svg);
-        $this->assertStringContainsString('8/1', $svg);
-        $this->assertStringContainsString('8/10', $svg);
+        $this->assertStringContainsString('当日', $svg);
+        $this->assertStringContainsString('9日', $svg);
+        $this->assertStringContainsString('公開9日', $svg);
+        $this->assertStringContainsString('movie-chart-tip', $svg);
+        $this->assertMatchesRegularExpression('/class="movie-chart-guide-label">0億円</', $svg);
+        $this->assertDoesNotMatchRegularExpression('/class="movie-chart-guide-label">[^<]*\.\d/', $svg);
+        $this->assertMatchesRegularExpression(
+            '/<text x="70\.0" y="[0-9.]+" text-anchor="start" class="movie-chart-point-label">/',
+            $svg,
+        );
+        $this->assertMatchesRegularExpression(
+            '/<text x="622\.0" y="[0-9.]+" text-anchor="end" class="movie-chart-point-label">/',
+            $svg,
+        );
+
+        $globalSvg = $this->invoke($command, 'trajectorySvg', [
+            ['at' => '2026-08-01T03:00:00+09:00', 'boxOffice' => 400_000_000],
+            ['at' => '2026-08-10T03:00:00+09:00', 'boxOffice' => 600_000_000],
+        ], false, '2026-08-01');
+        $this->assertMatchesRegularExpression('/class="movie-chart-guide-label">0億ドル</', $globalSvg);
+        $this->assertDoesNotMatchRegularExpression('/class="movie-chart-guide-label">[^<]*\.\d/', $globalSvg);
+
+        $clustered = $this->invoke($command, 'trajectorySvg', [
+            ['at' => '2026-08-01T03:00:00+09:00', 'boxOffice' => 4_000_000_000],
+            ['at' => '2026-08-03T03:00:00+09:00', 'boxOffice' => 4_500_000_000],
+            ['at' => '2026-08-20T03:00:00+09:00', 'boxOffice' => 6_000_000_000],
+            ['at' => '2026-08-22T03:00:00+09:00', 'boxOffice' => 6_200_000_000],
+        ], true, '2026-08-01');
+        $axisDays = [];
+        if (preg_match_all('/>(当日|\d+日)<\/text>/', $clustered, $matches)) {
+            $axisDays = $matches[1];
+        }
+        $this->assertNotContains('2日', $axisDays);
+        $this->assertContains('当日', $axisDays);
+        $this->assertContains('21日', $axisDays);
     }
 
     public function test_movie_history_html_hides_next_target_for_first_place(): void

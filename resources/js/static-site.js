@@ -264,18 +264,37 @@ function bindAiOverlays() {
     });
 }
 
+function moviePageHref(movie) {
+    return `/movies/${encodeURIComponent(movie.slug || movie.key || movie.id)}/`;
+}
+
 function bindMovieInteractions(data) {
+    document.querySelectorAll('[data-open-modal]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const movie = findMovie(data, button.dataset.openModal);
+            if (movie) openMovieModal(movie);
+        });
+    });
+
     document.querySelectorAll('[data-movie-id]').forEach((element) => {
+        const isNowCard = element.matches('.now-hero, .now-card, .now-waiting-row');
         const open = () => {
             const movie = findMovie(data, element.dataset.movieId);
-            if (movie) openMovieModal(movie);
+            if (!movie) return;
+            if (isNowCard) {
+                window.location.assign(moviePageHref(movie));
+                return;
+            }
+            openMovieModal(movie);
         };
         element.addEventListener('click', (event) => {
-            if (event.target.closest('a')) return;
+            if (event.target.closest('a, button, [data-open-modal]')) return;
             open();
         });
         element.addEventListener('keydown', (event) => {
-            if (event.target.closest('a')) return;
+            if (event.target.closest('a, button, [data-open-modal]')) return;
             if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
                 open();

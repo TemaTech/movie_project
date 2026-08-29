@@ -603,7 +603,7 @@ class Insights
             ];
         }
 
-        return array_slice($points, -16);
+        return $points;
     }
 
     /**

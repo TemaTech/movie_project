@@ -130,7 +130,18 @@
 .now-waiting-title-row { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
 .now-hero-title-row .now-hero-title { margin: 0; }
 .now-waiting-title-row .now-waiting-title { min-width: 0; }
-.now-permalink { color: var(--accent-blue); font-size: .78rem; white-space: nowrap; flex-shrink: 0; }
+.now-permalink {
+    color: var(--accent-blue);
+    font-size: .78rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+    background: none;
+    border: 0;
+    padding: 0;
+    font-family: inherit;
+    cursor: pointer;
+}
+.now-permalink:hover { text-decoration: underline; }
 .now-card-delta {
     font-family: var(--font-num);
     font-size: 1.5rem;

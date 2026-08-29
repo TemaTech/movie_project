@@ -428,7 +428,7 @@ header {
         flex-wrap: nowrap;
         align-items: center;
         justify-content: center;
-        gap: clamp(4px, 1.5vw, 6px);
+        gap: 12px;
         width: 100%;
         max-width: 100%;
         min-width: 0;
@@ -437,12 +437,12 @@ header {
     .toggle-container {
         margin-bottom: 0;
         flex-shrink: 0;
-        padding: 3px;
+        padding: 4px;
     }
 
     .toggle-btn {
-        padding: 6px clamp(4px, 1.8vw, 8px);
-        font-size: clamp(0.65rem, 3.1vw, 0.75rem);
+        padding: 8px 16px;
+        font-size: 0.9rem;
         white-space: nowrap;
     }
     
@@ -461,15 +461,20 @@ header {
         display: none !important;
     }
     
-    /* 絞り込みボタンをコンパクトに（アイコンのみ・折り返し防止） */
-    .filter-trigger-btn {
-        padding: 6px;
-        min-width: 28px;
-        width: clamp(28px, 8vw, 32px);
-        height: clamp(28px, 8vw, 32px);
+    /* 絞り込みボタン（アイコンのみ・折り返し防止） */
+    header .filter-trigger-btn {
+        padding: 8px;
+        min-width: 40px;
+        width: 40px;
+        height: 40px;
         justify-content: center;
         flex-shrink: 0;
         box-sizing: border-box;
+    }
+
+    header .filter-icon {
+        width: 18px;
+        height: 18px;
     }
     
     .genre-filter-wrapper {
@@ -816,9 +821,25 @@ header {
     }
 }
 
-@media (max-width: 400px) {
+@media (max-width: 360px) {
     header {
-        padding: 8px 6px;
+        padding: 8px 10px;
+    }
+
+    .header-controls {
+        gap: 8px;
+    }
+
+    .toggle-btn {
+        padding: 8px 12px;
+        font-size: 0.82rem;
+    }
+
+    header .filter-trigger-btn {
+        min-width: 36px;
+        width: 36px;
+        height: 36px;
+        padding: 8px;
     }
 
     .logo-link {

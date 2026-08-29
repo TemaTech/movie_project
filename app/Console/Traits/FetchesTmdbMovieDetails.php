@@ -5,8 +5,8 @@ namespace App\Console\Traits;
 use App\Models\GlobalMovie;
 use App\Models\JapaneseMovie;
 use App\Services\BoxOffice\MovieIdentity;
+use App\Services\Tmdb\TmdbClient;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Http;
 
 trait FetchesTmdbMovieDetails
 {
@@ -216,27 +216,11 @@ trait FetchesTmdbMovieDetails
      */
     private function requestTmdbSearch(string $apiKey, string $query, ?int $year): array
     {
-        $params = [
-            'api_key' => $apiKey,
-            'query' => $query,
-            'language' => 'ja-JP',
-        ];
-
-        if ($year) {
-            $params['primary_release_year'] = $year;
-        }
-
-        $response = Http::timeout(30)
-            ->retry(2, 500)
-            ->get('https://api.themoviedb.org/3/search/movie', $params);
-
-        usleep(100000);
-
-        if (! $response->successful()) {
+        if (empty($apiKey)) {
             return [];
         }
 
-        return $response->json()['results'] ?? [];
+        return (new TmdbClient($apiKey))->searchMovies($query, $year);
     }
 
     private function scoreTitleMatch(string $title, ?string $originalTitle, array $result, ?string $searchQuery = null): float
@@ -305,21 +289,19 @@ trait FetchesTmdbMovieDetails
             return null;
         }
 
-        $response = Http::timeout(30)
-            ->retry(2, 500)
-            ->get("https://api.themoviedb.org/3/movie/{$tmdbId}", [
-                'api_key' => $apiKey,
-                'language' => 'ja-JP',
-                'append_to_response' => 'credits',
-            ]);
+        $client = new TmdbClient($apiKey);
+        $detail = $client->getMovie($tmdbId, 'ja-JP');
 
-        usleep(100000);
-
-        if (! $response->successful()) {
+        if ($detail === null) {
             return null;
         }
 
-        return $response->json();
+        $credits = $client->getMovieCredits($tmdbId);
+        if ($credits !== null) {
+            $detail['credits'] = $credits;
+        }
+
+        return $detail;
     }
 
     private function slimTmdbDetail(array $detail): array

@@ -30,6 +30,13 @@ class HistoryRecorderConfigTest extends TestCase
         $this->removeDir($local);
     }
 
+    public function test_env_example_does_not_assign_history_path(): void
+    {
+        $example = (string) file_get_contents(base_path('.env.example'));
+
+        $this->assertDoesNotMatchRegularExpression('/^\s*BOX_OFFICE_HISTORY_PATH=/m', $example);
+    }
+
     private function removeDir(string $directory): void
     {
         if (! is_dir($directory)) {

@@ -202,3 +202,9 @@
 {"key":"tmdb-969681","observedAt":"2026-08-17T09:49:11+09:00","boxOffice":2021832000,"isActive":true}
 {"key":"tmdb-1368337","observedAt":"2026-08-17T09:49:11+09:00","boxOffice":1200006606,"isActive":true}
 {"key":"tmdb-1368337","observedAt":"2026-08-17T15:39:22+09:00","boxOffice":1290924370,"isActive":true}
+{"key":"tmdb-969681","observedAt":"2026-08-29T21:20:28+09:00","boxOffice":2232611878,"isActive":true}
+{"key":"tmdb-1368337","observedAt":"2026-08-29T21:20:28+09:00","boxOffice":1446194550,"isActive":true}
+{"key":"tmdb-1084244","observedAt":"2026-08-29T21:20:28+09:00","boxOffice":1128578473,"isActive":true}
+{"key":"tmdb-936075","observedAt":"2026-08-29T21:20:28+09:00","boxOffice":1032616139,"isActive":true}
+{"key":"tmdb-1061474","observedAt":"2026-08-30T09:20:34+09:00","boxOffice":618723803,"isActive":false}
+{"key":"tmdb-969681","observedAt":"2026-08-31T21:08:06+09:00","boxOffice":2332508000,"isActive":true}

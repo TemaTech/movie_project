@@ -36,6 +36,7 @@ GitHub Actions（`Publish static movie ranking`）が次の流れで更新しま
 4. 静的サイトを生成して Cloudflare Pages へデプロイ
 
 CI では `BOX_OFFICE_HISTORY_PATH` を **設定しません**（デフォルトの `data/history` を使用）。
+`.env.example` をコピーするだけではこの値が入ってしまうため、有効な代入はコメントアウトし、ワークフロー側でも削除します。
 
 ## ローカル開発
 

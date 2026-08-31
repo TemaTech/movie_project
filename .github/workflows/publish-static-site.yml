@@ -116,8 +116,14 @@ jobs:
       - name: Configure Laravel
         run: |
           cp .env.example .env
+          # CI must persist observations to data/history. Do not inherit a local-only path.
+          sed -i '/^BOX_OFFICE_HISTORY_PATH=/d' .env
           php artisan key:generate --force
           php artisan migrate --force
+          if grep -q '^BOX_OFFICE_HISTORY_PATH=' .env; then
+            echo "BOX_OFFICE_HISTORY_PATH must not be set in CI" >&2
+            exit 1
+          fi
 
       - name: Fetch ranking data
         run: |

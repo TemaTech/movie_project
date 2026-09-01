@@ -63,8 +63,8 @@ class ExportStaticSite extends Command
         [$japan, $japanInsights] = $this->attachInsights('japan', $japan, $history);
 
         $this->activeSeries = [
-            'global' => $this->buildActiveSeries($globalInsights),
-            'japan' => $this->buildActiveSeries($japanInsights),
+            'global' => $this->buildActiveSeries($globalInsights, false),
+            'japan' => $this->buildActiveSeries($japanInsights, true),
         ];
 
         File::put($output . '/data/movies.json', json_encode([
@@ -641,7 +641,7 @@ XML);
      * @param  array<string, mixed>  $insights
      * @return list<array{key: string, title: string, color: string, points: list<array{at: string, ts: int, day: int, boxOffice: int}>}>
      */
-    private function buildActiveSeries(array $insights): array
+    private function buildActiveSeries(array $insights, bool $isJapan): array
     {
         $series = [];
         foreach ($insights['movies'] ?? [] as $key => $insight) {
@@ -652,6 +652,7 @@ XML);
                 $insight['sparkline'] ?? [],
                 $insight['releaseDate'] ?? null,
                 $insight['releaseDatePrecision'] ?? null,
+                $isJapan,
             );
             if (count($points) < 2 || ($points[0]['day'] ?? null) === null) {
                 continue;
@@ -682,6 +683,7 @@ XML);
             $history['sparkline'] ?? [],
             $history['releaseDate'] ?? ($movie['releaseDate'] ?? null),
             $history['releaseDatePrecision'] ?? ($movie['releaseDatePrecision'] ?? null),
+            $isJapan,
         );
         $solo = $this->chartSvg($self, [], $isJapan, 'solo', (string) ($movie['title'] ?? 'この作品'));
         if ($solo === '') {
@@ -740,7 +742,7 @@ XML);
      */
     private function trajectorySvg(array $points, bool $isJapan, ?string $releaseDate = null): string
     {
-        return $this->chartSvg($this->chartRows($points, $releaseDate, $releaseDate ? 'day' : null), [], $isJapan, 'test');
+        return $this->chartSvg($this->chartRows($points, $releaseDate, $releaseDate ? 'day' : null, $isJapan), [], $isJapan, 'test');
     }
 
     /**
@@ -943,7 +945,7 @@ XML);
     /**
      * @return list<array{at: string, ts: int, day: int|null, boxOffice: int}>
      */
-    private function chartRows(mixed $points, ?string $releaseDate = null, ?string $precision = null): array
+    private function chartRows(mixed $points, ?string $releaseDate = null, ?string $precision = null, bool $isJapan = false): array
     {
         if (! is_array($points)) {
             return [];
@@ -969,7 +971,25 @@ XML);
 
         usort($rows, fn (array $a, array $b) => $a['ts'] <=> $b['ts']);
 
-        return $rows;
+        return $this->collapseSameChartAmounts($rows, $isJapan);
+    }
+
+    /**
+     * @param  list<array{at: string, ts: int, day: int|null, boxOffice: int}>  $rows
+     * @return list<array{at: string, ts: int, day: int|null, boxOffice: int}>
+     */
+    private function collapseSameChartAmounts(array $rows, bool $isJapan): array
+    {
+        $collapsed = [];
+        foreach ($rows as $row) {
+            $previous = $collapsed === [] ? null : $collapsed[array_key_last($collapsed)];
+            if ($previous && $this->chartShortAmount((int) $previous['boxOffice'], $isJapan) === $this->chartShortAmount((int) $row['boxOffice'], $isJapan)) {
+                continue;
+            }
+            $collapsed[] = $row;
+        }
+
+        return $collapsed;
     }
 
     private function chartDayNumber(?string $releaseDate, ?string $precision, Carbon $at): ?int

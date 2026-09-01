@@ -23,5 +23,9 @@ interface ObservationRepository
      * @param  array<string, mixed>  $current
      * @param  array<string, mixed>|null  $previous
      */
-    public function shouldRecord(array $current, ?array $previous): bool;
+    /**
+     * @param  array<string, mixed>  $current
+     * @param  array<string, mixed>|null  $previous
+     */
+    public function shouldRecord(array $current, ?array $previous, bool $isJapan = false): bool;
 }

@@ -113,6 +113,41 @@ class BoxOfficeHistoryTest extends TestCase
         $this->assertSame(5_800_000_000, $rows[1]['boxOffice']);
     }
 
+    public function test_display_equal_global_totals_are_not_recorded(): void
+    {
+        $recorder = HistoryRecorder::fromBasePath($this->dir);
+        $recorder->resolve([
+            'region' => 'global',
+            'title' => 'Spider',
+            'tmdbId' => 969681,
+            'releaseYear' => 2026,
+        ]);
+        $movie = [
+            'movie_id' => 'tmdb-969681',
+            'title' => 'Spider',
+            'box_office' => 2_332_508_000,
+            'is_active' => true,
+        ];
+        $recorder->recordSnapshot('global', [$movie], new DateTimeImmutable('2026-08-31T21:08:06+09:00'));
+        $movie['box_office'] = 2_333_326_398;
+        $recorder->recordSnapshot('global', [$movie], new DateTimeImmutable('2026-09-01T09:21:14+09:00'));
+
+        $rows = (new ObservationStore($this->dir.'/observations'))->loadByKey('global')['tmdb-969681'];
+        $this->assertCount(1, $rows);
+        $this->assertSame(2_332_508_000, $rows[0]['boxOffice']);
+    }
+
+    public function test_display_equal_observations_are_collapsed_on_load(): void
+    {
+        $store = new ObservationStore($this->dir.'/observations');
+        $store->append('global', $this->obs('tmdb-1', '2026-08-31T21:00:00+09:00', 2_332_508_000, true));
+        $store->append('global', $this->obs('tmdb-1', '2026-09-01T09:00:00+09:00', 2_333_326_398, true));
+
+        $rows = $store->loadByKey('global')['tmdb-1'];
+        $this->assertCount(1, $rows);
+        $this->assertSame(2_332_508_000, $rows[0]['boxOffice']);
+    }
+
     public function test_insights_compute_pace_rank_pass_and_board_membership(): void
     {
         $now = new DateTimeImmutable('2026-08-14T12:00:00+09:00');

@@ -271,7 +271,7 @@ class Insights
                 ? self::nextToOvertake($movie['key'], $boxOffice, $currentByKey, $isJapan)
                 : null,
             'periodGrowth' => self::periodGrowth($observations, $boxOffice, $now, $isJapan),
-            'sparkline' => self::sparkline($observations),
+            'sparkline' => self::sparkline($observations, $isJapan),
             'hasHistory' => count($observations) > 1,
         ];
     }
@@ -590,16 +590,21 @@ class Insights
      * @param  list<array<string, mixed>>  $observations
      * @return list<array{at: string, boxOffice: int}>
      */
-    private static function sparkline(array $observations): array
+    private static function sparkline(array $observations, bool $isJapan): array
     {
         $points = [];
         foreach ($observations as $row) {
             if (! empty($row['correction'])) {
                 continue;
             }
+            $boxOffice = (int) $row['boxOffice'];
+            $previous = $points === [] ? null : $points[array_key_last($points)];
+            if ($previous && self::formatAmount($previous['boxOffice'], $isJapan) === self::formatAmount($boxOffice, $isJapan)) {
+                continue;
+            }
             $points[] = [
                 'at' => $row['observedAt'],
-                'boxOffice' => (int) $row['boxOffice'],
+                'boxOffice' => $boxOffice,
             ];
         }
 

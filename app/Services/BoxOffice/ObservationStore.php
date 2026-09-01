@@ -62,7 +62,7 @@ class ObservationStore implements ObservationRepository
 
         foreach ($byKey as $key => $rows) {
             usort($rows, fn (array $a, array $b) => strcmp($a['observedAt'] ?? '', $b['observedAt'] ?? ''));
-            $byKey[$key] = $this->collapseDuplicates($rows);
+            $byKey[$key] = $this->collapseDuplicates($rows, $region === 'japan');
         }
 
         return $byKey;
@@ -84,29 +84,43 @@ class ObservationStore implements ObservationRepository
      * @param  array<string, mixed>  $current
      * @param  array<string, mixed>|null  $previous
      */
-    public function shouldRecord(array $current, ?array $previous): bool
+    /**
+     * @param  array<string, mixed>  $current
+     * @param  array<string, mixed>|null  $previous
+     */
+    public function shouldRecord(array $current, ?array $previous, bool $isJapan = false): bool
     {
         if ($previous === null) {
             return true;
         }
 
-        return (int) ($previous['boxOffice'] ?? 0) !== (int) ($current['boxOffice'] ?? 0)
-            || (bool) ($previous['isActive'] ?? false) !== (bool) ($current['isActive'] ?? false);
+        if ((bool) ($previous['isActive'] ?? false) !== (bool) ($current['isActive'] ?? false)) {
+            return true;
+        }
+
+        return $this->boxOfficeVisiblyChanged(
+            (int) ($previous['boxOffice'] ?? 0),
+            (int) ($current['boxOffice'] ?? 0),
+            $isJapan,
+        );
     }
 
     /**
      * @param  list<array<string, mixed>>  $rows
      * @return list<array<string, mixed>>
      */
-    private function collapseDuplicates(array $rows): array
+    private function collapseDuplicates(array $rows, bool $isJapan): array
     {
         $collapsed = [];
         foreach ($rows as $row) {
             $previous = $collapsed === [] ? null : $collapsed[array_key_last($collapsed)];
             if ($previous
-                && (int) ($previous['boxOffice'] ?? 0) === (int) ($row['boxOffice'] ?? 0)
                 && (bool) ($previous['isActive'] ?? false) === (bool) ($row['isActive'] ?? false)
-                && empty($row['correction'])
+                && ! $this->boxOfficeVisiblyChanged(
+                    (int) ($previous['boxOffice'] ?? 0),
+                    (int) ($row['boxOffice'] ?? 0),
+                    $isJapan,
+                )
             ) {
                 continue;
             }
@@ -114,6 +128,11 @@ class ObservationStore implements ObservationRepository
         }
 
         return $collapsed;
+    }
+
+    private function boxOfficeVisiblyChanged(int $from, int $to, bool $isJapan): bool
+    {
+        return Insights::formatAmount($from, $isJapan) !== Insights::formatAmount($to, $isJapan);
     }
 
     private function monthPath(string $region, DateTimeInterface $observedAt): string

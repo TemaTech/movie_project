@@ -65,6 +65,21 @@ class MoviePageHistoryTest extends TestCase
         $this->assertContains('21日', $axisDays);
     }
 
+    public function test_trajectory_svg_collapses_display_equal_totals(): void
+    {
+        $command = $this->app->make(ExportStaticSite::class);
+        $svg = $this->invoke($command, 'trajectorySvg', [
+            ['at' => '2026-08-17T09:49:11+09:00', 'boxOffice' => 2_021_832_000],
+            ['at' => '2026-08-31T21:08:06+09:00', 'boxOffice' => 2_332_508_000],
+            ['at' => '2026-09-01T09:21:14+09:00', 'boxOffice' => 2_333_326_398],
+        ], false, '2026-07-29');
+
+        preg_match_all('/class="movie-chart-point-label">([^<]+)/', $svg, $labels);
+        $this->assertSame(['20.22億', '23.33億'], $labels[1]);
+        $this->assertStringContainsString('公開33日', $svg);
+        $this->assertStringNotContainsString('公開34日', $svg);
+    }
+
     public function test_movie_history_html_hides_next_target_for_first_place(): void
     {
         $command = $this->app->make(ExportStaticSite::class);

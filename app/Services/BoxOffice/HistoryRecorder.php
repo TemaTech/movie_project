@@ -67,6 +67,7 @@ class HistoryRecorder
         $existing = $this->observations->loadByKey($region);
         $currentKeys = [];
         $warnings = [];
+        $isJapan = $region === 'japan';
 
         foreach ($movies as $movie) {
             $key = (string) $movie['movie_id'];
@@ -81,7 +82,7 @@ class HistoryRecorder
                 $row['correction'] = true;
             }
             $previous = $this->observations->lastForKey($existing[$key] ?? []);
-            if ($this->observations->shouldRecord($row, $previous)) {
+            if ($this->observations->shouldRecord($row, $previous, $isJapan)) {
                 $this->observations->append($region, $row);
                 $existing[$key][] = $row;
             }
@@ -98,7 +99,7 @@ class HistoryRecorder
                     'boxOffice' => (int) ($last['boxOffice'] ?? 0),
                     'isActive' => false,
                 ];
-                if ($this->observations->shouldRecord($closing, $last)) {
+                if ($this->observations->shouldRecord($closing, $last, $isJapan)) {
                     $this->observations->append($region, $closing);
                     $existing[$key][] = $closing;
                 }

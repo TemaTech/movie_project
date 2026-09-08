@@ -1993,7 +1993,8 @@
             "releaseDatePrecision": "day",
             "tmdbId": 102651,
             "legacyIds": [
-                "jp_135_1015123a"
+                "jp_135_1015123a",
+                "jp_136_1015123a"
             ],
             "firstSeenAt": "2026-08-15T03:39:56+09:00"
         },
@@ -2007,7 +2008,8 @@
             "releaseDatePrecision": "day",
             "tmdbId": 954,
             "legacyIds": [
-                "jp_136_69d5c73a"
+                "jp_136_69d5c73a",
+                "jp_137_69d5c73a"
             ],
             "firstSeenAt": "2026-08-15T03:39:56+09:00"
         },
@@ -2021,7 +2023,8 @@
             "releaseDatePrecision": "day",
             "tmdbId": 497,
             "legacyIds": [
-                "jp_136_58a557eb"
+                "jp_136_58a557eb",
+                "jp_137_58a557eb"
             ],
             "firstSeenAt": "2026-08-15T03:39:56+09:00"
         },
@@ -2035,7 +2038,8 @@
             "releaseDatePrecision": "year",
             "tmdbId": null,
             "legacyIds": [
-                "jp_136_4f4ee1ef"
+                "jp_136_4f4ee1ef",
+                "jp_137_4f4ee1ef"
             ],
             "firstSeenAt": "2026-08-15T03:39:56+09:00"
         },
@@ -2049,7 +2053,8 @@
             "releaseDatePrecision": "day",
             "tmdbId": 16804,
             "legacyIds": [
-                "jp_136_1bb71ba0"
+                "jp_136_1bb71ba0",
+                "jp_137_1bb71ba0"
             ],
             "firstSeenAt": "2026-08-15T03:39:57+09:00"
         },
@@ -2063,7 +2068,8 @@
             "releaseDatePrecision": "day",
             "tmdbId": 13,
             "legacyIds": [
-                "jp_140_37476fa7"
+                "jp_140_37476fa7",
+                "jp_141_37476fa7"
             ],
             "firstSeenAt": "2026-08-15T03:39:57+09:00"
         },
@@ -2077,7 +2083,8 @@
             "releaseDatePrecision": "year",
             "tmdbId": null,
             "legacyIds": [
-                "jp_141_0d2d8670"
+                "jp_141_0d2d8670",
+                "jp_142_0d2d8670"
             ],
             "firstSeenAt": "2026-08-15T03:39:57+09:00"
         },
@@ -2602,7 +2609,8 @@
             "tmdbId": 1891,
             "legacyIds": [
                 "jp_171_eb5bea2d",
-                "jp_172_eb5bea2d"
+                "jp_172_eb5bea2d",
+                "jp_173_eb5bea2d"
             ],
             "firstSeenAt": "2026-08-15T03:40:06+09:00"
         },
@@ -2617,7 +2625,8 @@
             "tmdbId": 927,
             "legacyIds": [
                 "jp_171_17b916c4",
-                "jp_172_17b916c4"
+                "jp_172_17b916c4",
+                "jp_173_17b916c4"
             ],
             "firstSeenAt": "2026-08-15T03:40:06+09:00"
         },
@@ -2632,7 +2641,8 @@
             "tmdbId": 1573,
             "legacyIds": [
                 "jp_171_cb758978",
-                "jp_172_cb758978"
+                "jp_172_cb758978",
+                "jp_173_cb758978"
             ],
             "firstSeenAt": "2026-08-15T03:40:06+09:00"
         },
@@ -2647,7 +2657,8 @@
             "tmdbId": 87,
             "legacyIds": [
                 "jp_171_c99169ec",
-                "jp_172_c99169ec"
+                "jp_172_c99169ec",
+                "jp_173_c99169ec"
             ],
             "firstSeenAt": "2026-08-15T03:40:07+09:00"
         },
@@ -2662,7 +2673,8 @@
             "tmdbId": 575264,
             "legacyIds": [
                 "jp_171_72dcc76e",
-                "jp_172_72dcc76e"
+                "jp_172_72dcc76e",
+                "jp_173_72dcc76e"
             ],
             "firstSeenAt": "2026-08-15T03:40:07+09:00"
         },
@@ -2677,7 +2689,8 @@
             "tmdbId": null,
             "legacyIds": [
                 "jp_171_9c18e2b6",
-                "jp_172_9c18e2b6"
+                "jp_172_9c18e2b6",
+                "jp_173_9c18e2b6"
             ],
             "firstSeenAt": "2026-08-15T03:40:07+09:00"
         },
@@ -2692,7 +2705,8 @@
             "tmdbId": null,
             "legacyIds": [
                 "jp_171_74ae2ae5",
-                "jp_172_74ae2ae5"
+                "jp_172_74ae2ae5",
+                "jp_173_74ae2ae5"
             ],
             "firstSeenAt": "2026-08-15T03:40:07+09:00"
         },
@@ -2707,7 +2721,8 @@
             "tmdbId": 56292,
             "legacyIds": [
                 "jp_171_0366d4f9",
-                "jp_172_0366d4f9"
+                "jp_172_0366d4f9",
+                "jp_173_0366d4f9"
             ],
             "firstSeenAt": "2026-08-15T03:40:07+09:00"
         },
@@ -2722,7 +2737,8 @@
             "tmdbId": 1146972,
             "legacyIds": [
                 "jp_171_8fbd83a6",
-                "jp_172_8fbd83a6"
+                "jp_172_8fbd83a6",
+                "jp_173_8fbd83a6"
             ],
             "firstSeenAt": "2026-08-15T03:40:07+09:00"
         },
@@ -2737,7 +2753,8 @@
             "tmdbId": 495925,
             "legacyIds": [
                 "jp_171_68350817",
-                "jp_172_68350817"
+                "jp_172_68350817",
+                "jp_173_68350817"
             ],
             "firstSeenAt": "2026-08-15T03:40:08+09:00"
         },
@@ -2752,7 +2769,8 @@
             "tmdbId": 698222,
             "legacyIds": [
                 "jp_171_4c9f3386",
-                "jp_172_4c9f3386"
+                "jp_172_4c9f3386",
+                "jp_173_4c9f3386"
             ],
             "firstSeenAt": "2026-08-15T03:40:08+09:00"
         },
@@ -2767,7 +2785,8 @@
             "tmdbId": 1022789,
             "legacyIds": [
                 "jp_180_7c4d3688",
-                "jp_181_7c4d3688"
+                "jp_181_7c4d3688",
+                "jp_182_7c4d3688"
             ],
             "firstSeenAt": "2026-08-15T03:40:08+09:00"
         },
@@ -2782,7 +2801,8 @@
             "tmdbId": 118,
             "legacyIds": [
                 "jp_181_9ea21f40",
-                "jp_182_9ea21f40"
+                "jp_182_9ea21f40",
+                "jp_183_9ea21f40"
             ],
             "firstSeenAt": "2026-08-15T03:40:09+09:00"
         },
@@ -2797,7 +2817,8 @@
             "tmdbId": 16766,
             "legacyIds": [
                 "jp_182_f8a4bc5a",
-                "jp_183_f8a4bc5a"
+                "jp_183_f8a4bc5a",
+                "jp_184_f8a4bc5a"
             ],
             "firstSeenAt": "2026-08-15T03:40:09+09:00"
         },
@@ -2812,7 +2833,8 @@
             "tmdbId": 75629,
             "legacyIds": [
                 "jp_183_1a997a7e",
-                "jp_184_1a997a7e"
+                "jp_184_1a997a7e",
+                "jp_185_1a997a7e"
             ],
             "firstSeenAt": "2026-08-15T03:40:09+09:00"
         },
@@ -2827,7 +2849,8 @@
             "tmdbId": 1441528,
             "legacyIds": [
                 "jp_184_814165a6",
-                "jp_185_814165a6"
+                "jp_185_814165a6",
+                "jp_186_814165a6"
             ],
             "firstSeenAt": "2026-08-15T03:40:09+09:00"
         },
@@ -2842,7 +2865,8 @@
             "tmdbId": 575265,
             "legacyIds": [
                 "jp_185_253b3e8c",
-                "jp_186_253b3e8c"
+                "jp_186_253b3e8c",
+                "jp_187_253b3e8c"
             ],
             "firstSeenAt": "2026-08-15T03:40:10+09:00"
         },
@@ -2857,7 +2881,8 @@
             "tmdbId": 114,
             "legacyIds": [
                 "jp_185_3fdccf61",
-                "jp_186_3fdccf61"
+                "jp_186_3fdccf61",
+                "jp_187_3fdccf61"
             ],
             "firstSeenAt": "2026-08-15T03:40:10+09:00"
         },
@@ -2872,7 +2897,8 @@
             "tmdbId": 9806,
             "legacyIds": [
                 "jp_186_9e338062",
-                "jp_187_9e338062"
+                "jp_187_9e338062",
+                "jp_188_9e338062"
             ],
             "firstSeenAt": "2026-08-15T03:40:10+09:00"
         },
@@ -2887,7 +2913,8 @@
             "tmdbId": 221731,
             "legacyIds": [
                 "jp_187_cd34fbf2",
-                "jp_188_cd34fbf2"
+                "jp_188_cd34fbf2",
+                "jp_189_cd34fbf2"
             ],
             "firstSeenAt": "2026-08-15T03:40:10+09:00"
         },
@@ -2902,7 +2929,8 @@
             "tmdbId": 180,
             "legacyIds": [
                 "jp_188_1e3d6ab3",
-                "jp_189_1e3d6ab3"
+                "jp_189_1e3d6ab3",
+                "jp_190_1e3d6ab3"
             ],
             "firstSeenAt": "2026-08-15T03:40:11+09:00"
         },
@@ -6679,7 +6707,8 @@
             "tmdbId": 1511675,
             "legacyIds": [
                 "jp_150_e3c8f2cf",
-                "jp_142_e3c8f2cf"
+                "jp_142_e3c8f2cf",
+                "jp_135_e3c8f2cf"
             ],
             "firstSeenAt": "2026-08-29T21:03:40+09:00"
         },
@@ -6712,7 +6741,8 @@
             "releaseDatePrecision": "day",
             "tmdbId": 969681,
             "legacyIds": [
-                "jp_189_f56a5cfa"
+                "jp_189_f56a5cfa",
+                "jp_173_f56a5cfa"
             ],
             "firstSeenAt": "2026-09-01T19:54:45+09:00"
         },
@@ -6762,6 +6792,34 @@
                 "200_11631"
             ],
             "firstSeenAt": "2026-09-02T00:54:06+09:00"
+        },
+        "jp-a85258340e": {
+            "key": "jp-a85258340e",
+            "region": "japan",
+            "title": "スーパーマン（1978年）",
+            "normalizedTitle": "スーパーマン 1978年",
+            "releaseYear": 1979,
+            "releaseDate": "1979-01-01",
+            "releaseDatePrecision": "year",
+            "tmdbId": null,
+            "legacyIds": [
+                "jp_166_d359f3b9"
+            ],
+            "firstSeenAt": "2026-09-08T19:23:04+09:00"
+        },
+        "jp-tmdb-11953": {
+            "key": "jp-tmdb-11953",
+            "region": "japan",
+            "title": "影武者",
+            "normalizedTitle": "影武者",
+            "releaseYear": 1980,
+            "releaseDate": "1980-04-26",
+            "releaseDatePrecision": "day",
+            "tmdbId": 11953,
+            "legacyIds": [
+                "jp_170_57ef4bfc"
+            ],
+            "firstSeenAt": "2026-09-08T19:23:06+09:00"
         }
     },
     "aliases": {
@@ -8262,6 +8320,38 @@
         "jp_036_cab82718": "jp-tmdb-1893",
         "jp_037_07382cb0": "jp-tmdb-321612",
         "jp_085_20b41c60": "jp-tmdb-936075",
-        "jp_086_2bc2d892": "jp-tmdb-265712"
+        "jp_086_2bc2d892": "jp-tmdb-265712",
+        "jp_135_e3c8f2cf": "jp-tmdb-1511675",
+        "jp_136_1015123a": "jp-tmdb-102651",
+        "jp_137_69d5c73a": "jp-tmdb-954",
+        "jp_137_58a557eb": "jp-tmdb-497",
+        "jp_137_4f4ee1ef": "jp-2be894f9a2",
+        "jp_137_1bb71ba0": "jp-tmdb-16804",
+        "jp_141_37476fa7": "jp-tmdb-13",
+        "jp_142_0d2d8670": "jp-ec426053cb",
+        "jp_166_d359f3b9": "jp-a85258340e",
+        "jp_170_57ef4bfc": "jp-tmdb-11953",
+        "jp_173_f56a5cfa": "jp-tmdb-969681",
+        "jp_173_eb5bea2d": "jp-tmdb-1891",
+        "jp_173_17b916c4": "jp-tmdb-927",
+        "jp_173_cb758978": "jp-tmdb-1573",
+        "jp_173_c99169ec": "jp-tmdb-87",
+        "jp_173_72dcc76e": "jp-tmdb-575264",
+        "jp_173_9c18e2b6": "jp-272b742033",
+        "jp_173_74ae2ae5": "jp-7ae1512ee6",
+        "jp_173_0366d4f9": "jp-tmdb-56292",
+        "jp_173_8fbd83a6": "jp-tmdb-1146972",
+        "jp_173_68350817": "jp-tmdb-495925",
+        "jp_173_4c9f3386": "jp-tmdb-698222",
+        "jp_182_7c4d3688": "jp-tmdb-1022789",
+        "jp_183_9ea21f40": "jp-tmdb-118",
+        "jp_184_f8a4bc5a": "jp-tmdb-16766",
+        "jp_185_1a997a7e": "jp-tmdb-75629",
+        "jp_186_814165a6": "jp-tmdb-1441528",
+        "jp_187_253b3e8c": "jp-tmdb-575265",
+        "jp_187_3fdccf61": "jp-tmdb-114",
+        "jp_188_9e338062": "jp-tmdb-9806",
+        "jp_189_cd34fbf2": "jp-tmdb-221731",
+        "jp_190_1e3d6ab3": "jp-tmdb-180"
     }
 }

@@ -19,3 +19,6 @@
 {"key":"jp-tmdb-1146972","observedAt":"2026-09-08T19:23:16+09:00","boxOffice":5480000000,"isActive":false,"correction":true}
 {"key":"jp-tmdb-495925","observedAt":"2026-09-08T19:23:16+09:00","boxOffice":5480000000,"isActive":false,"correction":true}
 {"key":"jp-tmdb-698222","observedAt":"2026-09-08T19:23:16+09:00","boxOffice":5480000000,"isActive":false,"correction":true}
+{"key":"jp-tmdb-1586876","observedAt":"2026-09-14T20:23:28+09:00","boxOffice":14669999999,"isActive":true}
+{"key":"jp-tmdb-1084244","observedAt":"2026-09-14T20:23:28+09:00","boxOffice":12830000000,"isActive":true}
+{"key":"jp-tmdb-936075","observedAt":"2026-09-14T20:23:28+09:00","boxOffice":8520000000,"isActive":true}

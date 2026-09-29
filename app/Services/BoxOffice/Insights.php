@@ -215,7 +215,12 @@ class Insights
         $lastObservedAt = $last['observedAt'] ?? null;
         $precision = $registry['releaseDatePrecision'] ?? ($movie['releaseDatePrecision'] ?? null);
         $releaseDate = $registry['releaseDate'] ?? ($movie['releaseDate'] ?? null);
-        $daysSinceRelease = self::daysSinceRelease($releaseDate, $precision, $now);
+        $revivalDate = is_string($registry['currentReleaseDate'] ?? null) && $registry['currentReleaseDate'] !== ''
+            ? $registry['currentReleaseDate']
+            : null;
+        $paceDate = $revivalDate ?? $releaseDate;
+        $pacePrecision = $revivalDate ? 'day' : $precision;
+        $daysSinceRelease = self::daysSinceRelease($paceDate, $pacePrecision, $now);
         $lastChangeAt = self::lastChangeAt($observations);
         $isActive = (bool) ($movie['isActive'] ?? false);
         $onBoard = $isActive;
@@ -224,7 +229,7 @@ class Insights
             && self::hoursBetween(new DateTimeImmutable($lastChangeAt), $now) <= self::TODAY_WITHIN_HOURS
             && count($observations) > 1;
 
-        $milestones = self::milestones($region, $movie, $observations, $releaseDate, $precision);
+        $milestones = self::milestones($region, $movie, $observations, $paceDate, $pacePrecision);
         $recentMilestones = array_values(array_filter(
             $milestones,
             fn (array $item) => isset($item['reachedAt'])
@@ -260,6 +265,7 @@ class Insights
             'daysSinceRelease' => $daysSinceRelease,
             'releaseDate' => $releaseDate,
             'releaseDatePrecision' => $precision,
+            'currentReleaseDate' => $revivalDate,
             'onBoard' => $onBoard,
             'changedRecently' => $changedRecently,
             'passed' => $passed,

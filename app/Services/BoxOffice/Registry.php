@@ -77,6 +77,7 @@ class Registry implements RegistryRepository
      *     releaseYear?: int|null,
      *     releaseDate?: string|null,
      *     releaseDatePrecision?: string|null,
+     *     currentReleaseDate?: string|null,
      *     legacyIds?: list<string>
      * }  $incoming
      * @return array<string, mixed>
@@ -128,6 +129,13 @@ class Registry implements RegistryRepository
         if (! empty($incoming['releaseDate']) && empty($match['releaseDate'])) {
             $match['releaseDate'] = $incoming['releaseDate'];
             $match['releaseDatePrecision'] = $incoming['releaseDatePrecision'] ?? $match['releaseDatePrecision'] ?? null;
+        }
+        if (array_key_exists('currentReleaseDate', $incoming)) {
+            if (! empty($incoming['currentReleaseDate'])) {
+                $match['currentReleaseDate'] = $incoming['currentReleaseDate'];
+            } else {
+                unset($match['currentReleaseDate']);
+            }
         }
 
         foreach ($incoming['legacyIds'] ?? [] as $legacyId) {

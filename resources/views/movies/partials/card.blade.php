@@ -1,14 +1,9 @@
 @php
-    // Determine if the movie is currently active
-    // For Japan: Use DB flag is_active (green background in wiki)
-    // For Global: Use 6-month release window
+    // 日本は Wikipedia の公開中フラグ。世界は公開6ヶ月以内、またはリバイバル上映のフラグ。
     $releaseDate = $movie->release_date ? \Carbon\Carbon::parse($movie->release_date) : null;
-    $isActive = false;
-
-    if (isset($isJapan) && $isJapan) {
-        $isActive = (bool)($movie->is_active ?? false);
-    } else {
-        $isActive = $releaseDate && $releaseDate->diffInMonths(now()) <= 6;
+    $isActive = (bool) ($movie->is_active ?? false);
+    if (! $isActive && (! isset($isJapan) || ! $isJapan) && $releaseDate) {
+        $isActive = $releaseDate->diffInMonths(now()) <= 6;
     }
 
     $posterUrl = '';

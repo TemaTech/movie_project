@@ -353,8 +353,10 @@ TXT);
                 'nextMilestone' => $insight['nextMilestone'] ?? null,
                 'nextToOvertake' => $insight['nextToOvertake'] ?? null,
                 'periodGrowth' => $insight['periodGrowth'] ?? [],
-                'releaseDate' => $insight['releaseDate'] ?? ($movie['releaseDate'] ?? null),
-                'releaseDatePrecision' => $insight['releaseDatePrecision'] ?? ($movie['releaseDatePrecision'] ?? null),
+                'releaseDate' => $insight['currentReleaseDate'] ?? $insight['releaseDate'] ?? ($movie['releaseDate'] ?? null),
+                'releaseDatePrecision' => ! empty($insight['currentReleaseDate'])
+                    ? 'day'
+                    : ($insight['releaseDatePrecision'] ?? ($movie['releaseDatePrecision'] ?? null)),
             ];
         }
 
@@ -428,8 +430,10 @@ TXT);
                         'nextMilestone' => $item['nextMilestone'] ?? null,
                         'nextToOvertake' => $item['nextToOvertake'] ?? null,
                         'periodGrowth' => $item['periodGrowth'] ?? [],
-                        'releaseDate' => $item['releaseDate'] ?? null,
-                        'releaseDatePrecision' => $item['releaseDatePrecision'] ?? null,
+                        'releaseDate' => $item['currentReleaseDate'] ?? $item['releaseDate'] ?? null,
+                        'releaseDatePrecision' => ! empty($item['currentReleaseDate'])
+                            ? 'day'
+                            : ($item['releaseDatePrecision'] ?? null),
                     ],
                 ];
             }
@@ -648,10 +652,11 @@ XML);
             if (! is_array($insight) || empty($insight['isActive'])) {
                 continue;
             }
+            [$chartDate, $chartPrecision] = $this->chartOrigin($insight);
             $points = $this->chartRows(
                 $insight['sparkline'] ?? [],
-                $insight['releaseDate'] ?? null,
-                $insight['releaseDatePrecision'] ?? null,
+                $chartDate,
+                $chartPrecision,
                 $isJapan,
             );
             if (count($points) < 2 || ($points[0]['day'] ?? null) === null) {
@@ -990,6 +995,21 @@ XML);
         }
 
         return $collapsed;
+    }
+
+    /**
+     * リバイバル中は、比較グラフの起点を今回の劇場公開日にする。
+     *
+     * @param  array<string, mixed>  $insight
+     * @return array{0: ?string, 1: ?string}
+     */
+    private function chartOrigin(array $insight): array
+    {
+        if (! empty($insight['currentReleaseDate'])) {
+            return [$insight['currentReleaseDate'], 'day'];
+        }
+
+        return [$insight['releaseDate'] ?? null, $insight['releaseDatePrecision'] ?? null];
     }
 
     private function chartDayNumber(?string $releaseDate, ?string $precision, Carbon $at): ?int

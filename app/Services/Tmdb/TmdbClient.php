@@ -47,13 +47,17 @@ class TmdbClient
     }
 
     /**
+     * @param  list<string>  $append
      * @return array<string, mixed>|null
      */
-    public function getMovie(int $movieId, string $language = 'ja'): ?array
+    public function getMovie(int $movieId, string $language = 'ja', array $append = []): ?array
     {
-        $data = $this->request('get', "/movie/{$movieId}", [
-            'language' => $language,
-        ]);
+        $query = ['language' => $language];
+        if ($append !== []) {
+            $query['append_to_response'] = implode(',', $append);
+        }
+
+        $data = $this->request('get', "/movie/{$movieId}", $query);
 
         if ($data === null || ! self::isValidMovieResponse($data)) {
             return null;

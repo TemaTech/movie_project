@@ -6,6 +6,7 @@ use App\Console\Traits\SavesMovieImages;
 use App\Models\GlobalMovie;
 use App\Services\BoxOffice\HistoryRecorder;
 use App\Services\BoxOffice\MovieIdentity;
+use App\Services\BoxOffice\TheatricalRun;
 use App\Services\Tmdb\TmdbClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -177,7 +178,7 @@ class FetchGlobalBoxOffice extends Command
         try {
             $tmdbId = (int) $movie['id'];
             $movieDetails = $this->tmdb->getMovie($tmdbId, 'ja');
-            $englishDetails = $this->tmdb->getMovie($tmdbId, 'en-US');
+            $englishDetails = $this->tmdb->getMovie($tmdbId, 'en-US', ['release_dates']);
 
             if ($movieDetails === null) {
                 $this->error("映画ID {$tmdbId} の詳細取得に失敗しました");
@@ -245,6 +246,11 @@ class FetchGlobalBoxOffice extends Command
 
             $key = MovieIdentity::globalKey($tmdbId);
             $year = $releaseDate ? (int) substr($releaseDate, 0, 4) : null;
+            $theatrical = TheatricalRun::assess(
+                is_string($releaseDate) ? $releaseDate : null,
+                is_array($englishDetails) ? ($englishDetails['release_dates']['results'] ?? []) : [],
+                now('Asia/Tokyo')->toDateTimeImmutable(),
+            );
 
             $this->history->resolve([
                 'region' => 'global',
@@ -253,6 +259,7 @@ class FetchGlobalBoxOffice extends Command
                 'releaseYear' => $year,
                 'releaseDate' => $releaseDate,
                 'releaseDatePrecision' => $releaseDate ? 'day' : null,
+                'currentReleaseDate' => $theatrical['revivalDate'],
                 'legacyIds' => [
                     MovieIdentity::globalLegacyId($rank, $tmdbId),
                     MovieIdentity::globalLegacySlug($rank, $tmdbId),
@@ -272,8 +279,14 @@ class FetchGlobalBoxOffice extends Command
                 }
             }
 
-            $isActive = $releaseDate
-                && $releaseDate >= now('Asia/Tokyo')->subMonths(6)->toDateString();
+            $isActive = $theatrical['active'];
+            if ($theatrical['revivalDate']) {
+                $this->info(sprintf(
+                    'リバイバル上映として公開中にします: %s (%s)',
+                    $movieDetails['title'] ?? $movie['title'],
+                    $theatrical['revivalDate']
+                ));
+            }
 
             $this->info(sprintf(
                 'データ取得完了 [%d/%d]: %s (興行収入: $%s)',

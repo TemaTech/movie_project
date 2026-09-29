@@ -19,10 +19,10 @@ return [
     | File History Path
     |--------------------------------------------------------------------------
     |
-    | CI and production builds use the default "data/history" directory, which
-    | GitHub Actions commits after each fetch. For local development, set
-    | BOX_OFFICE_HISTORY_PATH to a gitignored directory so fetch runs do not
-    | dirty the working tree.
+    | CI builds read and write "data/history", then push that directory to the
+    | box-office-history branch. The code branch is left untouched. For local
+    | development, set BOX_OFFICE_HISTORY_PATH to a gitignored directory so
+    | fetch runs do not dirty the working tree.
     |
     */
 

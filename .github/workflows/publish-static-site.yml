@@ -125,6 +125,19 @@ jobs:
             exit 1
           fi
 
+      - name: Restore box office history
+        run: |
+          set -euo pipefail
+          # History lives on its own branch so scheduled runs do not move the code branch.
+          if git ls-remote --exit-code --heads origin box-office-history >/dev/null; then
+            git fetch --no-tags origin box-office-history
+            rm -rf data/history
+            git checkout FETCH_HEAD -- data/history
+            git reset -q HEAD -- data/history
+          else
+            echo "No box-office-history branch yet. Using data/history from this revision."
+          fi
+
       - name: Fetch ranking data
         run: |
           php artisan movies:fetch-japanese-boxoffice
@@ -132,14 +145,40 @@ jobs:
 
       - name: Persist box office history
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/history
-          if git diff --cached --quiet; then
+
+          root="$(mktemp -d)"
+          snapshot="$root/history"
+          work="$root/wt"
+          cp -a data/history "$snapshot"
+
+          cleanup() {
+            git worktree remove --force "$work" >/dev/null 2>&1 || true
+            rm -rf "$root"
+          }
+          trap cleanup EXIT
+
+          if git ls-remote --exit-code --heads origin box-office-history >/dev/null; then
+            git fetch --no-tags origin box-office-history:refs/heads/box-office-history
+            git worktree add "$work" box-office-history
+          else
+            git worktree add --detach "$work" HEAD
+            git -C "$work" checkout --orphan box-office-history
+            git -C "$work" read-tree --empty
+            find "$work" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          fi
+
+          rm -rf "$work/data/history"
+          mkdir -p "$work/data"
+          cp -a "$snapshot" "$work/data/history"
+          git -C "$work" add data/history
+          if git -C "$work" diff --cached --quiet; then
             echo "No box office history changes"
           else
-            git commit -m "chore: record box office observations"
-            git push
+            git -C "$work" commit -m "chore: record box office observations"
+            git -C "$work" push origin HEAD:box-office-history
           fi
 
       - name: Export static site

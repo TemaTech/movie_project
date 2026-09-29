@@ -189,7 +189,12 @@ class FetchGlobalBoxOffice extends Command
                 return null;
             }
 
-            $revenue = (int) ($movieDetails['revenue'] ?? ($movie['revenue'] ?? 0));
+            // 興行収入は作品ページと同じ英語（en-US）の revenue を使う。
+            // TMDB は言語ごとにこの値を持っていて、日本語訳だけ更新が遅れることがある。
+            $revenue = (int) ($englishDetails['revenue'] ?? 0);
+            if ($revenue === 0 || $revenue === 1000000000) {
+                $revenue = (int) ($movieDetails['revenue'] ?? ($movie['revenue'] ?? 0));
+            }
 
             if ($revenue === 0 || $revenue === 1000000000) {
                 $this->info(sprintf(

@@ -30,10 +30,12 @@
 
 GitHub Actions（`Publish static movie ranking`）が次の流れで更新します。
 
-1. 一時 MySQL へランキング取得
-2. `data/history/` に履歴を追記
-3. `data/history` をコミット・push
+1. `box-office-history` ブランチから `data/history/` を復元する
+2. 一時 MySQL へランキング取得
+3. 追記した `data/history` を **`box-office-history` ブランチだけ** にコミット・push する
 4. 静的サイトを生成して Cloudflare Pages へデプロイ
+
+履歴コミットは開発ブランチへ入れません。定時実行でブランチ先端が動かないので、自分の修正を push する前に毎回 pull する必要はありません。
 
 CI では `BOX_OFFICE_HISTORY_PATH` を **設定しません**（デフォルトの `data/history` を使用）。
 `.env.example` をコピーするだけではこの値が入ってしまうため、有効な代入はコメントアウトし、ワークフロー側でも削除します。
@@ -48,12 +50,22 @@ BOX_OFFICE_HISTORY_PATH=storage/box-office-history
 ```
 
 初回はリポジトリ内の `data/history/` を自動コピーしてブートストラップします。
+このコピーは種データです。本番の最新履歴は `box-office-history` ブランチにあります。
 以降のローカル fetch は `storage/box-office-history/` のみ更新され、**Git には出ません**。
+
+最新の本番履歴でローカルディレクトリを作り直す場合:
+
+```bash
+git fetch origin box-office-history
+rm -rf storage/box-office-history
+mkdir -p storage/box-office-history
+git archive origin/box-office-history data/history | tar -x --strip-components=2 -C storage/box-office-history
+```
 
 ### ローカルでの注意
 
 - `data/history/` の変更は **コミットしない**
-- 最新の本番履歴が必要なら `main` を pull してから、ローカル履歴ディレクトリを削除して再ブートストラップ
+- 開発ブランチ上の `data/history/` は CI では更新されない
 - 誤って `data/history/` を更新した場合: `git restore data/history/`
 
 静的サイトの出力確認:

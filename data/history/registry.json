@@ -6998,6 +6998,21 @@
                 "jp_171_57ef4bfc"
             ],
             "firstSeenAt": "2026-09-08T19:23:06+09:00"
+        },
+        "tmdb-585": {
+            "key": "tmdb-585",
+            "region": "global",
+            "title": "モンスターズ・インク",
+            "normalizedTitle": "モンスターズ インク",
+            "releaseYear": 2001,
+            "releaseDate": "2001-11-01",
+            "releaseDatePrecision": "day",
+            "tmdbId": 585,
+            "legacyIds": [
+                "global_184_585",
+                "184_585"
+            ],
+            "firstSeenAt": "2026-10-03T19:56:52+09:00"
         }
     },
     "aliases": {
@@ -8683,6 +8698,8 @@
         "global_079_675": "tmdb-675",
         "079_675": "tmdb-675",
         "global_119_1311031": "tmdb-1311031",
-        "119_1311031": "tmdb-1311031"
+        "119_1311031": "tmdb-1311031",
+        "global_184_585": "tmdb-585",
+        "184_585": "tmdb-585"
     }
 }

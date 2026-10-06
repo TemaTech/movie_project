@@ -1888,7 +1888,8 @@
             "releaseDatePrecision": "day",
             "tmdbId": 127380,
             "legacyIds": [
-                "jp_126_5af52f59"
+                "jp_126_5af52f59",
+                "jp_127_5af52f59"
             ],
             "firstSeenAt": "2026-08-15T03:39:53+09:00"
         },
@@ -2429,7 +2430,8 @@
             "tmdbId": 36955,
             "legacyIds": [
                 "jp_160_7e778576",
-                "jp_161_7e778576"
+                "jp_161_7e778576",
+                "jp_162_7e778576"
             ],
             "firstSeenAt": "2026-08-15T03:40:02+09:00"
         },
@@ -6888,7 +6890,8 @@
                 "jp_135_e3c8f2cf",
                 "jp_132_e3c8f2cf",
                 "jp_127_e3c8f2cf",
-                "jp_126_e3c8f2cf"
+                "jp_126_e3c8f2cf",
+                "jp_124_e3c8f2cf"
             ],
             "firstSeenAt": "2026-08-29T21:03:40+09:00"
         },
@@ -6924,7 +6927,8 @@
                 "jp_189_f56a5cfa",
                 "jp_173_f56a5cfa",
                 "jp_166_f56a5cfa",
-                "jp_162_f56a5cfa"
+                "jp_162_f56a5cfa",
+                "jp_161_f56a5cfa"
             ],
             "firstSeenAt": "2026-09-01T19:54:45+09:00"
         },
@@ -8712,6 +8716,10 @@
         "global_002_19995": "tmdb-19995",
         "002_19995": "tmdb-19995",
         "jp_082_20b41c60": "jp-tmdb-936075",
-        "jp_083_58a9aef7": "jp-tmdb-603"
+        "jp_083_58a9aef7": "jp-tmdb-603",
+        "jp_124_e3c8f2cf": "jp-tmdb-1511675",
+        "jp_127_5af52f59": "jp-tmdb-127380",
+        "jp_161_f56a5cfa": "jp-tmdb-969681",
+        "jp_162_7e778576": "jp-tmdb-36955"
     }
 }

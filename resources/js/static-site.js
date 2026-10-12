@@ -21,6 +21,7 @@ const app = document.querySelector('#app');
 let siteData = null;
 let nowPlayingData = null;
 let nowPlayingRequest = null;
+const newsCatalog = new Map();
 
 const defaultState = () => ({
     view: 'ranking',
@@ -84,6 +85,99 @@ const aiOverlay = (analysis) => {
         <div class="ai-overlay-content">${escapeHtml(analysis)}</div>
     </div>`;
 };
+
+function newsId(movie) {
+    return String(movie.id || movie.key || '');
+}
+
+function rememberNews(movie) {
+    const id = newsId(movie);
+    if (!id || !movie.news?.length) return;
+    newsCatalog.set(id, movie);
+}
+
+function newsButton(movie) {
+    const id = newsId(movie);
+    if (!id || !movie.news?.length) return '';
+    rememberNews(movie);
+    return `<button type="button" class="news-trigger-btn" data-open-news="${escapeHtml(id)}" aria-label="${escapeHtml(movie.title)}の興行収入ニュース">News</button>`;
+}
+
+function safeNewsUrl(url) {
+    try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'https:' || parsed.hostname !== 'news.yahoo.co.jp') return '';
+        if (!parsed.pathname.startsWith('/articles/')) return '';
+        return `${parsed.origin}${parsed.pathname}`;
+    } catch {
+        return '';
+    }
+}
+
+function formatNewsDate(iso) {
+    if (!iso) return '';
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return '';
+    return `${date.getMonth() + 1}/${date.getDate()}`;
+}
+
+function ensureNewsModal() {
+    if (document.getElementById('newsModal')) return;
+    document.body.insertAdjacentHTML('beforeend', `<div id="newsModal" class="news-modal-overlay" hidden>
+        <div class="news-modal" role="dialog" aria-modal="true" aria-labelledby="newsModalTitle">
+            <button type="button" class="news-modal-close" aria-label="閉じる">&times;</button>
+            <p class="news-modal-kicker">Box office news</p>
+            <h2 id="newsModalTitle" class="news-modal-title"></h2>
+            <div id="newsModalList" class="news-modal-list"></div>
+            <p class="news-modal-note">見出しは Yahoo!ニュースに掲載された各媒体の記事へのリンクです。興行収入の数字は報道の引用で、このランキングの集計とは一致しないことがあります。</p>
+        </div>
+    </div>`);
+    const overlay = document.getElementById('newsModal');
+    overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) closeNewsModal();
+    });
+    overlay.querySelector('.news-modal-close').addEventListener('click', closeNewsModal);
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !overlay.hidden) closeNewsModal();
+    });
+}
+
+function openNewsModal(id) {
+    const movie = newsCatalog.get(id);
+    if (!movie) return;
+    ensureNewsModal();
+    const overlay = document.getElementById('newsModal');
+    document.getElementById('newsModalTitle').textContent = movie.title;
+    const links = (movie.news || []).map((article) => {
+        const url = safeNewsUrl(article.url);
+        if (!url) return '';
+        const date = formatNewsDate(article.publishedAt);
+        return `<a class="news-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">
+            <span class="news-link-source">${escapeHtml(article.source || 'Yahoo!ニュース')}</span>
+            <span class="news-link-title">${escapeHtml(article.title || '')}</span>
+            ${date ? `<time class="news-link-date">${escapeHtml(date)}</time>` : ''}
+        </a>`;
+    }).filter(Boolean).join('');
+    document.getElementById('newsModalList').innerHTML = links || '<p class="news-modal-empty">表示できる記事がありません。</p>';
+    overlay.hidden = false;
+    overlay.querySelector('.news-modal-close').focus();
+}
+
+function closeNewsModal() {
+    const overlay = document.getElementById('newsModal');
+    if (overlay) overlay.hidden = true;
+}
+
+function bindNewsModal() {
+    ensureNewsModal();
+    document.querySelectorAll('[data-open-news]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            openNewsModal(button.dataset.openNews);
+        });
+    });
+}
 
 function parseStateFromUrl() {
     const params = new URLSearchParams(window.location.search);
@@ -167,7 +261,7 @@ function movieCard(movie) {
     const subtitle = showOriginalTitle(movie)
         ? `<div class="movie-title-en">${escapeHtml(movie.originalTitle)}</div>` : '';
     const bgImage = url ? `<div class="card-bg-image" style="background-image:url('${escapeHtml(url)}')"></div>` : '';
-    return `<article class="top-card rank-${movie.rank} ${movie.isActive ? 'active-movie' : ''}" data-movie-id="${escapeHtml(movie.id)}" role="button" tabindex="0" aria-label="${escapeHtml(movie.title)}の詳細を見る">
+    return `<article class="top-card rank-${movie.rank} ${movie.isActive ? 'active-movie' : ''}${movie.news?.length ? ' has-news' : ''}" data-movie-id="${escapeHtml(movie.id)}" role="button" tabindex="0" aria-label="${escapeHtml(movie.title)}の詳細を見る">
         ${movie.isActive ? '<div class="active-badge-card">公開中</div>' : ''}
         <div class="rank-badge">${movie.rank}</div>
         <div class="card-poster ${url ? '' : 'poster-placeholder'}" ${posterStyle(movie.posterUrl)}></div>
@@ -179,6 +273,7 @@ function movieCard(movie) {
             ${movie.revenueYen ? `<div class="revenue-sub">${escapeHtml(movie.revenueYen)}</div>` : ''}
             ${movie.momentum?.deltaLabel ? `<div class="momentum-badge">${escapeHtml(movie.momentum.deltaLabel)}</div>` : ''}
         </div>
+        ${newsButton(movie)}
         ${aiOverlay(movie.analysis)}
     </article>`;
 }
@@ -189,7 +284,7 @@ function movieRow(movie, isJapan) {
         ? `<span class="movie-title-en">${escapeHtml(movie.originalTitle)}</span>` : '';
     const bgImage = url ? `<div class="list-bg-image" style="background-image:url('${escapeHtml(url)}')"></div>` : '';
     const barWidth = revenueBarWidth(movie, isJapan);
-    return `<article class="list-item ${movie.isActive ? 'active-movie' : ''} ${isJapan ? 'is-japan' : ''}" data-movie-id="${escapeHtml(movie.id)}" role="button" tabindex="0" aria-label="${escapeHtml(movie.title)}の詳細を見る">
+    return `<article class="list-item ${movie.isActive ? 'active-movie' : ''} ${isJapan ? 'is-japan' : ''}${movie.news?.length ? ' has-news' : ''}" data-movie-id="${escapeHtml(movie.id)}" role="button" tabindex="0" aria-label="${escapeHtml(movie.title)}の詳細を見る">
         ${movie.isActive ? '<div class="active-badge-card">公開中</div>' : ''}
         <div class="revenue-bar-bg" style="width: ${barWidth}%;"></div>
         ${bgImage}
@@ -203,6 +298,7 @@ function movieRow(movie, isJapan) {
             ${movie.revenueYen ? `<span class="revenue-sub">${escapeHtml(movie.revenueYen)}</span>` : ''}
             ${movie.momentum?.deltaLabel ? `<span class="momentum-badge">${escapeHtml(movie.momentum.deltaLabel)}</span>` : ''}
         </div>
+        ${newsButton(movie)}
         ${aiOverlay(movie.analysis)}
     </article>`;
 }
@@ -400,6 +496,9 @@ function bindHeader() {
 }
 
 function renderNowBoard(data) {
+    newsCatalog.clear();
+    const regionKey = state.region === 'global' ? 'global' : 'japan';
+    (nowPlayingData?.[regionKey]?.board || []).forEach(rememberNews);
     const title = state.region === 'japan' ? '公開中映画の勢い（日本）' : '公開中映画の勢い（世界）';
     app.innerHTML = `${headerHtml()}
     <main class="container">
@@ -415,6 +514,7 @@ function renderNowBoard(data) {
         render(data);
     });
     bindMovieInteractions(data);
+    bindNewsModal();
 }
 
 function render(data) {
@@ -442,6 +542,7 @@ function render(data) {
         syncUrl(true);
     }
 
+    newsCatalog.clear();
     const movies = getPageMovies(rankedMovies);
     const top = movies.filter((movie) => movie.rank <= 3);
     const rest = movies.filter((movie) => movie.rank > 3);
@@ -482,6 +583,7 @@ function render(data) {
     updateFilterBadges(activeFilterCount(state));
     bindMovieInteractions(data);
     bindAiOverlays();
+    bindNewsModal();
 }
 
 function init(data) {

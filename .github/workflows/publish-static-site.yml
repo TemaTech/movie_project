@@ -77,6 +77,13 @@ jobs:
           key: posters-${{ runner.os }}-v1
           restore-keys: posters-${{ runner.os }}-v1
 
+      - name: Restore box office news cache
+        uses: actions/cache@v4
+        with:
+          path: storage/app/news-cache.json
+          key: news-cache-${{ runner.os }}-v1
+          restore-keys: news-cache-${{ runner.os }}-v1
+
       - name: Restore Composer cache
         uses: actions/cache@v4
         with:

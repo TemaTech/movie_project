@@ -10,9 +10,12 @@ use App\Services\BoxOffice\HistoryRecorder;
 use App\Services\BoxOffice\Insights;
 use App\Services\BoxOffice\MovieIdentity;
 use App\Services\BoxOffice\TheatricalRun;
+use App\Services\News\BoxOfficeNewsMatcher;
+use App\Services\News\YahooBoxOfficeNews;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 
 class ExportStaticSite extends Command
 {
@@ -20,7 +23,8 @@ class ExportStaticSite extends Command
 
     protected $signature = 'site:export-static
                             {--output=dist : Export directory}
-                            {--refresh-details : Re-fetch all TMDb detail files}';
+                            {--refresh-details : Re-fetch all TMDb detail files}
+                            {--skip-news : Do not fetch box office news links}';
 
     protected $description = 'Export the movie rankings as a static site for Cloudflare Pages';
 
@@ -69,6 +73,15 @@ class ExportStaticSite extends Command
             'japan' => $this->buildActiveSeries($japanInsights, true),
         ];
 
+        if (! $this->option('skip-news')) {
+            try {
+                $this->attachBoxOfficeNews($global, $japan, $globalInsights, $japanInsights);
+            } catch (\Throwable $exception) {
+                Log::warning('Box office news was skipped', ['error' => $exception->getMessage()]);
+                $this->warn('興行収入ニュースの取得に失敗したため、Newsボタンなしで書き出します: '.$exception->getMessage());
+            }
+        }
+
         File::put($output . '/data/movies.json', json_encode([
             'generatedAt' => now('Asia/Tokyo')->toIso8601String(),
             'usdJpy' => $this->usdJpy(),
@@ -101,6 +114,112 @@ class ExportStaticSite extends Command
         $this->line("Movie pages: {$moviePageCount}");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * 公開中の作品だけを対象に、Yahoo!ニュース上の興行収入記事を付ける。
+     * 記事が無い作品には news を付けない。
+     *
+     * @param  list<array<string, mixed>>  $global
+     * @param  list<array<string, mixed>>  $japan
+     * @param  array<string, mixed>  $globalInsights
+     * @param  array<string, mixed>  $japanInsights
+     */
+    private function attachBoxOfficeNews(array &$global, array &$japan, array &$globalInsights, array &$japanInsights): void
+    {
+        $targets = [];
+        foreach ([$japanInsights, $globalInsights] as $insights) {
+            foreach ($insights['board'] ?? [] as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+                $this->pushNewsTarget($targets, (string) ($item['key'] ?? ''), (string) ($item['title'] ?? ''), null);
+            }
+        }
+        foreach ([$japan, $global] as $movies) {
+            foreach ($movies as $movie) {
+                if (empty($movie['isActive'])) {
+                    continue;
+                }
+                $this->pushNewsTarget(
+                    $targets,
+                    (string) ($movie['id'] ?? ''),
+                    (string) ($movie['title'] ?? ''),
+                    isset($movie['originalTitle']) ? (string) $movie['originalTitle'] : null,
+                );
+            }
+        }
+
+        $targets = array_slice($targets, 0, 40, true);
+        if ($targets === []) {
+            $this->line('興行収入ニュース: 対象の公開中作品はありません');
+
+            return;
+        }
+
+        $found = (new YahooBoxOfficeNews(cachePath: storage_path('app/news-cache.json')))
+            ->forMovies(array_values($targets));
+        $byTitle = [];
+        foreach ($targets as $target) {
+            $items = $found[$target['key']] ?? [];
+            if ($items === []) {
+                continue;
+            }
+            $byTitle[BoxOfficeNewsMatcher::normalize($target['title'])] = $items;
+        }
+
+        $this->stampNews($global, $found, $byTitle, 'id');
+        $this->stampNews($japan, $found, $byTitle, 'id');
+        if (isset($globalInsights['board']) && is_array($globalInsights['board'])) {
+            $this->stampNews($globalInsights['board'], $found, $byTitle, 'key');
+        }
+        if (isset($japanInsights['board']) && is_array($japanInsights['board'])) {
+            $this->stampNews($japanInsights['board'], $found, $byTitle, 'key');
+        }
+
+        $placements = count(array_filter($global, fn (array $movie) => ! empty($movie['news'])))
+            + count(array_filter($japan, fn (array $movie) => ! empty($movie['news'])));
+        $this->info('興行収入ニュース: ランキング '.$placements.' 作品にリンクを付けました');
+    }
+
+    /**
+     * @param  array<string, array{key: string, title: string, originalTitle: ?string}>  $targets
+     */
+    private function pushNewsTarget(array &$targets, string $key, string $title, ?string $originalTitle): void
+    {
+        $key = trim($key);
+        $title = trim($title);
+        if ($key === '' || $title === '' || isset($targets[$key])) {
+            return;
+        }
+        if (count($targets) >= 40) {
+            return;
+        }
+        $targets[$key] = [
+            'key' => $key,
+            'title' => $title,
+            'originalTitle' => $originalTitle !== null && trim($originalTitle) !== '' ? trim($originalTitle) : null,
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @param  array<string, list<array<string, mixed>>>  $found
+     * @param  array<string, list<array<string, mixed>>>  $byTitle
+     */
+    private function stampNews(array &$rows, array $found, array $byTitle, string $keyField): void
+    {
+        foreach ($rows as $index => $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $key = (string) ($row[$keyField] ?? '');
+            $titleKey = BoxOfficeNewsMatcher::normalize((string) ($row['title'] ?? ''));
+            $items = $found[$key] ?? $byTitle[$titleKey] ?? [];
+            if ($items !== []) {
+                $rows[$index]['news'] = $items;
+            }
+        }
     }
 
     private function exportMovieDetails($movies, string $detailsDir, bool $refresh): void

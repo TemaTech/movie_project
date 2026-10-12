@@ -209,3 +209,15 @@
         overflow-y: auto;
     }
 }
+
+.list-item.has-news .ai-trigger-btn,
+.top-card.has-news .ai-trigger-btn {
+    right: 76px;
+}
+
+@media (max-width: 768px) {
+    .list-item.has-news .ai-trigger-btn,
+    .top-card.has-news .ai-trigger-btn {
+        right: 54px !important;
+    }
+}

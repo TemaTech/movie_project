@@ -130,6 +130,20 @@
 .now-waiting-title-row { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
 .now-hero-title-row .now-hero-title { margin: 0; }
 .now-waiting-title-row .now-waiting-title { min-width: 0; }
+.now-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.now-actions .news-trigger-btn {
+    position: static;
+    transform: none;
+    top: auto;
+    right: auto;
+}
+
 .now-permalink {
     color: var(--accent-blue);
     font-size: .78rem;

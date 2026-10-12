@@ -995,3 +995,169 @@ header {
     height: 12px;
 }
 
+/* 興行収入ニュース */
+.news-trigger-btn {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 6;
+    border: 1px solid rgba(125, 211, 252, 0.75);
+    background: rgba(10, 10, 10, 0.82);
+    color: #7dd3fc;
+    font-family: var(--font-body);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    border-radius: 999px;
+    padding: 4px 9px;
+    line-height: 1.2;
+    cursor: pointer;
+}
+
+.news-trigger-btn:hover {
+    background: rgba(125, 211, 252, 0.16);
+    color: #e0f2fe;
+}
+
+.list-item.has-news {
+    padding-right: 78px;
+}
+
+.top-card .news-trigger-btn {
+    top: auto;
+    bottom: 14px;
+    transform: none;
+}
+
+@media (min-width: 769px) {
+    .top-card.has-news .revenue-container {
+        padding-bottom: 26px;
+    }
+}
+
+.news-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    background: rgba(0, 0, 0, 0.72);
+}
+
+.news-modal-overlay[hidden] {
+    display: none;
+}
+
+.news-modal {
+    position: relative;
+    width: min(560px, 100%);
+    max-height: min(80vh, 720px);
+    overflow: auto;
+    background: #141414;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    padding: 22px 22px 16px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+.news-modal-close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    border: 0;
+    background: transparent;
+    color: #fff;
+    font-size: 1.6rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.news-modal-kicker {
+    color: #7dd3fc;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.news-modal-title {
+    font-size: 1.25rem;
+    line-height: 1.4;
+    margin: 0 32px 14px 0;
+}
+
+.news-modal-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.news-link {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.news-link:hover {
+    border-color: rgba(125, 211, 252, 0.45);
+}
+
+.news-link-source {
+    grid-column: 1;
+    color: #7dd3fc;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.news-link-date {
+    grid-column: 2;
+    grid-row: 1;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+.news-link-title {
+    grid-column: 1 / -1;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    line-height: 1.45;
+}
+
+.news-modal-note,
+.news-modal-empty {
+    margin-top: 14px;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+    .top-card.has-news,
+    .list-item.has-news,
+    .top-card.rank-1.has-news {
+        padding-right: 58px !important;
+    }
+
+    .top-card .news-trigger-btn,
+    .list-item .news-trigger-btn {
+        top: 50%;
+        bottom: auto;
+        right: 8px;
+        transform: translateY(-50%);
+        font-size: 0.62rem;
+        padding: 3px 7px;
+    }
+
+    .top-card.has-news .revenue-container {
+        padding-bottom: 0;
+    }
+}
+

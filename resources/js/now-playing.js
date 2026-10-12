@@ -52,6 +52,15 @@ function modalTrigger(movie) {
     return `<button type="button" class="now-permalink" data-open-modal="${escapeHtml(movie.key)}">あらすじ</button>`;
 }
 
+function newsTrigger(movie) {
+    if (!movie.news?.length || !movie.key) return '';
+    return `<button type="button" class="news-trigger-btn" data-open-news="${escapeHtml(movie.key)}" aria-label="${escapeHtml(movie.title)}の興行収入ニュース">News</button>`;
+}
+
+function titleActions(movie) {
+    return `<span class="now-actions">${newsTrigger(movie)}${modalTrigger(movie)}</span>`;
+}
+
 function nextMilestoneText(movie) {
     const next = movie.nextMilestone;
     if (!next?.label || !next?.remainingLabel) return '';
@@ -95,7 +104,7 @@ function heroSection(movie) {
                 <p class="now-hero-tag">今いちばん伸びている</p>
                 <div class="now-hero-title-row">
                     <h2 class="now-hero-title">${escapeHtml(movie.title)}</h2>
-                    ${modalTrigger(movie)}
+                    ${titleActions(movie)}
                 </div>
                 <p class="now-hero-delta">${escapeHtml(movie.deltaLabel || '')}<small>${movie.daysSincePrev ? ` ${movie.daysSincePrev}日ぶりの発表` : ' 前回発表から'}</small></p>
                 ${periodGrowthLine(movie)}
@@ -120,7 +129,7 @@ function movingCard(movie) {
         <div class="now-card-body">
             <div class="now-card-top">
                 <h3 class="now-title">${escapeHtml(movie.title)}</h3>
-                ${modalTrigger(movie)}
+                ${titleActions(movie)}
             </div>
             <p class="now-card-delta">${escapeHtml(movie.deltaLabel || '')}<small>${movie.daysSincePrev ? ` ${movie.daysSincePrev}日ぶりの発表` : ''}</small></p>
             ${periodGrowthLine(movie)}
@@ -152,7 +161,7 @@ function waitingRow(movie) {
         <div class="now-waiting-body">
             <div class="now-waiting-title-row">
                 <span class="now-waiting-title">${escapeHtml(movie.title)}</span>
-                ${modalTrigger(movie)}
+                ${titleActions(movie)}
             </div>
             <span class="now-waiting-meta">${escapeHtml(meta)}</span>
         </div>

@@ -80,6 +80,60 @@ class MoviePageHistoryTest extends TestCase
         $this->assertStringNotContainsString('公開34日', $svg);
     }
 
+    public function test_trajectory_section_includes_day_and_total_table(): void
+    {
+        $command = $this->app->make(ExportStaticSite::class);
+        $html = $this->invoke($command, 'trajectorySection', [
+            'title' => 'テスト作品',
+            'isActive' => false,
+            'pageHistory' => [
+                'sparkline' => [
+                    ['at' => '2026-08-01T03:00:00+09:00', 'boxOffice' => 4_000_000_000],
+                    ['at' => '2026-08-10T03:00:00+09:00', 'boxOffice' => 4_100_000_000],
+                    ['at' => '2026-08-20T03:00:00+09:00', 'boxOffice' => 6_000_000_000],
+                ],
+                'releaseDate' => '2026-08-01',
+                'releaseDatePrecision' => 'day',
+            ],
+        ], true);
+
+        $this->assertStringContainsString('movie-chart-table', $html);
+        $this->assertStringContainsString('公開日数', $html);
+        $this->assertStringContainsString('>当日<', $html);
+        $this->assertStringContainsString('>9日<', $html);
+        $this->assertStringContainsString('>19日<', $html);
+        $this->assertStringContainsString('40.0億円', $html);
+        $this->assertStringContainsString('41.0億円', $html);
+        $this->assertStringContainsString('60.0億円', $html);
+        $this->assertStringContainsString('+1.0億円', $html);
+        $this->assertStringContainsString('+19.0億円', $html);
+        preg_match('/<tbody>(.*?)<\/tbody>/s', $html, $body);
+        $this->assertMatchesRegularExpression('/^<tr class="is-latest">.*?>19日</s', $body[1]);
+        $this->assertMatchesRegularExpression('/>19日<.*?>9日<.*?>当日</s', $body[1]);
+
+        $elapsed = $this->invoke($command, 'trajectorySection', [
+            'title' => '年のみ',
+            'isActive' => false,
+            'pageHistory' => [
+                'sparkline' => [
+                    ['at' => '2026-08-01T03:00:00+09:00', 'boxOffice' => 400_000_000],
+                    ['at' => '2026-08-04T03:00:00+09:00', 'boxOffice' => 410_000_000],
+                ],
+                'releaseDate' => '2026',
+                'releaseDatePrecision' => 'year',
+            ],
+        ], false);
+
+        $this->assertStringContainsString('経過日数', $elapsed);
+        $this->assertStringContainsString('>初日<', $elapsed);
+        $this->assertStringContainsString('>3日<', $elapsed);
+        preg_match('/<tbody>(.*?)<\/tbody>/s', $elapsed, $elapsedBody);
+        $this->assertMatchesRegularExpression('/^<tr class="is-latest">.*?>3日<.*?>初日</s', $elapsedBody[1]);
+        $this->assertStringContainsString('4.00億ドル', $elapsed);
+        $this->assertStringContainsString('4.10億ドル', $elapsed);
+        $this->assertStringContainsString('+0.10億ドル', $elapsed);
+    }
+
     public function test_movie_history_html_hides_next_target_for_first_place(): void
     {
         $command = $this->app->make(ExportStaticSite::class);

@@ -5,9 +5,11 @@ namespace App\Console\Commands;
 use App\Console\Traits\FetchesTmdbMovieDetails;
 use App\Models\GlobalMovie;
 use App\Models\JapaneseMovie;
+use App\Services\BoxOffice\Contracts\RegistryRepository;
 use App\Services\BoxOffice\HistoryRecorder;
 use App\Services\BoxOffice\Insights;
 use App\Services\BoxOffice\MovieIdentity;
+use App\Services\BoxOffice\TheatricalRun;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
@@ -305,6 +307,19 @@ TXT);
     private function attachInsights(string $region, array $movies, HistoryRecorder $history): array
     {
         $registry = $history->registry();
+        $observationsByKey = $history->observations()->loadByKey($region);
+        $registryMovies = $registry->movies();
+        $now = now('Asia/Tokyo')->toDateTimeImmutable();
+        if ($region === 'global') {
+            [$movies, $registryMovies] = $this->reconcileGlobalRuns(
+                $movies,
+                $registry,
+                $registryMovies,
+                $observationsByKey,
+                $now,
+            );
+        }
+
         $current = array_map(function (array $movie) use ($registry) {
             $canonical = $registry->resolveCanonicalKey((string) $movie['id']);
 
@@ -324,9 +339,9 @@ TXT);
         $computed = Insights::compute(
             $region,
             $current,
-            $history->observations()->loadByKey($region),
-            $registry->movies(),
-            now('Asia/Tokyo')->toDateTimeImmutable(),
+            $observationsByKey,
+            $registryMovies,
+            $now,
         );
 
         foreach ($movies as $index => $movie) {
@@ -372,6 +387,69 @@ TXT);
         }
 
         return [$movies, $computed];
+    }
+
+    /**
+     * 過去作品は、リバイバル開始後に累計興収が増えているときだけ公開中のままにする。
+     *
+     * @param  list<array<string, mixed>>  $movies
+     * @param  array<string, array<string, mixed>>  $registryMovies
+     * @param  array<string, list<array<string, mixed>>>  $observationsByKey
+     * @return array{0: list<array<string, mixed>>, 1: array<string, array<string, mixed>>}
+     */
+    private function reconcileGlobalRuns(
+        array $movies,
+        RegistryRepository $registry,
+        array $registryMovies,
+        array $observationsByKey,
+        \DateTimeImmutable $now,
+    ): array {
+        $boxOfficeByKey = [];
+        foreach ($movies as $index => $movie) {
+            $canonical = $registry->resolveCanonicalKey((string) $movie['id']);
+            $boxOfficeByKey[$canonical] = (int) ($movie['boxOffice'] ?? 0);
+            if (empty($movie['isActive'])) {
+                continue;
+            }
+            $registryMovie = $registryMovies[$canonical] ?? [];
+            $primary = $registryMovie['releaseDate'] ?? ($movie['releaseDate'] ?? null);
+            $revival = $registryMovie['currentReleaseDate'] ?? null;
+            $keep = TheatricalRun::storedRunIsCurrent(
+                is_string($primary) ? $primary : null,
+                is_string($revival) ? $revival : null,
+                $observationsByKey[$canonical] ?? [],
+                (int) ($movie['boxOffice'] ?? 0),
+                $now,
+            );
+            if (! $keep) {
+                $movies[$index]['isActive'] = false;
+            }
+        }
+
+        foreach ($registryMovies as $key => $registryMovie) {
+            if (empty($registryMovie['currentReleaseDate']) || ! is_string($registryMovie['currentReleaseDate'])) {
+                continue;
+            }
+            $boxOffice = $boxOfficeByKey[$key] ?? null;
+            if ($boxOffice === null) {
+                $rows = $observationsByKey[$key] ?? [];
+                $last = $rows === [] ? null : $rows[array_key_last($rows)];
+                $boxOffice = (int) ($last['boxOffice'] ?? 0);
+            }
+            $primary = $registryMovie['releaseDate'] ?? null;
+            $confirmed = TheatricalRun::confirmedRevivalDate(
+                is_string($primary) ? $primary : null,
+                $registryMovie['currentReleaseDate'],
+                $observationsByKey[$key] ?? [],
+                $boxOffice,
+                $now,
+            );
+            if ($confirmed === null) {
+                unset($registryMovies[$key]['currentReleaseDate']);
+            }
+        }
+
+        return [$movies, $registryMovies];
     }
 
     /**
@@ -702,6 +780,7 @@ XML);
             : '横軸は最初の観測からの日数、縦軸は累計興収（'.$unit.'）。公開日が日単位でないため、公開日数では揃えていません。';
         $soloPanel = '<div class="movie-chart-panel" data-chart="solo">'.$solo
             .'<p class="movie-chart-caption">'.$axisNote.'</p></div>';
+        $table = $this->trajectoryTable($self, $isJapan);
 
         $others = [];
         if (! empty($movie['isActive']) && $fromRelease) {
@@ -717,7 +796,7 @@ XML);
 
         $compare = $others === [] ? '' : $this->chartSvg($self, $others, $isJapan, 'compare', (string) ($movie['title'] ?? 'この作品'));
         if ($compare === '') {
-            return '<section class="movie-section movie-trajectory"><h2>興収の推移</h2>'.$soloPanel.'</section>';
+            return '<section class="movie-section movie-trajectory"><h2>興収の推移</h2>'.$soloPanel.$table.'</section>';
         }
 
         $legend = '<p class="movie-chart-legend"><span class="movie-chart-key is-self">'
@@ -739,7 +818,73 @@ XML);
             .$soloPanel
             .'<div class="movie-chart-panel" data-chart="compare">'.$compare.$legend
             .'<p class="movie-chart-caption">横軸は公開からの日数です。公開時期が違っても、同じ「何日目」で比べられます。線に触れると作品名と累計が出ます。</p>'
-            .'</div></section>';
+            .'</div>'.$table.'</section>';
+    }
+
+    /**
+     * グラフでは差が小さく見える変化も、日数と累計の対応で読めるようにする。
+     *
+     * @param  list<array{at: string, ts: int, day: int|null, boxOffice: int}>  $rows
+     */
+    private function trajectoryTable(array $rows, bool $isJapan): string
+    {
+        if (count($rows) < 2) {
+            return '';
+        }
+
+        $fromRelease = $this->chartHasDays($rows);
+        $origin = Carbon::createFromTimestamp((int) $rows[0]['ts'])->timezone('Asia/Tokyo')->startOfDay();
+        $lines = [];
+        $previous = null;
+        $lastIndex = array_key_last($rows);
+
+        foreach ($rows as $index => $row) {
+            $at = Carbon::createFromTimestamp((int) $row['ts'])->timezone('Asia/Tokyo');
+            if ($fromRelease) {
+                $day = (int) $row['day'];
+                $dayLabel = $day === 0 ? '当日' : $day.'日';
+            } else {
+                $day = (int) floor(($at->copy()->startOfDay()->getTimestamp() - $origin->getTimestamp()) / 86400);
+                $dayLabel = $day === 0 ? '初日' : $day.'日';
+            }
+
+            if ($previous === null) {
+                $deltaLabel = '—';
+                $deltaClass = '';
+            } else {
+                $delta = (int) $row['boxOffice'] - (int) $previous['boxOffice'];
+                if ($delta > 0) {
+                    $deltaLabel = Insights::formatDelta($delta, $isJapan);
+                    $deltaClass = ' is-up';
+                } elseif ($delta < 0) {
+                    $deltaLabel = '−'.Insights::formatAmount(abs($delta), $isJapan);
+                    $deltaClass = ' is-down';
+                } else {
+                    $deltaLabel = '±0';
+                    $deltaClass = '';
+                }
+            }
+
+            $lines[] = '<tr'.($index === $lastIndex ? ' class="is-latest"' : '').'>'
+                .'<th scope="row">'.$this->h($dayLabel).'</th>'
+                .'<td>'.$this->h($at->format('Y/n/j')).'</td>'
+                .'<td class="is-amount">'.$this->h(Insights::formatAmount((int) $row['boxOffice'], $isJapan)).'</td>'
+                .'<td class="is-delta'.$deltaClass.'">'.$this->h($deltaLabel).'</td>'
+                .'</tr>';
+            $previous = $row;
+        }
+
+        $body = implode('', array_reverse($lines));
+
+        return '<div class="movie-chart-table-wrap">'
+            .'<table class="movie-chart-table">'
+            .'<caption>日数と累計の対応です。増分はひとつ前の発表との差です。</caption>'
+            .'<thead><tr>'
+            .'<th scope="col">'.($fromRelease ? '公開日数' : '経過日数').'</th>'
+            .'<th scope="col">発表日</th>'
+            .'<th scope="col">累計</th>'
+            .'<th scope="col">増分</th>'
+            .'</tr></thead><tbody>'.$body.'</tbody></table></div>';
     }
 
     /**

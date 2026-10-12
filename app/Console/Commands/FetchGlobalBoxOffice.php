@@ -26,6 +26,9 @@ class FetchGlobalBoxOffice extends Command
 
     private TmdbClient $tmdb;
 
+    /** @var array<string, list<array<string, mixed>>>|null */
+    private ?array $globalObservations = null;
+
     protected $signature = 'movies:fetch-global-boxoffice';
 
     protected $description = '世界の映画興行収入データを取得・更新します（日本を除く）';
@@ -250,6 +253,8 @@ class FetchGlobalBoxOffice extends Command
                 is_string($releaseDate) ? $releaseDate : null,
                 is_array($englishDetails) ? ($englishDetails['release_dates']['results'] ?? []) : [],
                 now('Asia/Tokyo')->toDateTimeImmutable(),
+                $this->observationsFor($key),
+                $revenue,
             );
 
             $this->history->resolve([
@@ -282,7 +287,7 @@ class FetchGlobalBoxOffice extends Command
             $isActive = $theatrical['active'];
             if ($theatrical['revivalDate']) {
                 $this->info(sprintf(
-                    'リバイバル上映として公開中にします: %s (%s)',
+                    '興収が伸びたリバイバル上映として公開中にします: %s (%s)',
                     $movieDetails['title'] ?? $movie['title'],
                     $theatrical['revivalDate']
                 ));
@@ -327,6 +332,18 @@ class FetchGlobalBoxOffice extends Command
 
             return null;
         }
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function observationsFor(string $key): array
+    {
+        if ($this->globalObservations === null) {
+            $this->globalObservations = $this->history->observations()->loadByKey('global');
+        }
+
+        return $this->globalObservations[$key] ?? [];
     }
 
     /**

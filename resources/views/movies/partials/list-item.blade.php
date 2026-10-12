@@ -8,7 +8,7 @@
     }
     $barWidth = min(($revenueVal / $maxRevenue) * 100, 100);
     
-    // 日本は Wikipedia の公開中フラグ。世界は公開6ヶ月以内、またはリバイバル上映のフラグ。
+    // 日本は Wikipedia の公開中フラグ。世界は公開6ヶ月以内、または興収が伸びたリバイバル上映。
     $releaseDate = $movie->release_date ? \Carbon\Carbon::parse($movie->release_date) : null;
     $isActive = (bool) ($movie->is_active ?? false);
     if (! $isActive && (! isset($isJapan) || ! $isJapan) && $releaseDate) {

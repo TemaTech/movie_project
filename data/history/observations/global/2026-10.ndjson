@@ -15,3 +15,7 @@
 {"key":"tmdb-969681","observedAt":"2026-10-12T02:11:39+09:00","boxOffice":2507246993,"isActive":true}
 {"key":"tmdb-299534","observedAt":"2026-10-12T06:21:36+09:00","boxOffice":2927449455,"isActive":true}
 {"key":"tmdb-1368337","observedAt":"2026-10-12T12:36:05+09:00","boxOffice":1772582567,"isActive":true}
+{"key":"tmdb-969681","observedAt":"2026-10-12T23:04:36+09:00","boxOffice":2512865567,"isActive":true}
+{"key":"tmdb-1368337","observedAt":"2026-10-12T23:04:36+09:00","boxOffice":1779770790,"isActive":true}
+{"key":"tmdb-1084244","observedAt":"2026-10-12T23:04:36+09:00","boxOffice":1148032461,"isActive":true}
+{"key":"tmdb-936075","observedAt":"2026-10-12T23:04:36+09:00","boxOffice":1028703388,"isActive":true,"correction":true}

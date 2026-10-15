@@ -15,6 +15,13 @@ footer a { color: var(--accent-blue); }
 
 body.movie-page { padding-bottom: 40px; }
 .movie-page header { justify-content: flex-start; }
+/* タブのないヘッダーは中身の高さが潰れ、絶対配置のロゴが上端ではみ出して見切れる */
+.movie-page .logo-link,
+.content-page .logo-link {
+    position: static;
+    left: auto;
+    top: auto;
+}
 .movie-page-main { max-width: 800px; margin: 0 auto; padding: 16px 20px 0; }
 .movie-breadcrumb { color: var(--text-secondary); font-size: .85rem; margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
 .movie-breadcrumb a { color: var(--accent-blue); }

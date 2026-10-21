@@ -1,6 +1,18 @@
 #!/bin/bash
 set -e
 
+# CVE-2026-109618 / CVE-2026-109619 の修正版以外では公開しない。
+# 8.4.5 のように番号が大きくても、各系統の修正版未満は対象になる。
+if ! php -r 'exit(
+    (version_compare(PHP_VERSION, "8.2.35", ">=") && version_compare(PHP_VERSION, "8.3.0", "<"))
+    || (version_compare(PHP_VERSION, "8.3.36", ">=") && version_compare(PHP_VERSION, "8.4.0", "<"))
+    || (version_compare(PHP_VERSION, "8.4.27", ">=") && version_compare(PHP_VERSION, "8.5.0", "<"))
+    || (version_compare(PHP_VERSION, "8.5.12", ">=") && version_compare(PHP_VERSION, "8.6.0", "<"))
+    ? 0 : 1);'; then
+    echo "Refusing to start: PHP $(php -r 'echo PHP_VERSION;') is not a patched release for CVE-2026-109618 and CVE-2026-109619." >&2
+    exit 1
+fi
+
 # Cronサービスの起動
 echo "Starting Cron..."
 # 環境変数をcron用に書き出し（DB接続情報やAPIキーなど）

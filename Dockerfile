@@ -7,8 +7,8 @@ RUN export NODE_OPTIONS=--openssl-legacy-provider && \
     npm install && \
     npm run build
 
-# PHP 8.2に更新
-FROM php:8.2-fpm
+# CVE-2026-109618 / CVE-2026-109619 の修正版。8.2系のまま上げる。
+FROM php:8.2.35-fpm
 
 # プロダクション用の最適化
 ENV TZ=Asia/Tokyo
@@ -17,6 +17,9 @@ ENV PHP_OPCACHE_ENABLE_CLI=1
 ENV PHP_OPCACHE_VALIDATE_TIMESTAMPS=0
 ENV PHP_OPCACHE_REVALIDATE_FREQ=0
 ENV COMPOSER_ALLOW_SUPERUSER=1
+
+# 起動時に読み込まれる設定。ini_set() や .user.ini では間に合わない。
+COPY docker/php/conf.d/zz-security.ini /usr/local/etc/php/conf.d/zz-security.ini
 
 # 必要なパッケージのインストール
 RUN apt-get update && apt-get install -y \

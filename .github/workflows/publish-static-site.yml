@@ -53,10 +53,13 @@ jobs:
 
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: '8.2.35'
           extensions: mbstring, pdo_mysql, zip
           coverage: none
           tools: composer:v2
+
+      - name: Confirm PHP security release
+        run: php -r 'if (version_compare(PHP_VERSION, "8.2.35", "<") || version_compare(PHP_VERSION, "8.3.0", ">=")) { fwrite(STDERR, "PHP ".PHP_VERSION." is not the patched 8.2 release\n"); exit(1); } echo PHP_VERSION, PHP_EOL;'
 
       - uses: actions/setup-node@v4
         with:

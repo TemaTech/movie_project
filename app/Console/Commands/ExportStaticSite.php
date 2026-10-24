@@ -1197,10 +1197,23 @@ XML);
             .'</svg>';
 
         $hits = $this->chartHitsHtml($self, $others, $selfTitle, $isJapan, $useDays, $xOf, $yPos, $width, $height);
+        $yAxis = '<div class="movie-chart-y" aria-hidden="true">';
+        foreach ($yTicks as $index => $threshold) {
+            $top = ($yPos($threshold) + 3.5) / $height * 100;
+            $yAxis .= '<span style="top:'.sprintf('%.2f', $top).'%">'.$this->h($yTickLabels[$index]).'</span>';
+        }
+        $yAxis .= '</div>';
 
         $zoomAttr = $yZoomed ? ' data-y-zoomed="1"' : '';
+        $frameStyle = '--chart-pad:'.sprintf('%.2f', $padL)
+            .';--chart-view:'.$width
+            .';--chart-height:'.$height;
 
-        return '<div class="movie-chart-frame"'.$zoomAttr.'>'.$svg.$hits.'</div>';
+        return '<div class="movie-chart-frame" style="'.$frameStyle.'"'.$zoomAttr.'>'
+            .'<div class="movie-chart-scroll"><div class="movie-chart-canvas">'.$svg.$hits.'</div></div>'
+            .$yAxis
+            .'<p class="movie-chart-scroll-hint">横に動かすと続きが見られます。</p>'
+            .'</div>';
     }
 
     /**
@@ -2430,6 +2443,18 @@ HTML;
     }
 
     /**
+     * 検索エンジンと JS 無効時向けのランキングHTMLを、アプリ描画まで画面に出さない。
+     * html.js が付くのはインラインスクリプトが動いたときだけなので、JS 無効時は一覧が見える。
+     */
+    private function rankingFallbackGuard(): string
+    {
+        return <<<'HTML'
+<script>document.documentElement.classList.add('js')</script>
+<style>html.js .ranking-static{display:none}</style>
+HTML;
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $movies
      */
     private function rankingStaticHtml(array $movies, bool $isJapan, ?string $updatedAt): string
@@ -2543,12 +2568,14 @@ HTML;
         $ogImage = $this->h(rtrim(config('app.url'), '/').'/images/android-chrome-512x512.png');
         $jsonLd = $meta['jsonLd'];
         $appHtml = $meta['appHtml'];
+        $boot = $this->rankingFallbackGuard();
 
         return <<<HTML
 <!doctype html>
 <html lang="ja">
   <head>
     <meta charset="utf-8">
+    {$boot}
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="{$description}">
     <meta name="keywords" content="{$keywords}">
@@ -2582,7 +2609,7 @@ HTML;
   </head>
   <body>
     <div id="app" aria-live="polite">{$appHtml}</div>
-    <script type="module" src="{$script}"></script>
+    <script type="module" src="{$script}" onerror="document.documentElement.classList.remove('js')"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {

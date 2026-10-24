@@ -27,7 +27,9 @@ class MoviePageHistoryTest extends TestCase
             ['at' => '2026-08-10T03:00:00+09:00', 'boxOffice' => 6_000_000_000],
         ], true, '2026-08-01');
 
-        $this->assertStringContainsString('movie-chart', $svg);
+        $this->assertStringContainsString('movie-chart-scroll', $svg);
+        $this->assertStringContainsString('class="movie-chart-y"', $svg);
+        $this->assertStringContainsString('横に動かすと続きが見られます。', $svg);
         $this->assertStringContainsString('当日', $svg);
         $this->assertStringContainsString('9日', $svg);
         $this->assertStringContainsString('公開9日', $svg);

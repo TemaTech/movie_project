@@ -1,3 +1,5 @@
+/* 抑制そのものは書き出しHTMLのインラインCSSが担う。JS無効時はこの一覧を見せる。 */
+html.js .ranking-static { display: none; }
 .ranking-static-intro { color: var(--text-secondary); line-height: 1.7; margin: 0 0 16px; }
 .ranking-static-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .ranking-static-list li { display: flex; gap: 12px; align-items: baseline; }
@@ -161,7 +163,11 @@ body.movie-page { padding-bottom: 40px; }
 #chartSolo:checked ~ [data-chart="compare"],
 #chartCompare:checked ~ [data-chart="solo"] { display: none; }
 .movie-chart { width: 100%; height: auto; display: block; }
-.movie-chart-frame { position: relative; overflow: visible; }
+.movie-chart-frame { position: relative; overflow: visible; --chart-min: 840px; }
+.movie-chart-scroll { position: relative; }
+.movie-chart-canvas { position: relative; }
+.movie-chart-y,
+.movie-chart-scroll-hint { display: none; }
 .movie-chart-line { fill: none; stroke: var(--accent-gold); stroke-width: 2.8; stroke-linejoin: round; stroke-linecap: round; }
 .movie-chart-area { stroke: none; }
 .movie-chart.is-compare .movie-chart-area { opacity: .7; }
@@ -318,6 +324,78 @@ body.movie-page { padding-bottom: 40px; }
 .movie-chart-table .is-delta.is-up { color: #86efac; }
 .movie-chart-table .is-delta.is-down { color: #fca5a5; }
 .movie-chart-table tr.is-latest { background: rgba(255, 215, 0, 0.06); }
+
+@media (max-width: 680px) {
+    .movie-chart-frame { --chart-tip-space: 24px; }
+    .movie-chart-frame::after {
+        content: "";
+        position: absolute;
+        z-index: 3;
+        right: 0;
+        top: var(--chart-tip-space);
+        width: 28px;
+        height: calc(var(--chart-height) / var(--chart-view) * var(--chart-min));
+        background: linear-gradient(90deg, transparent, var(--bg-card));
+        pointer-events: none;
+    }
+    .movie-page-main,
+    .movie-trajectory,
+    .movie-chart-panel,
+    .movie-chart-frame {
+        max-width: 100%;
+    }
+    .movie-chart-scroll {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scroll-padding-left: calc(var(--chart-pad) / var(--chart-view) * var(--chart-min));
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 215, 0, .55) transparent;
+    }
+    .movie-chart-scroll::-webkit-scrollbar { height: 8px; }
+    .movie-chart-scroll::-webkit-scrollbar-thumb {
+        background-color: rgba(255, 215, 0, .4);
+        border: 2px solid transparent;
+        border-radius: 999px;
+        background-clip: padding-box;
+    }
+    .movie-chart-canvas {
+        width: var(--chart-min);
+        padding-top: var(--chart-tip-space);
+    }
+    .movie-chart-hits { top: var(--chart-tip-space); }
+    .movie-chart-guide-label { display: none; }
+    .movie-chart-y {
+        display: block;
+        position: absolute;
+        z-index: 2;
+        left: 0;
+        top: var(--chart-tip-space);
+        width: calc(var(--chart-pad) / var(--chart-view) * var(--chart-min));
+        height: calc(var(--chart-height) / var(--chart-view) * var(--chart-min));
+        pointer-events: none;
+        background: var(--bg-card);
+    }
+    .movie-chart-y span {
+        position: absolute;
+        right: 8px;
+        transform: translateY(-100%);
+        color: var(--text-secondary);
+        font-family: var(--font-num), sans-serif;
+        font-size: 13px;
+        line-height: 1;
+        white-space: nowrap;
+    }
+    .movie-chart-hit { width: 36px; margin-left: -18px; }
+    .movie-chart-scroll-hint {
+        display: block;
+        margin: 4px 0 0;
+        color: var(--text-secondary);
+        font-size: .75rem;
+        line-height: 1.5;
+    }
+}
 .tmdb-logo { height: 12px; width: auto; display: inline-block; vertical-align: middle; }
 .tmdb-attr { display: inline-block; margin-right: 8px; vertical-align: middle; }
 .site-footer-attr,

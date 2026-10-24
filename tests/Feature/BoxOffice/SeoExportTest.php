@@ -8,6 +8,15 @@ use Tests\TestCase;
 
 class SeoExportTest extends TestCase
 {
+    public function test_ranking_fallback_stays_available_without_javascript(): void
+    {
+        $guard = $this->invoke('rankingFallbackGuard');
+
+        $this->assertStringContainsString("document.documentElement.classList.add('js')", $guard);
+        $this->assertStringContainsString('html.js .ranking-static{display:none}', $guard);
+        $this->assertStringNotContainsString('hidden', $this->invoke('rankingStaticHtml', $this->movies(1), false, null));
+    }
+
     public function test_ranking_html_lists_the_first_page_with_movie_links(): void
     {
         $html = $this->invoke('rankingStaticHtml', $this->movies(101), false, '2026-10-24T12:00:00+09:00');

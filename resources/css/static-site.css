@@ -264,28 +264,6 @@ body.movie-page { padding-bottom: 40px; }
     max-height: 320px;
     overflow: auto;
     border-top: 1px solid var(--glass-border);
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 215, 0, .55) var(--bg-card);
-}
-.movie-chart-table-wrap::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-.movie-chart-table-wrap::-webkit-scrollbar-track {
-    background: var(--bg-card);
-    margin: 4px 0;
-}
-.movie-chart-table-wrap::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 215, 0, .4);
-    border: 2px solid transparent;
-    border-radius: 999px;
-    background-clip: padding-box;
-}
-.movie-chart-table-wrap::-webkit-scrollbar-thumb:hover {
-    background-color: var(--accent-gold);
-}
-.movie-chart-table-wrap::-webkit-scrollbar-corner {
-    background: var(--bg-card);
 }
 .movie-chart-table {
     width: 100%;
@@ -359,15 +337,6 @@ body.movie-page { padding-bottom: 40px; }
         overflow-x: auto;
         overscroll-behavior-x: contain;
         scroll-padding-left: calc(var(--chart-pad) / var(--chart-view) * var(--chart-min));
-        scrollbar-width: thin;
-        scrollbar-color: rgba(255, 215, 0, .55) transparent;
-    }
-    .movie-chart-scroll::-webkit-scrollbar { height: 8px; }
-    .movie-chart-scroll::-webkit-scrollbar-thumb {
-        background-color: rgba(255, 215, 0, .4);
-        border: 2px solid transparent;
-        border-radius: 999px;
-        background-clip: padding-box;
     }
     .movie-chart-canvas {
         width: var(--chart-min);

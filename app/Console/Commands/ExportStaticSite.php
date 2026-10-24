@@ -2609,6 +2609,16 @@ HTML;
   </head>
   <body>
     <div id="app" aria-live="polite">{$appHtml}</div>
+    <script>
+      document.addEventListener('click', function (event) {
+        var node = event.target;
+        if (node && node.nodeType !== 1) node = node.parentElement;
+        if (!node || !node.closest) return;
+        var link = node.closest('#app a[href^="/movies/"]');
+        if (!link || event.button !== 0) return;
+        event.preventDefault();
+      }, true);
+    </script>
     <script type="module" src="{$script}" onerror="document.documentElement.classList.remove('js')"></script>
     <script>
       if ('serviceWorker' in navigator) {

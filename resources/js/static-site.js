@@ -15,6 +15,7 @@ import {
     bindNowPlaying,
     renderNowPlaying,
 } from './now-playing';
+import { fitRankingTitles, watchRankingTitleFit } from './fit-ranking-titles';
 
 const PER_PAGE = 100; // ExportStaticSite::RANKING_PAGE_SIZE と揃える
 const app = document.querySelector('#app');
@@ -270,14 +271,13 @@ function movieCard(movie) {
         <div class="rank-badge">${movie.rank}</div>
         <div class="card-poster ${url ? '' : 'poster-placeholder'}" ${posterStyle(movie.posterUrl)}></div>
         ${bgImage}
-        ${movieTitleHtml(movie, 'margin-bottom: 2px;')}
+        ${titleLine(movie)}
         ${subtitle}
         <div class="revenue-container">
             <div class="revenue-main" style="color: var(--accent-gold);">${escapeHtml(movie.revenue)}</div>
             ${movie.revenueYen ? `<div class="revenue-sub">${escapeHtml(movie.revenueYen)}</div>` : ''}
             ${movie.momentum?.deltaLabel ? `<div class="momentum-badge">${escapeHtml(movie.momentum.deltaLabel)}</div>` : ''}
         </div>
-        ${newsButton(movie)}
         ${aiOverlay(movie.analysis)}
     </article>`;
 }
@@ -294,7 +294,7 @@ function movieRow(movie, isJapan) {
         ${bgImage}
         <div class="list-rank">${movie.rank}</div>
         <div class="list-info">
-            ${movieTitleHtml(movie)}
+            ${titleLine(movie)}
             ${subtitle}
         </div>
         <div class="list-revenue">
@@ -302,7 +302,6 @@ function movieRow(movie, isJapan) {
             ${movie.revenueYen ? `<span class="revenue-sub">${escapeHtml(movie.revenueYen)}</span>` : ''}
             ${movie.momentum?.deltaLabel ? `<span class="momentum-badge">${escapeHtml(movie.momentum.deltaLabel)}</span>` : ''}
         </div>
-        ${newsButton(movie)}
         ${aiOverlay(movie.analysis)}
     </article>`;
 }
@@ -368,9 +367,43 @@ function moviePageHref(movie) {
     return `/movies/${encodeURIComponent(movie.slug || movie.key || movie.id)}/`;
 }
 
+function clickedElement(event) {
+    const node = event.target;
+    if (node instanceof Element) return node;
+    return node?.parentElement instanceof Element ? node.parentElement : null;
+}
+
 function movieTitleHtml(movie, style = '') {
     const styleAttr = style ? ` style="${style}"` : '';
-    return `<a href="${escapeHtml(moviePageHref(movie))}" class="movie-title ${titleClass(movie.title)}"${styleAttr}>${escapeHtml(movie.title)}</a>`;
+    const title = escapeHtml(movie.title);
+    const href = escapeHtml(moviePageHref(movie));
+    return `<span class="movie-title ${titleClass(movie.title)}"${styleAttr}>${title}</span><a class="movie-crawl-link" href="${href}" tabindex="-1" aria-hidden="true">${title}</a>`;
+}
+
+function movieFromPageLink(link) {
+    if (!siteData) return null;
+    let slug = '';
+    try {
+        slug = decodeURIComponent(link.pathname.replace(/\/+$/, '').split('/').pop() || '');
+    } catch {
+        return null;
+    }
+    const pools = [...(siteData.global || []), ...(siteData.japan || [])];
+    return pools.find((movie) => movie.slug === slug || movie.id === slug || movie.key === slug) || null;
+}
+
+document.addEventListener('click', (event) => {
+    const target = clickedElement(event);
+    const link = target?.closest?.('#app a[href^="/movies/"]');
+    if (!link || link.closest('.now-hero, .now-card, .now-waiting-row')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const movie = movieFromPageLink(link);
+    if (movie && state.view !== 'now') openMovieModal(movie);
+}, true);
+
+function titleLine(movie) {
+    return `<div class="title-line">${movieTitleHtml(movie)}${newsButton(movie)}</div>`;
 }
 
 function documentTitle() {
@@ -396,11 +429,6 @@ function bindMovieInteractions(data) {
 
     document.querySelectorAll('[data-movie-id]').forEach((element) => {
         const isNowCard = element.matches('.now-hero, .now-card, .now-waiting-row');
-        const rankingTitleLink = (event) => {
-            if (isNowCard) return null;
-            const link = event.target.closest('a.movie-title');
-            return link && element.contains(link) ? link : null;
-        };
         const open = () => {
             const movie = findMovie(data, element.dataset.movieId);
             if (!movie) return;
@@ -411,24 +439,18 @@ function bindMovieInteractions(data) {
             openMovieModal(movie);
         };
         element.addEventListener('click', (event) => {
-            if (rankingTitleLink(event)) {
-                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            const target = clickedElement(event);
+            if (!target) return;
+            const movieLink = target.closest('a[href^="/movies/"]');
+            if (movieLink && element.contains(movieLink)) {
                 event.preventDefault();
-                open();
-                return;
             }
-            if (event.target.closest('a, button, [data-open-modal]')) return;
+            if (target.closest('a:not(.movie-crawl-link), button, [data-open-modal]')) return;
             open();
         });
         element.addEventListener('keydown', (event) => {
-            if (rankingTitleLink(event)) {
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    open();
-                }
-                return;
-            }
-            if (event.target.closest('a, button, [data-open-modal]')) return;
+            const target = clickedElement(event);
+            if (target?.closest('a:not(.movie-crawl-link), button, [data-open-modal]')) return;
             if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
                 open();
@@ -623,6 +645,7 @@ function render(data) {
     bindMovieInteractions(data);
     bindAiOverlays();
     bindNewsModal();
+    fitRankingTitles();
 }
 
 function init(data) {
@@ -636,6 +659,7 @@ function init(data) {
         Object.assign(state, defaultState(), parseStateFromUrl());
         render(siteData);
     });
+    watchRankingTitleFit(() => state.view === 'ranking');
 }
 
 fetch('/data/movies.json')

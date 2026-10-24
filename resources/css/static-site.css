@@ -8,6 +8,15 @@ html.js .ranking-static { display: none; }
 .ranking-static-revenue { margin-left: auto; color: var(--accent-gold); white-space: nowrap; }
 .ranking-static-switch { margin-top: 24px; }
 .ranking-static-switch a { color: var(--accent-blue); }
+.movie-crawl-link {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    pointer-events: none;
+}
 .static-updated, .static-empty, .static-error { color: var(--text-secondary); text-align: center; }
 .static-empty { margin: 16px 0 28px; }
 .static-updated { display: block; }

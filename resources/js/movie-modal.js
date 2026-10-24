@@ -39,6 +39,19 @@ function formatCompanyLabel(name) {
     return escaped.replaceAll(/([・／/])/g, '$1<wbr>');
 }
 
+function companyNamesHtml(companies) {
+    const seen = new Set();
+    const labels = [];
+    for (const company of companies || []) {
+        const name = COMPANY_MAP[company.name] || company.name || '';
+        if (name === '' || seen.has(name)) continue;
+        seen.add(name);
+        labels.push(formatCompanyLabel(name));
+        if (labels.length === 2) break;
+    }
+    return labels.join('<br>');
+}
+
 // Modal Logic
 function getModalElements() {
     return {
@@ -231,9 +244,7 @@ function populateModal(data, revenue = null) {
         data.production_countries.map(c => COUNTRY_MAP[c.name] || c.name).join('、') : '-';
     document.getElementById('modalCountry').textContent = countryNames || '-';
 
-    const companyNames = data.production_companies ?
-        data.production_companies.slice(0, 2).map(c => formatCompanyLabel(COMPANY_MAP[c.name] || c.name)).join('<br>') : '-';
-    document.getElementById('modalCompany').innerHTML = companyNames || '-';
+    document.getElementById('modalCompany').innerHTML = companyNamesHtml(data.production_companies) || '-';
 
     // Japanese Date Format
     if (data.release_date) {

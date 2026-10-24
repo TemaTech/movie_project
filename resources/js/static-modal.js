@@ -33,6 +33,19 @@ function formatCompanyLabel(name) {
     return escaped.replaceAll(/([・／/])/g, '$1<wbr>');
 }
 
+function companyNamesHtml(companies) {
+    const seen = new Set();
+    const labels = [];
+    for (const company of companies || []) {
+        const name = COMPANY_MAP[company.name] || company.name || '';
+        if (name === '' || seen.has(name)) continue;
+        seen.add(name);
+        labels.push(formatCompanyLabel(name));
+        if (labels.length === 2) break;
+    }
+    return labels.join('<br>');
+}
+
 function formatReleaseDate(releaseDate) {
     if (!releaseDate) return '-';
     const date = new Date(releaseDate);
@@ -184,11 +197,7 @@ function populateModal(detail, movie) {
         .join('、');
     document.getElementById('modalCountry').textContent = countryNames || movie.productionCountry || '-';
 
-    const companyNames = (detail.production_companies || [])
-        .slice(0, 2)
-        .map((company) => formatCompanyLabel(COMPANY_MAP[company.name] || company.name))
-        .join('<br>');
-    document.getElementById('modalCompany').innerHTML = companyNames || '-';
+    document.getElementById('modalCompany').innerHTML = companyNamesHtml(detail.production_companies) || '-';
     document.getElementById('modalReleaseDate').textContent = formatReleaseDate(releaseDate);
 
     const director = (detail.credits?.crew || []).find((member) => member.job === 'Director');

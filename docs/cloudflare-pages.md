@@ -32,7 +32,7 @@ TMDbの開発者用設定画面で、新しいAPIキーを発行します。古�
 
 ここでは仮のファイルをアップロードしても、まだ公開しなくても構いません。GitHub Actionsが最初の公開ファイルをアップロードします。
 
-本番の公開URLは `https://mubiran.com` です（Cloudflare Pages の `*.pages.dev` は `mubiran.com` へリダイレクトします）。
+本番の公開URLは `https://mubiran.com` です。公開確認もこのURLで行います。プロジェクト名 `movie-ranking` は GitHub Actions のデプロイ先であり、`https://movie-ranking.pages.dev` はこのサイトではありません。そこから `mubiran.com` への転送もありません。
 
 ## 3. Cloudflareの認証情報をGitHubへ登録する
 

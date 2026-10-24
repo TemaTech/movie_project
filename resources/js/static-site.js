@@ -16,7 +16,7 @@ import {
     renderNowPlaying,
 } from './now-playing';
 
-const PER_PAGE = 100;
+const PER_PAGE = 100; // ExportStaticSite::RANKING_PAGE_SIZE と揃える
 const app = document.querySelector('#app');
 let siteData = null;
 let nowPlayingData = null;
@@ -193,9 +193,12 @@ function parseStateFromUrl() {
         // 旧URL互換: /?tab=now&now_region=global
         next.view = 'now';
         next.region = params.get('now_region') === 'global' ? 'global' : 'japan';
+    } else if (path === '/japan' || params.get('tab') === 'japan') {
+        next.view = 'ranking';
+        next.region = 'japan';
     } else {
         next.view = 'ranking';
-        next.region = params.get('tab') === 'japan' ? 'japan' : 'global';
+        next.region = 'global';
     }
     next.nowSort = ['pace', 'total', 'rank', 'days'].includes(params.get('now_sort')) ? params.get('now_sort') : 'delta';
     next.category = params.get('category') || 'all';
@@ -216,7 +219,6 @@ function buildUrl(nextState) {
         return query ? `${base}?${query}` : base;
     }
     const params = new URLSearchParams();
-    if (nextState.region === 'japan') params.set('tab', 'japan');
     if (nextState.category && nextState.category !== 'all') params.set('category', nextState.category);
     if (nextState.genres.length) params.set('genres', nextState.genres.join(','));
     if (nextState.years.length) params.set('years', nextState.years.join(','));
@@ -224,7 +226,9 @@ function buildUrl(nextState) {
     if (nextState.globalPage > 1) params.set('global_page', String(nextState.globalPage));
     if (nextState.japanPage > 1) params.set('japan_page', String(nextState.japanPage));
     const query = params.toString();
-    return query ? `/?${query}` : '/';
+    const base = nextState.region === 'japan' ? '/japan/' : '/';
+    if (!query) return base;
+    return base === '/' ? `/?${query}` : `${base}?${query}`;
 }
 
 function syncUrl(replace = false) {
@@ -266,7 +270,7 @@ function movieCard(movie) {
         <div class="rank-badge">${movie.rank}</div>
         <div class="card-poster ${url ? '' : 'poster-placeholder'}" ${posterStyle(movie.posterUrl)}></div>
         ${bgImage}
-        <div class="movie-title ${titleClass(movie.title)}" style="margin-bottom: 2px;">${escapeHtml(movie.title)}</div>
+        ${movieTitleHtml(movie, 'margin-bottom: 2px;')}
         ${subtitle}
         <div class="revenue-container">
             <div class="revenue-main" style="color: var(--accent-gold);">${escapeHtml(movie.revenue)}</div>
@@ -290,7 +294,7 @@ function movieRow(movie, isJapan) {
         ${bgImage}
         <div class="list-rank">${movie.rank}</div>
         <div class="list-info">
-            <span class="movie-title ${titleClass(movie.title)}">${escapeHtml(movie.title)}</span>
+            ${movieTitleHtml(movie)}
             ${subtitle}
         </div>
         <div class="list-revenue">
@@ -364,6 +368,22 @@ function moviePageHref(movie) {
     return `/movies/${encodeURIComponent(movie.slug || movie.key || movie.id)}/`;
 }
 
+function movieTitleHtml(movie, style = '') {
+    const styleAttr = style ? ` style="${style}"` : '';
+    return `<a href="${escapeHtml(moviePageHref(movie))}" class="movie-title ${titleClass(movie.title)}"${styleAttr}>${escapeHtml(movie.title)}</a>`;
+}
+
+function documentTitle() {
+    if (state.view === 'now') {
+        return state.region === 'global'
+            ? '公開中映画の興行収入の勢い（世界） | MUBIRAN'
+            : '公開中映画の興行収入の勢い（日本） | MUBIRAN';
+    }
+    return state.region === 'japan'
+        ? '日本映画興行収入ランキング | MUBIRAN'
+        : '世界映画興行収入ランキング | MUBIRAN';
+}
+
 function bindMovieInteractions(data) {
     document.querySelectorAll('[data-open-modal]').forEach((button) => {
         button.addEventListener('click', (event) => {
@@ -417,7 +437,7 @@ function headerHtml() {
         <span class="filter-text">絞り込み</span>
     </button>`;
     const nowUrl = state.region === 'global' ? '/now/global/' : '/now/';
-    const rankingUrl = state.region === 'japan' ? '/?tab=japan' : '/';
+    const rankingUrl = state.region === 'japan' ? '/japan/' : '/';
     const regionUrl = (region) => buildUrl({ ...state, region });
     return `<header>
         <a href="/" class="logo-link" aria-label="MUBIRAN トップ"><img src="/images/logo.png" alt="MUBIRAN" class="logo-img"></a>
@@ -518,6 +538,7 @@ function renderNowBoard(data) {
 }
 
 function render(data) {
+    document.title = documentTitle();
     if (state.view === 'now') {
         if (!nowPlayingData) {
             ensureNowPlaying()
@@ -547,7 +568,7 @@ function render(data) {
     const top = movies.filter((movie) => movie.rank <= 3);
     const rest = movies.filter((movie) => movie.rank > 3);
     const isJapan = state.region === 'japan';
-    const title = isJapan ? '日本興行収入ランキング' : '世界興行収入ランキング';
+    const title = isJapan ? '日本映画興行収入ランキング' : '世界映画興行収入ランキング';
     const lastUpdated = isJapan ? data.japanLastUpdated : data.globalLastUpdated;
 
     app.innerHTML = `${headerHtml()}

@@ -31,6 +31,9 @@ class ExportStaticSite extends Command
     /** @var array<string, list<array{key: string, title: string, points: list<array{at: string, boxOffice: int}>}>> */
     private array $activeSeries = ['japan' => [], 'global' => []];
 
+    /** JS の PER_PAGE（resources/js/static-site.js）と揃える */
+    private const RANKING_PAGE_SIZE = 100;
+
     /** @var list<string> */
     private const COMPARE_COLORS = [
         '#7dd3fc',
@@ -82,11 +85,14 @@ class ExportStaticSite extends Command
             }
         }
 
+        $globalLastUpdated = $this->maxLastUpdated(GlobalMovie::class);
+        $japanLastUpdated = $this->maxLastUpdated(JapaneseMovie::class);
+
         File::put($output . '/data/movies.json', json_encode([
             'generatedAt' => now('Asia/Tokyo')->toIso8601String(),
             'usdJpy' => $this->usdJpy(),
-            'globalLastUpdated' => $this->maxLastUpdated(GlobalMovie::class),
-            'japanLastUpdated' => $this->maxLastUpdated(JapaneseMovie::class),
+            'globalLastUpdated' => $globalLastUpdated,
+            'japanLastUpdated' => $japanLastUpdated,
             'global' => $this->moviesForClientPayload($global),
             'japan' => $this->moviesForClientPayload($japan),
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT));
@@ -105,8 +111,9 @@ class ExportStaticSite extends Command
         }
         $this->exportTrustPages($output);
         $this->exportNowPage($output);
+        $this->exportJapanRankingPage($output, $japan, $japanLastUpdated);
         $this->exportSitemap($output, $global, $japan, $boardOnly);
-        File::put($output . '/index.html', $this->indexHtml());
+        File::put($output . '/index.html', $this->indexHtml('/', $global, $globalLastUpdated));
 
         $moviePageCount = count($global) + count($japan) + count($boardOnly);
         $this->info("Static site exported to {$output}");
@@ -317,6 +324,9 @@ class ExportStaticSite extends Command
             'revenueYen' => $isJapan ? null : number_format($movie->box_office * $usdJpy / 100000000, 1) . '億円',
             'analysis' => $movie->ai_analysis,
             'sourceUrl' => $movie->data_source_url,
+            'updatedAt' => $movie->last_updated
+                ? Carbon::parse($movie->last_updated)->timezone('Asia/Tokyo')->toAtomString()
+                : null,
         ];
     }
 
@@ -369,12 +379,14 @@ class ExportStaticSite extends Command
         }
     }
 
-    private function exportRobotsTxt(string $output): void
+    private function robotsTxt(): string
     {
         $baseUrl = rtrim(config('app.url'), '/');
 
-        File::put($output . '/robots.txt', <<<TXT
+        return <<<TXT
 User-agent: *
+Allow: /data/movies.json
+Allow: /data/now-playing.json
 Allow: /
 
 # サイトマップ
@@ -383,10 +395,12 @@ Sitemap: {$baseUrl}/sitemap.xml
 # 検索エンジンにクロールしてほしくないディレクトリ
 Disallow: /storage/
 Disallow: /data/
+TXT;
+    }
 
-# クロール間隔の設定（サーバー負荷軽減）
-Crawl-delay: 1
-TXT);
+    private function exportRobotsTxt(string $output): void
+    {
+        File::put($output . '/robots.txt', $this->robotsTxt());
     }
 
     private function usdJpy(): float
@@ -757,6 +771,15 @@ XML);
         File::ensureDirectoryExists($output.'/now/global');
         File::put($output.'/now/index.html', $this->indexHtml('/now/'));
         File::put($output.'/now/global/index.html', $this->indexHtml('/now/global/'));
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $japan
+     */
+    private function exportJapanRankingPage(string $output, array $japan, ?string $updatedAt): void
+    {
+        File::ensureDirectoryExists($output.'/japan');
+        File::put($output.'/japan/index.html', $this->indexHtml('/japan/', $japan, $updatedAt));
     }
 
     /**
@@ -1446,13 +1469,75 @@ XML);
 
     private function exportMoviePages(string $output, $global, $japan): void
     {
-        foreach ($global as $movie) {
+        foreach ($this->withRankingLinks($global->values()->all()) as $movie) {
             $this->writeMoviePage($output, $movie, false);
         }
 
-        foreach ($japan as $movie) {
+        foreach ($this->withRankingLinks($japan->values()->all()) as $movie) {
             $this->writeMoviePage($output, $movie, true);
         }
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $movies
+     * @return list<array<string, mixed>>
+     */
+    private function withRankingLinks(array $movies): array
+    {
+        $count = count($movies);
+        foreach ($movies as $index => $movie) {
+            $movies[$index]['rankAbove'] = $index > 0 ? $this->rankingLinkRef($movies[$index - 1]) : null;
+            $movies[$index]['rankBelow'] = $index < $count - 1 ? $this->rankingLinkRef($movies[$index + 1]) : null;
+            $movies[$index]['genrePeers'] = $this->genrePeerRefs($movies, $index);
+        }
+
+        return $movies;
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     * @return array{title: string, slug: string, rank: mixed, revenue: string}
+     */
+    private function rankingLinkRef(array $movie): array
+    {
+        return [
+            'title' => (string) ($movie['title'] ?? ''),
+            'slug' => $this->movieSlug((string) ($movie['slug'] ?? $movie['id'] ?? '')),
+            'rank' => $movie['rank'] ?? null,
+            'revenue' => (string) ($movie['revenue'] ?? ''),
+        ];
+    }
+
+    /**
+     * 先頭ジャンルが同じ、より上位の作品を最大3件。
+     *
+     * @param  list<array<string, mixed>>  $movies
+     * @return list<array{title: string, slug: string, rank: mixed, revenue: string}>
+     */
+    private function genrePeerRefs(array $movies, int $index): array
+    {
+        $genres = $movies[$index]['genres'] ?? [];
+        $genre = is_array($genres) ? ($genres[0] ?? null) : null;
+        if (! is_string($genre) || $genre === '') {
+            return [];
+        }
+
+        $peers = [];
+        foreach ($movies as $peerIndex => $peer) {
+            if ($peerIndex >= $index) {
+                break;
+            }
+            $peerGenres = $peer['genres'] ?? [];
+            if (! is_array($peerGenres) || ($peerGenres[0] ?? null) !== $genre) {
+                continue;
+            }
+            $peers[] = $this->rankingLinkRef($peer);
+            if (count($peers) >= 3) {
+                break;
+            }
+        }
+
+        return $peers;
     }
 
     private function writeMoviePage(string $output, array $movie, bool $isJapan): void
@@ -1557,6 +1642,11 @@ XML);
             'changefreq' => 'daily',
             'priority' => '1.0',
         ], [
+            'loc' => "{$baseUrl}/japan/",
+            'lastmod' => $defaultLastmod,
+            'changefreq' => 'daily',
+            'priority' => '0.9',
+        ], [
             'loc' => "{$baseUrl}/now/",
             'lastmod' => $defaultLastmod,
             'changefreq' => 'daily',
@@ -1586,7 +1676,7 @@ XML);
         foreach (array_merge($global, $japan, $boardOnly) as $movie) {
             $urls[] = [
                 'loc' => "{$baseUrl}/movies/" . $this->movieSlug($movie['id']) . '/',
-                'lastmod' => $defaultLastmod,
+                'lastmod' => $this->movieLastmod($movie, $defaultLastmod),
                 'changefreq' => 'weekly',
                 'priority' => '0.6',
             ];
@@ -1614,7 +1704,7 @@ XML);
         $detail = $this->loadExportedDetail($output, $movie['id']) ?? [];
         $slug = $this->movieSlug($movie['id']);
         $pageUrl = "{$baseUrl}/movies/{$slug}/";
-        $homeUrl = $baseUrl . '/?tab=' . ($isJapan ? 'japan' : 'global');
+        $homeUrl = $baseUrl.($isJapan ? '/japan/' : '/');
 
         $title = $movie['title'];
         $originalTitle = $detail['original_title'] ?? $movie['originalTitle'] ?? '';
@@ -1718,6 +1808,8 @@ XML);
         $footerInner = $this->siteFooterInnerHtml();
         $historyHtml = $this->movieHistoryHtml($movie, $isJapan);
         $heading = $this->h($title.'の興行収入');
+        $leadHtml = '<p class="movie-lead">'.$this->h($this->movieLeadSentence($movie, $isJapan)).'</p>';
+        $rankingLinksHtml = $this->movieRankingLinksHtml($movie);
         $backParts = [];
         if (! empty($movie['isActive'])) {
             $nowPath = $isJapan ? '/now/' : '/now/global/';
@@ -1778,6 +1870,7 @@ XML);
           <div class="movie-hero-body">
             <h1 class="movie-page-title">{$heading}</h1>
             {$subtitle}
+            {$leadHtml}
           </div>
           <dl class="movie-hero-stats">
             <div><dt>{$eRankLabel}</dt><dd>{$eRankValue}</dd></div>
@@ -1786,6 +1879,7 @@ XML);
             <div><dt>公開日</dt><dd>{$eReleaseDate}</dd></div>
           </dl>
         </div>
+        {$rankingLinksHtml}
         {$historyHtml}
         {$infoHtml}
       </article>
@@ -2066,27 +2160,246 @@ HTML;
         );
     }
 
-    private function indexHtml(string $path = '/'): string
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function movieLastmod(array $movie, string $fallback): string
     {
-        $styles = $this->viteStyles();
-        $script = $this->viteScript();
+        $raw = $movie['updatedAt'] ?? null;
+        if (! is_string($raw) || $raw === '') {
+            return $fallback;
+        }
 
+        try {
+            return Carbon::parse($raw)->timezone('Asia/Tokyo')->toAtomString();
+        } catch (\Throwable) {
+            return $fallback;
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function movieLeadSentence(array $movie, bool $isJapan): string
+    {
+        $asOf = $this->formatRankingDate($movie['updatedAt'] ?? null)
+            ?? now('Asia/Tokyo')->format('Y年n月j日');
+        $revenue = (string) ($movie['revenue'] ?? '');
+        $rankLabel = $isJapan ? '日本ランキング' : '世界ランキング';
+
+        if (is_numeric($movie['rank'] ?? null) && $revenue !== '') {
+            return $asOf.'時点の'.$rankLabel.'は第'.(int) $movie['rank'].'位、興行収入は'.$revenue.'。';
+        }
+
+        if ($revenue !== '') {
+            return $asOf.'時点の興行収入は'.$revenue.'。';
+        }
+
+        return $asOf.'時点の興行収入です。';
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function movieRankingLinksHtml(array $movie): string
+    {
+        $html = '';
+        $above = is_array($movie['rankAbove'] ?? null) ? $movie['rankAbove'] : null;
+        $below = is_array($movie['rankBelow'] ?? null) ? $movie['rankBelow'] : null;
+        $parts = [];
+        if ($above && ($above['title'] ?? '') !== '') {
+            $parts[] = '一つ上は'.$this->rankingAnchor($above);
+        }
+        if ($below && ($below['title'] ?? '') !== '') {
+            $parts[] = '一つ下は'.$this->rankingAnchor($below);
+        }
+        if ($parts !== []) {
+            $html .= '<section class="movie-section movie-rank-neighbors"><h2>前後の順位</h2><p>'
+                .implode('。', $parts).'。</p></section>';
+        }
+
+        $peers = is_array($movie['genrePeers'] ?? null) ? $movie['genrePeers'] : [];
+        $links = [];
+        foreach ($peers as $peer) {
+            if (is_array($peer) && ($peer['title'] ?? '') !== '') {
+                $links[] = $this->rankingAnchor($peer);
+            }
+        }
+        if ($links !== []) {
+            $genres = $movie['genres'] ?? [];
+            $genre = is_array($genres) ? (string) ($genres[0] ?? '') : '';
+            $label = $genre !== '' ? $this->h($genre).'の上位' : '同じジャンルの上位';
+            $html .= '<section class="movie-section movie-genre-peers"><h2>'.$label.'</h2><p>'
+                .implode('、', $links).'</p></section>';
+        }
+
+        return $html;
+    }
+
+    /**
+     * @param  array<string, mixed>  $ref
+     */
+    private function rankingAnchor(array $ref): string
+    {
+        $slug = $this->h((string) ($ref['slug'] ?? ''));
+        $title = $this->h((string) ($ref['title'] ?? ''));
+        $rank = is_numeric($ref['rank'] ?? null) ? '第'.(int) $ref['rank'].'位 ' : '';
+
+        return '<a href="/movies/'.$slug.'/">'.$rank.'『'.$title.'』</a>';
+    }
+
+    private function formatRankingDate(?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value)->timezone('Asia/Tokyo')->format('Y年n月j日');
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $movies
+     */
+    private function rankingIntro(array $movies, ?string $updatedAt): string
+    {
+        $updated = $this->formatRankingDate($updatedAt);
+        $top = $movies[0] ?? null;
+        $hasTop = is_array($top) && ($top['title'] ?? '') !== '' && ($top['revenue'] ?? '') !== '';
+        if (! $hasTop) {
+            $text = '興行収入の高い順に掲載しています';
+            if ($updated) {
+                $text .= '（'.$updated.'更新）';
+            }
+
+            return $text.'。';
+        }
+
+        $text = '1位は『'.$top['title'].'』の'.$top['revenue'];
+        if ($updated) {
+            $text .= '（'.$updated.'更新）';
+        }
+
+        return $text.'。';
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $movies
+     */
+    private function rankingStaticHtml(array $movies, bool $isJapan, ?string $updatedAt): string
+    {
+        $heading = $isJapan ? '日本映画興行収入ランキング' : '世界映画興行収入ランキング';
+        $intro = $this->rankingIntro($movies, $updatedAt);
+        $otherHref = $isJapan ? '/' : '/japan/';
+        $otherLabel = $isJapan ? '世界映画興行収入ランキング' : '日本映画興行収入ランキング';
+        $items = '';
+        foreach (array_slice($movies, 0, self::RANKING_PAGE_SIZE) as $movie) {
+            $slug = $this->movieSlug((string) ($movie['slug'] ?? $movie['id'] ?? ''));
+            if ($slug === '') {
+                continue;
+            }
+            $items .= '<li><span class="ranking-static-rank">'.$this->h((string) ($movie['rank'] ?? '')).'</span> '
+                .'<a href="/movies/'.$this->h($slug).'/">'.$this->h((string) ($movie['title'] ?? '')).'</a> '
+                .'<span class="ranking-static-revenue">'.$this->h((string) ($movie['revenue'] ?? '')).'</span></li>'."\n";
+        }
+
+        return '<main class="container ranking-static">'
+            .'<h1 class="page-title">'.$this->h($heading).'</h1>'
+            .'<p class="ranking-static-intro">'.$this->h($intro).'</p>'
+            .'<ol class="ranking-static-list">'."\n".$items.'</ol>'
+            .'<p class="ranking-static-switch"><a href="'.$this->h($otherHref).'">'.$this->h($otherLabel).'</a></p>'
+            .'</main>';
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $movies
+     */
+    private function rankingItemListJson(array $movies, bool $isJapan): string
+    {
+        $baseUrl = rtrim(config('app.url'), '/');
+        $elements = [];
+        foreach (array_slice($movies, 0, self::RANKING_PAGE_SIZE) as $offset => $movie) {
+            $slug = $this->movieSlug((string) ($movie['slug'] ?? $movie['id'] ?? ''));
+            $title = (string) ($movie['title'] ?? '');
+            if ($slug === '' || $title === '') {
+                continue;
+            }
+            $elements[] = [
+                '@type' => 'ListItem',
+                'position' => is_numeric($movie['rank'] ?? null) ? (int) $movie['rank'] : $offset + 1,
+                'name' => $title,
+                'url' => $baseUrl.'/movies/'.$slug.'/',
+            ];
+        }
+
+        if ($elements === []) {
+            return '';
+        }
+
+        $json = json_encode([
+            '@context' => 'https://schema.org',
+            '@type' => 'ItemList',
+            'name' => $isJapan ? '日本映画興行収入ランキング' : '世界映画興行収入ランキング',
+            'itemListElement' => $elements,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG);
+
+        return '<script type="application/ld+json">'.$json.'</script>';
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rankingMovies
+     * @return array{title: string, description: string, canonical: string, jsonLd: string, appHtml: string}
+     */
+    private function indexMeta(string $path, array $rankingMovies = [], ?string $rankingUpdated = null): array
+    {
         $baseUrl = rtrim(config('app.url'), '/');
         $canonical = $baseUrl.($path === '/' ? '/' : rtrim($path, '/').'/');
+        $isNowGlobal = $path === '/now/global' || $path === '/now/global/';
         $isNow = str_starts_with($path, '/now');
-        $isNowGlobal = $path === '/now/global/';
+        $isJapanRanking = $path === '/japan' || $path === '/japan/';
+        $isRanking = ! $isNow && ($path === '/' || $isJapanRanking);
+
         if ($isNowGlobal) {
             $title = '公開中映画の興行収入の勢い（世界） | MUBIRAN';
             $description = '世界で公開中の映画がどれくらいのペースで興行収入を伸ばしているかを追跡。前回発表からの伸び、1日あたりのペース、マイルストーン到達を毎日確認できます。';
         } elseif ($isNow) {
             $title = '公開中映画の興行収入の勢い（日本） | MUBIRAN';
             $description = '日本で公開中の映画がどれくらいのペースで興行収入を伸ばしているかを追跡。前回発表からの伸び、1日あたりのペース、マイルストーン到達を毎日確認できます。';
+        } elseif ($isJapanRanking) {
+            $title = '日本映画興行収入ランキング | MUBIRAN';
+            $description = '日本映画の歴代興行収入ランキング。'.$this->rankingIntro($rankingMovies, $rankingUpdated);
         } else {
-            $title = '歴代映画興行収入ランキング | 世界・日本のヒット作を徹底分析 - MUBIRAN';
-            $description = '「アバター」「鬼滅の刃」など、世界と日本の歴代ヒット映画の興行収入ランキングを完全網羅。興収だけでなく制作費や利益率まで可視化。あなたの好きな映画は今何位？最新データを毎日更新。';
+            $title = '世界映画興行収入ランキング | MUBIRAN';
+            $description = '世界映画の歴代興行収入ランキング。'.$this->rankingIntro($rankingMovies, $rankingUpdated);
         }
-        $keywords = '映画,興行収入,ランキング,売上,日本映画,世界の映画,最新,ムビラン,ボックスオフィス,映画統計,映画データ,映画売上,興行成績,映画ランキング,最新映画,公開中';
-        $ogImage = $baseUrl . '/images/android-chrome-512x512.png';
+
+        return [
+            'title' => $title,
+            'description' => $description,
+            'canonical' => $canonical,
+            'jsonLd' => $isRanking ? $this->rankingItemListJson($rankingMovies, $isJapanRanking) : '',
+            'appHtml' => $isRanking ? $this->rankingStaticHtml($rankingMovies, $isJapanRanking, $rankingUpdated) : '',
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rankingMovies
+     */
+    private function indexHtml(string $path = '/', array $rankingMovies = [], ?string $rankingUpdated = null): string
+    {
+        $styles = $this->viteStyles();
+        $script = $this->viteScript();
+        $meta = $this->indexMeta($path, $rankingMovies, $rankingUpdated);
+        $title = $this->h($meta['title']);
+        $description = $this->h($meta['description']);
+        $canonical = $this->h($meta['canonical']);
+        $keywords = $this->h('映画,興行収入,ランキング,売上,日本映画,世界の映画,最新,ムビラン,ボックスオフィス,映画統計,映画データ,映画売上,興行成績,映画ランキング,最新映画,公開中');
+        $ogImage = $this->h(rtrim(config('app.url'), '/').'/images/android-chrome-512x512.png');
+        $jsonLd = $meta['jsonLd'];
+        $appHtml = $meta['appHtml'];
 
         return <<<HTML
 <!doctype html>
@@ -2122,9 +2435,10 @@ HTML;
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Oswald:wght@400;700&display=swap" rel="stylesheet">
     {$styles}
+    {$jsonLd}
   </head>
   <body>
-    <div id="app" aria-live="polite"></div>
+    <div id="app" aria-live="polite">{$appHtml}</div>
     <script type="module" src="{$script}"></script>
     <script>
       if ('serviceWorker' in navigator) {

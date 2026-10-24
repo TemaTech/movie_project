@@ -44,9 +44,12 @@ body.movie-page { padding-bottom: 40px; }
     align-items: start;
     margin-bottom: 16px;
 }
-.movie-poster {
+.movie-poster-frame {
     grid-area: poster;
     width: 128px;
+}
+.movie-poster {
+    width: 100%;
     height: auto;
     border-radius: 8px;
     border: 1px solid var(--glass-border);
@@ -324,14 +327,35 @@ body.movie-page { padding-bottom: 40px; }
 
 @media (max-width: 640px) {
     .movie-hero {
-        grid-template-columns: 72px minmax(0, 1fr);
+        grid-template-columns: auto minmax(0, 1fr);
         grid-template-areas:
             "body body"
             "poster stats";
         column-gap: 12px;
         row-gap: 8px;
+        align-items: stretch;
     }
-    .movie-poster { width: 72px; }
+    .movie-page-title { font-size: 1.05rem; }
+    .movie-original-title { font-size: .8rem; }
+    .movie-hero-body { gap: 4px; }
+    .movie-hero-stats dt { font-size: .68rem; }
+    .movie-hero-stats dd { font-size: 1.02rem; letter-spacing: 0.01em; }
+    .movie-poster-frame {
+        position: relative;
+        width: auto;
+        height: auto;
+        aspect-ratio: 2 / 3;
+        align-self: stretch;
+        min-height: 0;
+    }
+    .movie-poster {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center top;
+    }
 }
 
 .site-footer-links { font-size: .9rem; margin-bottom: 12px !important; }

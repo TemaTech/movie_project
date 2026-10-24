@@ -1974,7 +1974,7 @@ XML);
             : '';
 
         $posterHtml = $movie['posterUrl']
-            ? '<img src="' . $this->h($this->absoluteUrl($movie['posterUrl'])) . '" alt="' . $this->h($title) . '" class="movie-poster" width="160" height="240" loading="lazy">'
+            ? '<div class="movie-poster-frame"><img src="' . $this->h($this->absoluteUrl($movie['posterUrl'])) . '" alt="' . $this->h($title) . '" class="movie-poster" width="160" height="240" loading="lazy"></div>'
             : '';
 
         $jsonLd = json_encode([

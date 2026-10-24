@@ -396,6 +396,11 @@ function bindMovieInteractions(data) {
 
     document.querySelectorAll('[data-movie-id]').forEach((element) => {
         const isNowCard = element.matches('.now-hero, .now-card, .now-waiting-row');
+        const rankingTitleLink = (event) => {
+            if (isNowCard) return null;
+            const link = event.target.closest('a.movie-title');
+            return link && element.contains(link) ? link : null;
+        };
         const open = () => {
             const movie = findMovie(data, element.dataset.movieId);
             if (!movie) return;
@@ -406,10 +411,23 @@ function bindMovieInteractions(data) {
             openMovieModal(movie);
         };
         element.addEventListener('click', (event) => {
+            if (rankingTitleLink(event)) {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                open();
+                return;
+            }
             if (event.target.closest('a, button, [data-open-modal]')) return;
             open();
         });
         element.addEventListener('keydown', (event) => {
+            if (rankingTitleLink(event)) {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    open();
+                }
+                return;
+            }
             if (event.target.closest('a, button, [data-open-modal]')) return;
             if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();

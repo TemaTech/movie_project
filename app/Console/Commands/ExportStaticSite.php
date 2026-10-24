@@ -917,9 +917,8 @@ XML);
 
         $unit = $isJapan ? '億円' : '億ドル';
         $fromRelease = ($self[0]['day'] ?? null) !== null;
-        $axisNote = $fromRelease
-            ? '横軸は公開からの日数、縦軸は累計興収（'.$unit.'）。点に触れるとその発表時点の数字が出ます。'
-            : '横軸は最初の観測からの日数、縦軸は累計興収（'.$unit.'）。公開日が日単位でないため、公開日数では揃えていません。';
+        $soloZoomed = str_contains($solo, 'data-y-zoomed="1"');
+        $axisNote = $this->chartCaption($fromRelease, $unit, $soloZoomed);
         $soloPanel = '<div class="movie-chart-panel" data-chart="solo">'.$solo
             .'<p class="movie-chart-caption">'.$axisNote.'</p></div>';
         $table = $this->trajectoryTable($self, $isJapan);
@@ -959,7 +958,7 @@ XML);
             .'</span></div>'
             .$soloPanel
             .'<div class="movie-chart-panel" data-chart="compare">'.$compare.$legend
-            .'<p class="movie-chart-caption">横軸は公開からの日数です。公開時期が違っても、同じ「何日目」で比べられます。線に触れると作品名と累計が出ます。</p>'
+            .'<p class="movie-chart-caption">'.$this->chartCaption(true, $unit, str_contains($compare, 'data-y-zoomed="1"'), true).'</p>'
             .'</div>'.$table.'</section>';
     }
 
@@ -1060,11 +1059,13 @@ XML);
         }
 
         $peak = max($selfValues);
+        $floor = min($selfValues);
         if ($useDays) {
             $days = array_map(fn (array $row) => (int) $row['day'], $self);
             foreach ($others as $other) {
                 $days = array_merge($days, array_map(fn (array $row) => (int) $row['day'], $other['points']));
                 $peak = max($peak, max(array_column($other['points'], 'boxOffice')));
+                $floor = min($floor, min(array_column($other['points'], 'boxOffice')));
             }
             $xMin = $others === [] ? min(array_map(fn (array $row) => (int) $row['day'], $self)) : 0;
             $xMax = max($days);
@@ -1073,6 +1074,7 @@ XML);
             foreach ($others as $other) {
                 $xs = array_merge($xs, array_column($other['points'], 'ts'));
                 $peak = max($peak, max(array_column($other['points'], 'boxOffice')));
+                $floor = min($floor, min(array_column($other['points'], 'boxOffice')));
             }
             $xMin = min($xs);
             $xMax = max($xs);
@@ -1081,23 +1083,38 @@ XML);
             $xMax = $xMin + 1;
         }
 
+        [$yMin, $yMax, $yTicks, $yZoomed] = $this->chartYDomain($floor, $peak, $isJapan);
+        $yTickLabels = array_map(
+            fn (float $tick): string => $this->chartAxisAmount($tick, $isJapan),
+            $yTicks,
+        );
+
         $width = 640;
         $height = 236;
-        $padL = 62;
+        $padL = 62.0;
+        foreach ($yTickLabels as $label) {
+            $padL = max($padL, $this->chartLabelWidth($label) + 16);
+        }
         $padR = 18;
         $padT = 28;
         $padB = 36;
         $plotW = $width - $padL - $padR;
         $plotH = $height - $padT - $padB;
-        $yMax = max(1, (int) ceil($peak * 1.12));
         $baseY = $padT + $plotH;
         $xRight = $padL + $plotW;
         $xPos = fn (int|float $x): float => $padL + (($x - $xMin) / ($xMax - $xMin)) * $plotW;
-        $yPos = fn (int $value): float => $padT + (1 - ($value / $yMax)) * $plotH;
+        $yPos = function (int|float $value) use ($padT, $plotH, $yMin, $yMax): float {
+            $span = $yMax - $yMin;
+            if ($span <= 0.0) {
+                return $padT + $plotH / 2;
+            }
+
+            return $padT + (1 - (($value - $yMin) / $span)) * $plotH;
+        };
         $xOf = fn (array $row): float => $xPos($useDays ? (int) $row['day'] : (int) $row['ts']);
 
         $guides = '';
-        foreach ($this->chartYTicks($yMax, $isJapan) as $threshold) {
+        foreach ($yTicks as $index => $threshold) {
             $gy = $yPos($threshold);
             $guides .= sprintf(
                 '<line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" class="movie-chart-guide"/>',
@@ -1108,7 +1125,7 @@ XML);
             );
             $guides .= '<text x="'.sprintf('%.1f', $padL - 8).'" y="'.sprintf('%.1f', $gy + 3.5)
                 .'" text-anchor="end" class="movie-chart-guide-label">'
-                .$this->h($this->chartAxisAmount($threshold, $isJapan)).'</text>';
+                .$this->h($yTickLabels[$index]).'</text>';
         }
 
         $othersSvg = '';
@@ -1126,20 +1143,15 @@ XML);
 
         $coords = [];
         $dots = '';
-        $valueLabels = '';
-        $showLabels = $others === [] && count($self) <= 12;
         foreach ($self as $row) {
             $px = $xOf($row);
             $py = $yPos($row['boxOffice']);
             $coords[] = sprintf('%.1f,%.1f', $px, $py);
             $dots .= sprintf('<circle cx="%.1f" cy="%.1f" r="3.2" class="movie-chart-dot"/>', $px, $py);
-            if ($showLabels) {
-                [$labelX, $anchor] = $this->chartPointLabelPlacement($px, $padL, $plotW);
-                $valueLabels .= '<text x="'.sprintf('%.1f', $labelX).'" y="'.sprintf('%.1f', $py - 9)
-                    .'" text-anchor="'.$anchor.'" class="movie-chart-point-label">'
-                    .$this->h($this->chartShortAmount((int) $row['boxOffice'], $isJapan)).'</text>';
-            }
         }
+        $valueLabels = ($others === [] && count($self) <= 12)
+            ? $this->chartValueLabels($self, $xOf, $yPos, $padL, $plotW, $width, $height, $isJapan)
+            : '';
         $lastRow = $self[array_key_last($self)];
         $lastX = $xOf($lastRow);
         $lastY = $yPos($lastRow['boxOffice']);
@@ -1172,7 +1184,10 @@ XML);
             .'</linearGradient></defs>';
 
         $chartClass = $others === [] ? 'movie-chart' : 'movie-chart is-compare';
-        $svg = '<svg class="'.$chartClass.'" viewBox="0 0 '.$width.' '.$height.'" role="img" aria-label="興行収入の推移">'
+        $aria = $yZoomed
+            ? '興行収入の推移。縦軸は0からではなく、変化が見える範囲に拡大'
+            : '興行収入の推移';
+        $svg = '<svg class="'.$chartClass.'" viewBox="0 0 '.$width.' '.$height.'" role="img" aria-label="'.$aria.'">'
             .$defs
             .$guides
             .'<path class="movie-chart-area" fill="url(#'.$fillId.')" d="'.$area.'"/>'
@@ -1185,7 +1200,9 @@ XML);
 
         $hits = $this->chartHitsHtml($self, $others, $selfTitle, $isJapan, $useDays, $xOf, $yPos, $width, $height);
 
-        return '<div class="movie-chart-frame">'.$svg.$hits.'</div>';
+        $zoomAttr = $yZoomed ? ' data-y-zoomed="1"' : '';
+
+        return '<div class="movie-chart-frame"'.$zoomAttr.'>'.$svg.$hits.'</div>';
     }
 
     /**
@@ -1402,6 +1419,132 @@ XML);
     }
 
     /**
+     * 累計が上の方に固まっているときは、0からの余白を省いて変化の幅に縦軸を寄せる。
+     * 公開直後から大きく伸びる作品は、これまでのどおり 0 を下端にする。
+     *
+     * @return array{0: float, 1: float, 2: list<float>, 3: bool}
+     */
+    private function chartYDomain(int $floor, int $peak, bool $isJapan): array
+    {
+        $zeroMax = (float) max(1, (int) ceil($peak * 1.12));
+        $span = $peak - $floor;
+        $occupancy = $span / $zeroMax;
+        if ($floor <= 0 || $occupancy >= 0.5) {
+            $ticks = array_map('floatval', $this->chartYTicks((int) $zeroMax, $isJapan));
+
+            return [0.0, $zeroMax, $ticks, false];
+        }
+
+        $unit = 100_000_000.0;
+        $scale = $this->chartZoomScale($floor / $unit, $peak / $unit);
+
+        return [
+            $scale['min'] * $unit,
+            $scale['max'] * $unit,
+            array_map(fn (float $oku): float => $oku * $unit, $scale['ticks']),
+            true,
+        ];
+    }
+
+    /**
+     * @return array{min: float, max: float, ticks: list<float>}
+     */
+    private function chartZoomScale(float $minOku, float $maxOku): array
+    {
+        $span = max(0.01, $maxOku - $minOku);
+        $paddedMin = max(0.0, $minOku - $span * 0.18);
+        $paddedMax = $maxOku + $span * 0.28;
+        $rough = max(0.01, ($paddedMax - $paddedMin) / 4);
+        $exponent = (int) floor(log10($rough));
+        $magnitude = 10.0 ** $exponent;
+        $best = null;
+
+        foreach ([1.0, 2.0, 2.5, 5.0] as $base) {
+            foreach ([$magnitude / 10, $magnitude, $magnitude * 10] as $mag) {
+                $step = $base * $mag;
+                if ($step <= 0.0 || $step >= ($paddedMax - $paddedMin)) {
+                    continue;
+                }
+                $domainMin = $this->chartRoundOku(floor(($paddedMin + 1e-9) / $step) * $step);
+                $domainMax = $this->chartRoundOku(ceil(($paddedMax - 1e-9) / $step) * $step);
+                if ($domainMax <= $domainMin) {
+                    $domainMax = $this->chartRoundOku($domainMin + $step);
+                }
+                if ($domainMin > $minOku - $span * 0.05) {
+                    $domainMin = $this->chartRoundOku(max(0.0, $domainMin - $step));
+                }
+                if ($domainMax < $maxOku + $span * 0.1) {
+                    $domainMax = $this->chartRoundOku($domainMax + $step);
+                }
+                $ticks = $this->chartTicksInclusive($domainMin, $domainMax, $step);
+                $count = count($ticks);
+                if ($count < 2 || $count > 8) {
+                    continue;
+                }
+                $domainSpan = max(0.01, $domainMax - $domainMin);
+                $slackPenalty = ($domainSpan > $span * 2.4 || $domainSpan < $span * 1.2) ? 2 : 0;
+                $countPenalty = ($count < 3 || $count > 6) ? 3 : 0;
+                $rank = [$slackPenalty, $countPenalty, abs($count - 4), $this->chartStepDecimals($step), -$step];
+                if ($best === null || $rank < $best['rank']) {
+                    $best = [
+                        'rank' => $rank,
+                        'min' => $domainMin,
+                        'max' => $domainMax,
+                        'ticks' => $ticks,
+                    ];
+                }
+            }
+        }
+
+        if ($best === null) {
+            return [
+                'min' => $paddedMin,
+                'max' => $paddedMax,
+                'ticks' => [$this->chartRoundOku($minOku), $this->chartRoundOku($maxOku)],
+            ];
+        }
+
+        return [
+            'min' => $best['min'],
+            'max' => $best['max'],
+            'ticks' => $best['ticks'],
+        ];
+    }
+
+    /**
+     * @return list<float>
+     */
+    private function chartTicksInclusive(float $domainMin, float $domainMax, float $step): array
+    {
+        $first = (int) round($domainMin / $step);
+        $last = (int) round($domainMax / $step);
+        $ticks = [];
+        for ($i = $first; $i <= $last; $i++) {
+            $ticks[] = $this->chartRoundOku($i * $step);
+        }
+
+        return $ticks;
+    }
+
+    private function chartStepDecimals(float $step): int
+    {
+        $rounded = round($step, 6);
+        if (abs($rounded - round($rounded)) < 1e-6) {
+            return 0;
+        }
+        if (abs($rounded * 10 - round($rounded * 10)) < 1e-6) {
+            return 1;
+        }
+
+        return 2;
+    }
+
+    private function chartRoundOku(float $oku): float
+    {
+        return round($oku, 4);
+    }
+
+    /**
      * @return list<int>
      */
     private function chartYTicks(int $yMax, bool $isJapan): array
@@ -1421,6 +1564,24 @@ XML);
         return $ticks;
     }
 
+    private function chartCaption(bool $fromRelease, string $unit, bool $zoomed, bool $compare = false): string
+    {
+        $zoom = $zoomed ? '縦軸は0からではなく、変化が見える範囲に拡大しています。' : '';
+        if ($compare) {
+            return '横軸は公開からの日数です。公開時期が違っても、同じ「何日目」で比べられます。'
+                .$zoom
+                .'線に触れると作品名と累計が出ます。';
+        }
+        if ($fromRelease) {
+            return '横軸は公開からの日数、縦軸は累計興収（'.$unit.'）。'
+                .$zoom
+                .'点に触れるとその発表時点の数字が出ます。';
+        }
+
+        return '横軸は最初の観測からの日数、縦軸は累計興収（'.$unit.'）。公開日が日単位でないため、公開日数では揃えていません。'
+            .$zoom;
+    }
+
     /**
      * @return array{0: float, 1: 'start'|'middle'|'end'}
      */
@@ -1436,13 +1597,147 @@ XML);
         return [$px, 'middle'];
     }
 
-    private function chartAxisAmount(int $amount, bool $isJapan): string
+    /**
+     * 点が近いときの数字は、上下にずらしても重なるものだけ省く。両端の数字は残す。
+     *
+     * @param  list<array{at: string, ts: int, day: int|null, boxOffice: int}>  $rows
+     * @param  callable(array<string, mixed>): float  $xOf
+     * @param  callable(int|float): float  $yPos
+     */
+    private function chartValueLabels(
+        array $rows,
+        callable $xOf,
+        callable $yPos,
+        float $padL,
+        float $plotW,
+        int $width,
+        int $height,
+        bool $isJapan,
+    ): string {
+        $items = [];
+        foreach ($rows as $row) {
+            $items[] = [
+                'px' => $xOf($row),
+                'py' => $yPos((int) $row['boxOffice']),
+                'text' => $this->chartShortAmount((int) $row['boxOffice'], $isJapan),
+            ];
+        }
+
+        $last = count($items) - 1;
+        $order = [$last];
+        if ($last > 0) {
+            $order[] = 0;
+        }
+        for ($index = 1; $index < $last; $index++) {
+            $order[] = $index;
+        }
+
+        $placed = [];
+        $chosen = [];
+        foreach ($order as $index) {
+            $item = $items[$index];
+            $labelWidth = $this->chartLabelWidth($item['text']) + 6;
+            [$labelX, $anchor] = $this->chartPointLabelPlacement($item['px'], $padL, $plotW);
+            $fit = null;
+            foreach ([$item['py'] - 10, $item['py'] + 16, $item['py'] - 24, $item['py'] + 30] as $y) {
+                if ($y < 12 || $y > $height - 18) {
+                    continue;
+                }
+                $rect = $this->chartLabelRect($labelX, $y, $labelWidth, $anchor);
+                if ($rect[0] < -2 || $rect[2] > $width + 2 || $this->chartRectsOverlap($rect, $placed, 8)) {
+                    continue;
+                }
+                $fit = [$labelX, $y, $anchor, $rect];
+                break;
+            }
+            if ($fit === null && ($index === 0 || $index === $last)) {
+                $y = max(12.0, $item['py'] - 10);
+                $fit = [$labelX, $y, $anchor, $this->chartLabelRect($labelX, $y, $labelWidth, $anchor)];
+            }
+            if ($fit === null) {
+                continue;
+            }
+            $placed[] = $fit[3];
+            $chosen[$index] = $fit;
+        }
+
+        ksort($chosen);
+        $svg = '';
+        foreach ($chosen as $index => $fit) {
+            $svg .= '<text x="'.sprintf('%.1f', $fit[0]).'" y="'.sprintf('%.1f', $fit[1])
+                .'" text-anchor="'.$fit[2].'" class="movie-chart-point-label">'
+                .$this->h($items[$index]['text']).'</text>';
+        }
+
+        return $svg;
+    }
+
+    private function chartLabelWidth(string $text): float
     {
-        $oku = (int) round($amount / 100_000_000);
+        $width = 0.0;
+        $length = mb_strlen($text);
+        for ($i = 0; $i < $length; $i++) {
+            $char = mb_substr($text, $i, 1);
+            $width += preg_match('/[0-9.,]/', $char) === 1 ? 6.2 : 10.5;
+        }
+
+        return $width;
+    }
+
+    /**
+     * @return array{0: float, 1: float, 2: float, 3: float}
+     */
+    private function chartLabelRect(float $x, float $y, float $width, string $anchor): array
+    {
+        if ($anchor === 'start') {
+            $x1 = $x;
+        } elseif ($anchor === 'end') {
+            $x1 = $x - $width;
+        } else {
+            $x1 = $x - $width / 2;
+        }
+
+        return [$x1, $y - 12, $x1 + $width, $y];
+    }
+
+    /**
+     * @param  array{0: float, 1: float, 2: float, 3: float}  $rect
+     * @param  list<array{0: float, 1: float, 2: float, 3: float}>  $placed
+     */
+    private function chartRectsOverlap(array $rect, array $placed, float $gap): bool
+    {
+        foreach ($placed as $other) {
+            if ($rect[0] < $other[2] + $gap
+                && $rect[2] + $gap > $other[0]
+                && $rect[1] < $other[3] + $gap
+                && $rect[3] + $gap > $other[1]) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function chartAxisAmount(int|float $amount, bool $isJapan): string
+    {
+        $formatted = $this->chartFormatOku($amount / 100_000_000);
 
         return $isJapan
-            ? number_format($oku).'億円'
-            : number_format($oku).'億ドル';
+            ? $formatted.'億円'
+            : $formatted.'億ドル';
+    }
+
+    private function chartFormatOku(float $oku): string
+    {
+        $rounded = round($oku, 2);
+        if (abs($rounded - round($rounded)) < 0.001) {
+            return number_format((int) round($rounded));
+        }
+        if (abs($rounded - round($rounded, 1)) < 0.001) {
+            return number_format(round($rounded, 1), 1);
+        }
+
+        return number_format($rounded, 2);
     }
 
     private function chartShortAmount(int $amount, bool $isJapan): string

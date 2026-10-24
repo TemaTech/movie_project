@@ -32,7 +32,9 @@ class MoviePageHistoryTest extends TestCase
         $this->assertStringContainsString('9日', $svg);
         $this->assertStringContainsString('公開9日', $svg);
         $this->assertStringContainsString('movie-chart-tip', $svg);
-        $this->assertMatchesRegularExpression('/class="movie-chart-guide-label">0億円</', $svg);
+        $this->assertStringContainsString('data-y-zoomed="1"', $svg);
+        $this->assertDoesNotMatchRegularExpression('/class="movie-chart-guide-label">0億円</', $svg);
+        $this->assertMatchesRegularExpression('/class="movie-chart-guide-label">50億円</', $svg);
         $this->assertDoesNotMatchRegularExpression('/class="movie-chart-guide-label">[^<]*\.\d/', $svg);
         $this->assertMatchesRegularExpression(
             '/<text x="70\.0" y="[0-9.]+" text-anchor="start" class="movie-chart-point-label">/',
@@ -47,8 +49,17 @@ class MoviePageHistoryTest extends TestCase
             ['at' => '2026-08-01T03:00:00+09:00', 'boxOffice' => 400_000_000],
             ['at' => '2026-08-10T03:00:00+09:00', 'boxOffice' => 600_000_000],
         ], false, '2026-08-01');
-        $this->assertMatchesRegularExpression('/class="movie-chart-guide-label">0億ドル</', $globalSvg);
+        $this->assertStringContainsString('data-y-zoomed="1"', $globalSvg);
+        $this->assertDoesNotMatchRegularExpression('/class="movie-chart-guide-label">0億ドル</', $globalSvg);
+        $this->assertMatchesRegularExpression('/class="movie-chart-guide-label">5億ドル</', $globalSvg);
         $this->assertDoesNotMatchRegularExpression('/class="movie-chart-guide-label">[^<]*\.\d/', $globalSvg);
+
+        $wide = $this->invoke($command, 'trajectorySvg', [
+            ['at' => '2026-08-01T03:00:00+09:00', 'boxOffice' => 1_000_000_000],
+            ['at' => '2026-08-10T03:00:00+09:00', 'boxOffice' => 8_000_000_000],
+        ], true, '2026-08-01');
+        $this->assertDoesNotMatchRegularExpression('/data-y-zoomed=/', $wide);
+        $this->assertMatchesRegularExpression('/class="movie-chart-guide-label">0億円</', $wide);
 
         $clustered = $this->invoke($command, 'trajectorySvg', [
             ['at' => '2026-08-01T03:00:00+09:00', 'boxOffice' => 4_000_000_000],
@@ -63,6 +74,62 @@ class MoviePageHistoryTest extends TestCase
         $this->assertNotContains('2日', $axisDays);
         $this->assertContains('当日', $axisDays);
         $this->assertContains('21日', $axisDays);
+    }
+
+    public function test_trajectory_svg_zooms_when_totals_stay_in_a_narrow_band(): void
+    {
+        $command = $this->app->make(ExportStaticSite::class);
+        $points = [
+            ['at' => '2026-10-01T03:00:00+09:00', 'boxOffice' => 2_790_000_000],
+            ['at' => '2026-10-02T03:00:00+09:00', 'boxOffice' => 2_811_000_000],
+            ['at' => '2026-10-06T03:00:00+09:00', 'boxOffice' => 2_885_000_000],
+            ['at' => '2026-10-10T03:00:00+09:00', 'boxOffice' => 2_890_000_000],
+            ['at' => '2026-10-11T03:00:00+09:00', 'boxOffice' => 2_920_000_000],
+            ['at' => '2026-10-12T03:00:00+09:00', 'boxOffice' => 2_926_000_000],
+            ['at' => '2026-10-18T03:00:00+09:00', 'boxOffice' => 2_927_000_000],
+            ['at' => '2026-10-24T03:00:00+09:00', 'boxOffice' => 2_939_000_000],
+        ];
+        $svg = $this->invoke($command, 'trajectorySvg', $points, false, '2026-10-01');
+
+        $this->assertStringContainsString('data-y-zoomed="1"', $svg);
+        $this->assertStringContainsString('変化が見える範囲に拡大', $svg);
+        foreach (['0億ドル', '5億ドル', '10億ドル', '15億ドル', '20億ドル', '25億ドル'] as $hidden) {
+            $this->assertStringNotContainsString('class="movie-chart-guide-label">'.$hidden, $svg);
+        }
+        $this->assertStringContainsString('class="movie-chart-guide-label">28億ドル', $svg);
+        $this->assertStringContainsString('class="movie-chart-guide-label">29億ドル', $svg);
+
+        preg_match_all(
+            '/<text x="([0-9.]+)" y="([0-9.]+)" text-anchor="(?:start|middle|end)" class="movie-chart-point-label">([^<]+)/',
+            $svg,
+            $labels,
+            PREG_SET_ORDER,
+        );
+        $shown = array_column($labels, 3);
+        $this->assertContains('27.90億', $shown);
+        $this->assertContains('29.39億', $shown);
+        $this->assertLessThan(count($points), count($shown));
+        for ($i = 0; $i < count($labels); $i++) {
+            for ($j = $i + 1; $j < count($labels); $j++) {
+                $dx = abs((float) $labels[$i][1] - (float) $labels[$j][1]);
+                $dy = abs((float) $labels[$i][2] - (float) $labels[$j][2]);
+                $this->assertTrue(
+                    $dx >= 46 || $dy >= 16,
+                    $labels[$i][3].' と '.$labels[$j][3].' が重なっています',
+                );
+            }
+        }
+
+        $html = $this->invoke($command, 'trajectorySection', [
+            'title' => 'エンドゲーム',
+            'isActive' => false,
+            'pageHistory' => [
+                'sparkline' => $points,
+                'releaseDate' => '2026-10-01',
+                'releaseDatePrecision' => 'day',
+            ],
+        ], false);
+        $this->assertStringContainsString('縦軸は0からではなく、変化が見える範囲に拡大しています。', $html);
     }
 
     public function test_trajectory_svg_collapses_display_equal_totals(): void

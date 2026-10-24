@@ -915,12 +915,10 @@ XML);
             return '';
         }
 
-        $unit = $isJapan ? '億円' : '億ドル';
         $fromRelease = ($self[0]['day'] ?? null) !== null;
         $soloZoomed = str_contains($solo, 'data-y-zoomed="1"');
-        $axisNote = $this->chartCaption($fromRelease, $unit, $soloZoomed);
         $soloPanel = '<div class="movie-chart-panel" data-chart="solo">'.$solo
-            .'<p class="movie-chart-caption">'.$axisNote.'</p></div>';
+            .$this->chartCaptionHtml($fromRelease, $soloZoomed).'</div>';
         $table = $this->trajectoryTable($self, $isJapan);
 
         $others = [];
@@ -958,7 +956,7 @@ XML);
             .'</span></div>'
             .$soloPanel
             .'<div class="movie-chart-panel" data-chart="compare">'.$compare.$legend
-            .'<p class="movie-chart-caption">'.$this->chartCaption(true, $unit, str_contains($compare, 'data-y-zoomed="1"'), true).'</p>'
+            .$this->chartCaptionHtml(true, str_contains($compare, 'data-y-zoomed="1"'), true)
             .'</div>'.$table.'</section>';
     }
 
@@ -1019,7 +1017,7 @@ XML);
 
         return '<div class="movie-chart-table-wrap">'
             .'<table class="movie-chart-table">'
-            .'<caption>日数と累計の対応です。増分はひとつ前の発表との差です。</caption>'
+            .'<caption>増分は前回発表との差。</caption>'
             .'<thead><tr>'
             .'<th scope="col">'.($fromRelease ? '公開日数' : '経過日数').'</th>'
             .'<th scope="col">発表日</th>'
@@ -1564,22 +1562,24 @@ XML);
         return $ticks;
     }
 
-    private function chartCaption(bool $fromRelease, string $unit, bool $zoomed, bool $compare = false): string
+    private function chartCaptionHtml(bool $fromRelease, bool $zoomed, bool $compare = false): string
     {
-        $zoom = $zoomed ? '縦軸は0からではなく、変化が見える範囲に拡大しています。' : '';
+        $text = $this->chartCaption($fromRelease, $zoomed, $compare);
+
+        return $text === '' ? '' : '<p class="movie-chart-caption">'.$text.'</p>';
+    }
+
+    private function chartCaption(bool $fromRelease, bool $zoomed, bool $compare = false): string
+    {
+        $zoom = $zoomed ? '縦軸は変化が見える範囲に拡大しています。' : '';
         if ($compare) {
-            return '横軸は公開からの日数です。公開時期が違っても、同じ「何日目」で比べられます。'
-                .$zoom
-                .'線に触れると作品名と累計が出ます。';
+            return '公開日数を揃えて比較しています。'.$zoom;
         }
         if ($fromRelease) {
-            return '横軸は公開からの日数、縦軸は累計興収（'.$unit.'）。'
-                .$zoom
-                .'点に触れるとその発表時点の数字が出ます。';
+            return $zoom;
         }
 
-        return '横軸は最初の観測からの日数、縦軸は累計興収（'.$unit.'）。公開日が日単位でないため、公開日数では揃えていません。'
-            .$zoom;
+        return '横軸は最初の観測からの日数です。'.$zoom;
     }
 
     /**
@@ -1764,75 +1764,13 @@ XML);
 
     private function exportMoviePages(string $output, $global, $japan): void
     {
-        foreach ($this->withRankingLinks($global->values()->all()) as $movie) {
+        foreach ($global->values()->all() as $movie) {
             $this->writeMoviePage($output, $movie, false);
         }
 
-        foreach ($this->withRankingLinks($japan->values()->all()) as $movie) {
+        foreach ($japan->values()->all() as $movie) {
             $this->writeMoviePage($output, $movie, true);
         }
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $movies
-     * @return list<array<string, mixed>>
-     */
-    private function withRankingLinks(array $movies): array
-    {
-        $count = count($movies);
-        foreach ($movies as $index => $movie) {
-            $movies[$index]['rankAbove'] = $index > 0 ? $this->rankingLinkRef($movies[$index - 1]) : null;
-            $movies[$index]['rankBelow'] = $index < $count - 1 ? $this->rankingLinkRef($movies[$index + 1]) : null;
-            $movies[$index]['genrePeers'] = $this->genrePeerRefs($movies, $index);
-        }
-
-        return $movies;
-    }
-
-    /**
-     * @param  array<string, mixed>  $movie
-     * @return array{title: string, slug: string, rank: mixed, revenue: string}
-     */
-    private function rankingLinkRef(array $movie): array
-    {
-        return [
-            'title' => (string) ($movie['title'] ?? ''),
-            'slug' => $this->movieSlug((string) ($movie['slug'] ?? $movie['id'] ?? '')),
-            'rank' => $movie['rank'] ?? null,
-            'revenue' => (string) ($movie['revenue'] ?? ''),
-        ];
-    }
-
-    /**
-     * 先頭ジャンルが同じ、より上位の作品を最大3件。
-     *
-     * @param  list<array<string, mixed>>  $movies
-     * @return list<array{title: string, slug: string, rank: mixed, revenue: string}>
-     */
-    private function genrePeerRefs(array $movies, int $index): array
-    {
-        $genres = $movies[$index]['genres'] ?? [];
-        $genre = is_array($genres) ? ($genres[0] ?? null) : null;
-        if (! is_string($genre) || $genre === '') {
-            return [];
-        }
-
-        $peers = [];
-        foreach ($movies as $peerIndex => $peer) {
-            if ($peerIndex >= $index) {
-                break;
-            }
-            $peerGenres = $peer['genres'] ?? [];
-            if (! is_array($peerGenres) || ($peerGenres[0] ?? null) !== $genre) {
-                continue;
-            }
-            $peers[] = $this->rankingLinkRef($peer);
-            if (count($peers) >= 3) {
-                break;
-            }
-        }
-
-        return $peers;
     }
 
     private function writeMoviePage(string $output, array $movie, bool $isJapan): void
@@ -2031,23 +1969,6 @@ XML);
         $ogImage = $this->absoluteUrl($movie['posterUrl']);
         $styles = $this->viteStyles();
 
-        $cast = array_slice($detail['credits']['cast'] ?? [], 0, 6);
-        $castHtml = '';
-        if ($cast) {
-            $castHtml = '<h3>主要キャスト</h3><div class="movie-cast">';
-            foreach ($cast as $actor) {
-                $castHtml .= '<div class="cast-item"><span class="cast-name">' . $this->h($actor['name'] ?? '') . '</span></div>';
-            }
-            $castHtml .= '</div>';
-        }
-
-        $overviewHtml = $overview
-            ? '<h3>あらすじ</h3><p>' . nl2br($this->h($overview)) . '</p>'
-            : '';
-        $infoHtml = ($overviewHtml !== '' || $castHtml !== '')
-            ? '<section class="movie-section movie-info-secondary"><h2>作品情報</h2>'.$overviewHtml.$castHtml.'</section>'
-            : '';
-
         $subtitle = ($originalTitle && $originalTitle !== $title)
             ? '<p class="movie-original-title">' . $this->h($originalTitle) . '</p>'
             : '';
@@ -2099,12 +2020,14 @@ XML);
         $eRevenueYen = $this->h($isJapan ? ($movie['revenue'] ?? '-') : ($movie['revenueYen'] ?? '-'));
         $yenRow = $isJapan ? '' : "<div><dt>日本換算</dt><dd>{$eRevenueYen}</dd></div>\n            ";
         $eReleaseDate = $this->h($this->formatReleaseDate($releaseDate));
+        $updatedOn = $this->formatRankingDate(is_string($movie['updatedAt'] ?? null) ? $movie['updatedAt'] : null);
+        $updatedRow = $updatedOn !== null
+            ? '<div><dt>最終更新</dt><dd>'.$this->h($updatedOn).'</dd></div>'."\n            "
+            : '';
         $eHomeUrl = $this->h($homeUrl);
         $footerInner = $this->siteFooterInnerHtml();
         $historyHtml = $this->movieHistoryHtml($movie, $isJapan);
         $heading = $this->h($title.'の興行収入');
-        $leadHtml = '<p class="movie-lead">'.$this->h($this->movieLeadSentence($movie, $isJapan)).'</p>';
-        $rankingLinksHtml = $this->movieRankingLinksHtml($movie);
         $backParts = [];
         if (! empty($movie['isActive'])) {
             $nowPath = $isJapan ? '/now/' : '/now/global/';
@@ -2165,18 +2088,14 @@ XML);
           <div class="movie-hero-body">
             <h1 class="movie-page-title">{$heading}</h1>
             {$subtitle}
-            {$leadHtml}
           </div>
           <dl class="movie-hero-stats">
             <div><dt>{$eRankLabel}</dt><dd>{$eRankValue}</dd></div>
             <div><dt>興行収入</dt><dd>{$eRevenue}</dd></div>
-            {$yenRow}
-            <div><dt>公開日</dt><dd>{$eReleaseDate}</dd></div>
+            {$yenRow}{$updatedRow}<div><dt>公開日</dt><dd>{$eReleaseDate}</dd></div>
           </dl>
         </div>
-        {$rankingLinksHtml}
         {$historyHtml}
-        {$infoHtml}
       </article>
       {$backHtml}
     </main>
@@ -2470,77 +2389,6 @@ HTML;
         } catch (\Throwable) {
             return $fallback;
         }
-    }
-
-    /**
-     * @param  array<string, mixed>  $movie
-     */
-    private function movieLeadSentence(array $movie, bool $isJapan): string
-    {
-        $asOf = $this->formatRankingDate($movie['updatedAt'] ?? null)
-            ?? now('Asia/Tokyo')->format('Y年n月j日');
-        $revenue = (string) ($movie['revenue'] ?? '');
-        $rankLabel = $isJapan ? '日本ランキング' : '世界ランキング';
-
-        if (is_numeric($movie['rank'] ?? null) && $revenue !== '') {
-            return $asOf.'時点の'.$rankLabel.'は第'.(int) $movie['rank'].'位、興行収入は'.$revenue.'。';
-        }
-
-        if ($revenue !== '') {
-            return $asOf.'時点の興行収入は'.$revenue.'。';
-        }
-
-        return $asOf.'時点の興行収入です。';
-    }
-
-    /**
-     * @param  array<string, mixed>  $movie
-     */
-    private function movieRankingLinksHtml(array $movie): string
-    {
-        $html = '';
-        $above = is_array($movie['rankAbove'] ?? null) ? $movie['rankAbove'] : null;
-        $below = is_array($movie['rankBelow'] ?? null) ? $movie['rankBelow'] : null;
-        $parts = [];
-        if ($above && ($above['title'] ?? '') !== '') {
-            $parts[] = '一つ上は'.$this->rankingAnchor($above);
-        }
-        if ($below && ($below['title'] ?? '') !== '') {
-            $parts[] = '一つ下は'.$this->rankingAnchor($below);
-        }
-        if ($parts !== []) {
-            $html .= '<section class="movie-section movie-rank-neighbors"><h2>前後の順位</h2><p>'
-                .implode('。', $parts).'。</p></section>';
-        }
-
-        $peers = is_array($movie['genrePeers'] ?? null) ? $movie['genrePeers'] : [];
-        $links = [];
-        foreach ($peers as $peer) {
-            if (is_array($peer) && ($peer['title'] ?? '') !== '') {
-                $links[] = $this->rankingAnchor($peer);
-            }
-        }
-        if ($links !== []) {
-            $genres = $movie['genres'] ?? [];
-            $genre = is_array($genres) ? (string) ($genres[0] ?? '') : '';
-            $label = $genre !== '' ? $this->h($genre).'の上位' : '同じジャンルの上位';
-            $html .= '<section class="movie-section movie-genre-peers"><h2>'.$label.'</h2><p>'
-                .implode('、', $links).'</p></section>';
-        }
-
-        return $html;
-    }
-
-    /**
-     * @param  array<string, mixed>  $ref
-     */
-    private function rankingAnchor(array $ref): string
-    {
-        $slug = $this->h((string) ($ref['slug'] ?? ''));
-        $title = $this->h((string) ($ref['title'] ?? ''));
-        $rank = is_numeric($ref['rank'] ?? null) ? '第'.(int) $ref['rank'].'位 ' : '';
-
-        return '<a href="/movies/'.$slug.'/">'.$rank.'『'.$title.'』</a>';
     }
 
     private function formatRankingDate(?string $value): ?string

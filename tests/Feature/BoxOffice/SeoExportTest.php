@@ -62,58 +62,36 @@ class SeoExportTest extends TestCase
         $this->assertStringNotContainsString('Crawl-delay', $robots);
     }
 
-    public function test_movie_page_lead_and_neighbor_links(): void
+    public function test_movie_page_shows_the_box_office_update_date_beside_the_revenue(): void
     {
-        $movie = [
-            'title' => '作品2',
-            'revenue' => '20.0億円',
-            'rank' => 2,
-            'updatedAt' => '2026-10-24T03:00:00+09:00',
-            'genres' => ['アニメ'],
-            'rankAbove' => ['title' => '作品1', 'slug' => 'movie-1', 'rank' => 1, 'revenue' => '30億円'],
-            'rankBelow' => ['title' => '作品3', 'slug' => 'movie-3', 'rank' => 3, 'revenue' => '10億円'],
-            'genrePeers' => [
-                ['title' => '作品1', 'slug' => 'movie-1', 'rank' => 1, 'revenue' => '30億円'],
-            ],
-        ];
+        config(['app.url' => 'https://mubiran.com']);
+        $html = $this->invoke('moviePageHtml', [
+            'id' => 'endgame',
+            'title' => 'エンドゲーム',
+            'revenue' => '29.39億ドル',
+            'revenueYen' => '4408.5億円',
+            'rank' => 1,
+            'updatedAt' => '2026-10-22T03:00:00+09:00',
+            'posterUrl' => '',
+            'genres' => [],
+        ], false, sys_get_temp_dir());
 
-        $this->assertSame(
-            '2026年10月24日時点の日本ランキングは第2位、興行収入は20.0億円。',
-            $this->invoke('movieLeadSentence', $movie, true),
+        $this->assertMatchesRegularExpression(
+            '/<dt>興行収入<\/dt><dd>29\.39億ドル<\/dd><\/div>\s*<div><dt>日本換算<\/dt><dd>4408\.5億円<\/dd><\/div>\s*<div><dt>最終更新<\/dt><dd>2026年10月22日<\/dd>/',
+            $html,
         );
-        $this->assertSame(
-            '2026年10月24日時点の興行収入は5億円。',
-            $this->invoke('movieLeadSentence', [
-                'revenue' => '5億円',
-                'rank' => '圏外',
-                'updatedAt' => '2026-10-24T00:00:00+09:00',
-            ], true),
+        $this->assertDoesNotMatchRegularExpression(
+            '/<dt>最終更新<\/dt>/',
+            $this->invoke('moviePageHtml', [
+                'id' => 'undated',
+                'title' => '日付なし',
+                'revenue' => '1億円',
+                'revenueYen' => null,
+                'rank' => 2,
+                'posterUrl' => '',
+                'genres' => [],
+            ], true, sys_get_temp_dir()),
         );
-
-        $html = $this->invoke('movieRankingLinksHtml', $movie);
-        $this->assertStringContainsString('前後の順位', $html);
-        $this->assertStringContainsString('href="/movies/movie-1/"', $html);
-        $this->assertStringContainsString('href="/movies/movie-3/"', $html);
-        $this->assertStringContainsString('アニメの上位', $html);
-        $this->assertSame('', $this->invoke('movieRankingLinksHtml', ['title' => '圏外作', 'genres' => []]));
-    }
-
-    public function test_genre_peers_are_higher_ranked_movies_with_the_same_first_genre(): void
-    {
-        $linked = $this->invoke('withRankingLinks', [
-            ['title' => 'A', 'slug' => 'a', 'rank' => 1, 'revenue' => '1', 'genres' => ['アニメ']],
-            ['title' => 'B', 'slug' => 'b', 'rank' => 2, 'revenue' => '1', 'genres' => ['アニメ']],
-            ['title' => 'C', 'slug' => 'c', 'rank' => 3, 'revenue' => '1', 'genres' => ['アニメ']],
-            ['title' => 'D', 'slug' => 'd', 'rank' => 4, 'revenue' => '1', 'genres' => ['アニメ']],
-            ['title' => 'E', 'slug' => 'e', 'rank' => 5, 'revenue' => '1', 'genres' => ['ドラマ']],
-            ['title' => 'F', 'slug' => 'f', 'rank' => 6, 'revenue' => '1', 'genres' => ['アニメ']],
-        ]);
-
-        $this->assertNull($linked[0]['rankAbove']);
-        $this->assertSame('B', $linked[0]['rankBelow']['title']);
-        $this->assertSame([], $linked[0]['genrePeers']);
-        $this->assertSame('E', $linked[5]['rankAbove']['title']);
-        $this->assertSame(['A', 'B', 'C'], array_column($linked[5]['genrePeers'], 'title'));
     }
 
     public function test_sitemap_includes_japan_and_movie_lastmod(): void

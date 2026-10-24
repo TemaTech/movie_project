@@ -129,7 +129,9 @@ class MoviePageHistoryTest extends TestCase
                 'releaseDatePrecision' => 'day',
             ],
         ], false);
-        $this->assertStringContainsString('縦軸は0からではなく、変化が見える範囲に拡大しています。', $html);
+        $this->assertStringContainsString('縦軸は変化が見える範囲に拡大しています。', $html);
+        $this->assertStringNotContainsString('横軸は公開からの日数', $html);
+        $this->assertStringNotContainsString('点に触れると', $html);
     }
 
     public function test_trajectory_svg_collapses_display_equal_totals(): void
@@ -165,6 +167,8 @@ class MoviePageHistoryTest extends TestCase
         ], true);
 
         $this->assertStringContainsString('movie-chart-table', $html);
+        $this->assertStringContainsString('増分は前回発表との差。', $html);
+        $this->assertStringNotContainsString('日数と累計の対応です', $html);
         $this->assertStringContainsString('公開日数', $html);
         $this->assertStringContainsString('>当日<', $html);
         $this->assertStringContainsString('>9日<', $html);
@@ -191,6 +195,7 @@ class MoviePageHistoryTest extends TestCase
             ],
         ], false);
 
+        $this->assertStringContainsString('横軸は最初の観測からの日数です。', $elapsed);
         $this->assertStringContainsString('経過日数', $elapsed);
         $this->assertStringContainsString('>初日<', $elapsed);
         $this->assertStringContainsString('>3日<', $elapsed);

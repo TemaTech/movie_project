@@ -80,13 +80,16 @@ export function filterMovies(movies, filters) {
             ? filterGroups.every(Boolean)
             : filterGroups.some(Boolean) || (!filters.genres.length && !filters.years.length);
 
-        return categoryMatches && advancedMatches;
+        const showingMatches = !filters.showingOnly || Boolean(movie.isActive);
+
+        return categoryMatches && advancedMatches && showingMatches;
     });
 }
 
 export function activeFilterCount(filters) {
     let count = 0;
     if (filters.category !== 'all') count += 1;
+    if (filters.showingOnly) count += 1;
     if (filters.genres.length) count += filters.genres.length;
     if (filters.years.length) count += filters.years.length;
     return count;
@@ -115,6 +118,15 @@ export function renderFilterModal(genres, filters) {
                                 ${labels[category]}
                             </label>`;
                         }).join('')}
+                    </div>
+                </div>
+                <div class="filter-section">
+                    <h3 class="filter-section-title">公開状況</h3>
+                    <div class="filter-chips">
+                        <label class="filter-chip showing-only ${filters.showingOnly ? 'active' : ''}" data-showing="1">
+                            <input type="checkbox" value="1" ${filters.showingOnly ? 'checked' : ''} hidden>
+                            公開中のみ
+                        </label>
                     </div>
                 </div>
                 <div class="filter-section">
@@ -212,6 +224,15 @@ export function bindFilterModal(filters, onApply) {
         });
     });
 
+    document.querySelectorAll('.filter-chip[data-showing]').forEach((chip) => {
+        chip.addEventListener('click', (event) => {
+            if (event.target.tagName === 'INPUT') return;
+            chip.classList.toggle('active');
+            const checkbox = chip.querySelector('input[type="checkbox"]');
+            if (checkbox) checkbox.checked = chip.classList.contains('active');
+        });
+    });
+
     document.querySelectorAll('.filter-chip[data-genre]').forEach((chip) => {
         chip.addEventListener('click', (event) => {
             if (event.target.tagName === 'INPUT') return;
@@ -241,7 +262,7 @@ export function bindFilterModal(filters, onApply) {
     resetBtn?.addEventListener('click', () => {
         document.querySelectorAll('.filter-chip[data-category]').forEach((chip) => chip.classList.remove('active'));
         document.querySelector('.filter-chip[data-category="all"]')?.classList.add('active');
-        document.querySelectorAll('.filter-chip[data-genre], .filter-chip[data-year]').forEach((chip) => {
+        document.querySelectorAll('.filter-chip[data-showing], .filter-chip[data-genre], .filter-chip[data-year]').forEach((chip) => {
             chip.classList.remove('active');
             const checkbox = chip.querySelector('input[type="checkbox"]');
             if (checkbox) checkbox.checked = false;
@@ -254,10 +275,11 @@ export function bindFilterModal(filters, onApply) {
     form?.addEventListener('submit', (event) => {
         event.preventDefault();
         const category = document.querySelector('.filter-chip[data-category].active')?.dataset.category || 'all';
+        const showingOnly = Boolean(document.querySelector('.filter-chip[data-showing].active'));
         const genres = [...document.querySelectorAll('.filter-chip[data-genre].active')].map((chip) => chip.dataset.genre);
         const years = [...document.querySelectorAll('.filter-chip[data-year].active')].map((chip) => chip.dataset.year);
         const matchMode = document.querySelector('.match-mode-option.active')?.dataset.mode || 'and';
-        onApply({ ...filters, category, genres, years, matchMode });
+        onApply({ ...filters, category, showingOnly, genres, years, matchMode });
         closeModal();
     });
 }

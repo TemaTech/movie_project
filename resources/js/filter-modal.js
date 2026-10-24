@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 各フィルター入力
     const genresInput = document.getElementById('genresInput');
     const yearsInput = document.getElementById('yearsInput');
+    const showingInput = document.getElementById('showingInput');
     const matchModeInput = document.getElementById('matchModeInput');
     const matchModeHint = document.getElementById('matchModeHint');
     
@@ -80,6 +81,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     
+    // === 公開中のみ ===
+    const showingChip = document.querySelector('.filter-chip[data-showing]');
+    if (showingChip) {
+        showingChip.addEventListener('click', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            showingChip.classList.toggle('active');
+            const checkbox = showingChip.querySelector('input[type="checkbox"]');
+            if (checkbox) checkbox.checked = showingChip.classList.contains('active');
+            if (showingInput) showingInput.value = showingChip.classList.contains('active') ? '1' : '';
+        });
+    }
+
     // === ジャンル選択（複数選択） ===
     const genreChips = document.querySelectorAll('.filter-chip[data-genre]');
     genreChips.forEach(chip => {
@@ -170,6 +183,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (checkbox) checkbox.checked = false;
             });
             if (genresInput) genresInput.value = '';
+
+            if (showingChip) {
+                showingChip.classList.remove('active');
+                const checkbox = showingChip.querySelector('input[type="checkbox"]');
+                if (checkbox) checkbox.checked = false;
+            }
+            if (showingInput) showingInput.value = '';
             
             // 年をリセット
             yearChips.forEach(chip => {
@@ -203,30 +223,35 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // === 絞り込みボタンの状態更新 ===
     function updateTriggerButtonState() {
-        if (!triggerBtn) return;
+        const buttons = [triggerBtn, triggerBtnDesktop].filter(Boolean);
+        if (!buttons.length) return;
         
         const hasGenres = genresInput && genresInput.value.length > 0;
         const hasYears = yearsInput && yearsInput.value.length > 0;
         const hasCategory = document.querySelector('.filter-chip[data-category].active:not([data-category="all"])');
+        const hasShowing = showingInput && showingInput.value === '1';
         
         const filterCount = (hasGenres ? genresInput.value.split(',').length : 0) +
                            (hasYears ? yearsInput.value.split(',').length : 0) +
-                           (hasCategory ? 1 : 0);
+                           (hasCategory ? 1 : 0) +
+                           (hasShowing ? 1 : 0);
         
-        if (filterCount > 0) {
-            triggerBtn.classList.add('has-filters');
-            let badge = triggerBtn.querySelector('.filter-count-badge');
-            if (!badge) {
-                badge = document.createElement('span');
-                badge.className = 'filter-count-badge';
-                triggerBtn.appendChild(badge);
+        buttons.forEach((button) => {
+            if (filterCount > 0) {
+                button.classList.add('has-filters');
+                let badge = button.querySelector('.filter-count-badge');
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'filter-count-badge';
+                    button.appendChild(badge);
+                }
+                badge.textContent = filterCount;
+            } else {
+                button.classList.remove('has-filters');
+                const badge = button.querySelector('.filter-count-badge');
+                if (badge) badge.remove();
             }
-            badge.textContent = filterCount;
-        } else {
-            triggerBtn.classList.remove('has-filters');
-            const badge = triggerBtn.querySelector('.filter-count-badge');
-            if (badge) badge.remove();
-        }
+        });
     }
     
     // 初期状態の更新

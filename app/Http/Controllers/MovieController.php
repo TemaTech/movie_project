@@ -253,6 +253,7 @@ class MovieController extends Controller
             $genres = request()->get('genres') ? explode(',', request()->get('genres')) : [];
             $years = request()->get('years') ? explode(',', request()->get('years')) : [];
             $matchMode = request()->get('match_mode', 'and'); // and, or
+            $showingOnly = request()->get('showing') === '1';
 
             // ジャンル名の変換マップを定義
             $genreMap = [
@@ -274,7 +275,7 @@ class MovieController extends Controller
             ];
             
             // フィルター条件を構築するヘルパー関数
-            $applyFilters = function($query) use ($category, $genres, $years, $matchMode, $genreMap, $selectedGenre) {
+            $applyFilters = function($query, bool $isJapan = false) use ($category, $genres, $years, $matchMode, $genreMap, $selectedGenre, $showingOnly) {
                 // 旧ジャンルフィルター（後方互換性）
                 if ($selectedGenre) {
                     $searchGenre = array_flip($genreMap)[$selectedGenre] ?? $selectedGenre;
@@ -311,6 +312,19 @@ class MovieController extends Controller
                     }
                 }
                 
+                // 公開中のみ。日本は公開中フラグ。世界はフラグに加え、公開6ヶ月以内も対象。
+                if ($showingOnly) {
+                    if ($isJapan) {
+                        $query->where('is_active', true);
+                    } else {
+                        $cutoff = now()->subMonths(6)->toDateString();
+                        $query->where(function ($q) use ($cutoff) {
+                            $q->where('is_active', true)
+                                ->orWhereDate('release_date', '>=', $cutoff);
+                        });
+                    }
+                }
+
                 // 制作年フィルター
                 if (!empty($years)) {
                     $currentYear = (int)date('Y');
@@ -375,7 +389,7 @@ class MovieController extends Controller
             
             // 日本の興行収入データ
             $japanMovies = JapaneseMovie::query()  // Movie から JapaneseMovie に変更
-                ->tap($applyFilters)
+                ->tap(fn ($query) => $applyFilters($query, true))
                 ->orderBy('box_office', 'desc')
                 ->paginate(100, ['*'], 'japan_page');
 
@@ -431,6 +445,7 @@ class MovieController extends Controller
                 'genres' => request()->get('genres'),
                 'years' => request()->get('years'),
                 'match_mode' => $matchMode !== 'and' ? $matchMode : null,
+                'showing' => $showingOnly ? '1' : null,
             ];
             $filterParams = array_filter($filterParams); // null値を除去
 

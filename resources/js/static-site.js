@@ -28,6 +28,7 @@ const defaultState = () => ({
     view: 'ranking',
     region: 'global',
     category: 'all',
+    showingOnly: false,
     genres: [],
     years: [],
     matchMode: 'and',
@@ -203,6 +204,7 @@ function parseStateFromUrl() {
     }
     next.nowSort = ['pace', 'total', 'rank', 'days'].includes(params.get('now_sort')) ? params.get('now_sort') : 'delta';
     next.category = params.get('category') || 'all';
+    next.showingOnly = params.get('showing') === '1';
     next.genres = params.get('genres') ? params.get('genres').split(',').filter(Boolean) : [];
     next.years = params.get('years') ? params.get('years').split(',').filter(Boolean) : [];
     next.matchMode = params.get('match_mode') === 'or' ? 'or' : 'and';
@@ -221,6 +223,7 @@ function buildUrl(nextState) {
     }
     const params = new URLSearchParams();
     if (nextState.category && nextState.category !== 'all') params.set('category', nextState.category);
+    if (nextState.showingOnly) params.set('showing', '1');
     if (nextState.genres.length) params.set('genres', nextState.genres.join(','));
     if (nextState.years.length) params.set('years', nextState.years.join(','));
     if (nextState.matchMode && nextState.matchMode !== 'and') params.set('match_mode', nextState.matchMode);

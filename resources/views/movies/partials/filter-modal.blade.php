@@ -30,6 +30,18 @@
                 </div>
             </div>
 
+            {{-- 公開中のみ --}}
+            <div class="filter-section">
+                <h3 class="filter-section-title">公開状況</h3>
+                <div class="filter-chips">
+                    <label class="filter-chip showing-only {{ request('showing') === '1' ? 'active' : '' }}" data-showing="1">
+                        <input type="checkbox" value="1" {{ request('showing') === '1' ? 'checked' : '' }} hidden>
+                        公開中のみ
+                    </label>
+                </div>
+                <input type="hidden" name="showing" id="showingInput" value="{{ request('showing') === '1' ? '1' : '' }}">
+            </div>
+
             {{-- ジャンル --}}
             <div class="filter-section">
                 <h3 class="filter-section-title">ジャンル</h3>

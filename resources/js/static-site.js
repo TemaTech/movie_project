@@ -375,9 +375,7 @@ function clickedElement(event) {
 
 function movieTitleHtml(movie, style = '') {
     const styleAttr = style ? ` style="${style}"` : '';
-    const title = escapeHtml(movie.title);
-    const href = escapeHtml(moviePageHref(movie));
-    return `<span class="movie-title ${titleClass(movie.title)}"${styleAttr}>${title}</span><a class="movie-crawl-link" href="${href}" tabindex="-1" aria-hidden="true">${title}</a>`;
+    return `<span class="movie-title ${titleClass(movie.title)}"${styleAttr}>${escapeHtml(movie.title)}</span>`;
 }
 
 function movieFromPageLink(link) {
@@ -441,16 +439,12 @@ function bindMovieInteractions(data) {
         element.addEventListener('click', (event) => {
             const target = clickedElement(event);
             if (!target) return;
-            const movieLink = target.closest('a[href^="/movies/"]');
-            if (movieLink && element.contains(movieLink)) {
-                event.preventDefault();
-            }
-            if (target.closest('a:not(.movie-crawl-link), button, [data-open-modal]')) return;
+            if (target.closest('a, button, [data-open-modal]')) return;
             open();
         });
         element.addEventListener('keydown', (event) => {
             const target = clickedElement(event);
-            if (target?.closest('a:not(.movie-crawl-link), button, [data-open-modal]')) return;
+            if (target?.closest('a, button, [data-open-modal]')) return;
             if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
                 open();

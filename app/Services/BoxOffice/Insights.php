@@ -222,6 +222,7 @@ class Insights
         $pacePrecision = $revivalDate ? 'day' : $precision;
         $daysSinceRelease = self::daysSinceRelease($paceDate, $pacePrecision, $now);
         $lastChangeAt = self::lastChangeAt($observations);
+        $lastIncreaseAt = self::lastIncreaseAt($observations, $isJapan);
         $isActive = (bool) ($movie['isActive'] ?? false);
         $onBoard = $isActive;
         $changedRecently = $isActive
@@ -262,6 +263,7 @@ class Insights
             'dailyPaceLabel' => $growth['dailyPace'] === null ? null : '1日'.self::formatAmount((int) round($growth['dailyPace']), $isJapan),
             'lastObservedAt' => $lastObservedAt,
             'lastChangeAt' => $lastChangeAt,
+            'lastIncreaseAt' => $lastIncreaseAt,
             'daysSinceRelease' => $daysSinceRelease,
             'releaseDate' => $releaseDate,
             'releaseDatePrecision' => $precision,
@@ -635,6 +637,35 @@ class Insights
         }
 
         return null;
+    }
+
+    /**
+     * 表示上の興行収入が前回より増えた、最後の観測日。
+     * 下方修正はその日自体は増やさないが、次の増加と比べる基準にはする。
+     *
+     * @param  list<array<string, mixed>>  $observations
+     */
+    private static function lastIncreaseAt(array $observations, bool $isJapan): ?string
+    {
+        $rows = $observations;
+        usort($rows, fn (array $a, array $b) => strcmp((string) ($a['observedAt'] ?? ''), (string) ($b['observedAt'] ?? '')));
+
+        $previousAmount = null;
+        $last = null;
+        foreach ($rows as $row) {
+            $amount = (int) ($row['boxOffice'] ?? 0);
+            if ($previousAmount !== null && empty($row['correction'])) {
+                $increased = $amount > $previousAmount
+                    && self::formatAmount($amount, $isJapan) !== self::formatAmount($previousAmount, $isJapan);
+                $observedAt = $row['observedAt'] ?? null;
+                if ($increased && is_string($observedAt) && $observedAt !== '') {
+                    $last = $observedAt;
+                }
+            }
+            $previousAmount = $amount;
+        }
+
+        return $last;
     }
 
     private static function daysSinceRelease(?string $releaseDate, ?string $precision, DateTimeImmutable $at): ?int

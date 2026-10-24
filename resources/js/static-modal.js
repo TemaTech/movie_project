@@ -1,3 +1,5 @@
+import { COMPANY_MAP } from './company-names.js';
+
 const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w200';
 const IMAGE_BASE_URL_LARGE = 'https://image.tmdb.org/t/p/w500';
 
@@ -21,55 +23,15 @@ const COUNTRY_MAP = {
     Brazil: 'ブラジル',
 };
 
-const COMPANY_MAP = {
-    TOHO: '東宝',
-    Toho: '東宝',
-    'Toho Pictures': '東宝ピクチャーズ',
-    'TOHO Studios': '東宝スタジオ',
-    'Toei Company': '東映',
-    'Toei Animation': '東映アニメーション',
-    Shochiku: '松竹',
-    'Nikkatsu Studio': '日活',
-    'Daiei Co. Ltd.': '大映',
-    KADOKAWA: 'KADOKAWA',
-    Kadokawa: 'KADOKAWA',
-    'KADOKAWA Daiei Studio': 'KADOKAWA大映スタジオ',
-    'Studio Ghibli': 'スタジオジブリ',
-    'CoMix Wave Films': 'コミックス・ウェーブ・フィルム',
-    MAPPA: 'MAPPA',
-    ufotable: 'ufotable',
-    'WIT STUDIO': 'WIT STUDIO',
-    'Production I.G': 'プロダクション・アイジー',
-    Bones: 'ボンズ',
-    Madhouse: 'マッドハウス',
-    'Kyoto Animation': '京都アニメーション',
-    SUNRISE: 'サンライズ',
-    Sunrise: 'サンライズ',
-    'Shin-Ei Animation': 'シンエイ動画',
-    'TMS Entertainment': 'トムス・エンタテインメント',
-    'Fuji Television Network': 'フジテレビジョン',
-    'Nippon Television Network Corporation': '日本テレビ',
-    TBS: 'TBS',
-    'TV Asahi': 'テレビ朝日',
-    'TV Tokyo': 'テレビ東京',
-    dentsu: '電通',
-    Hakuhodo: '博報堂',
-    Shogakukan: '小学館',
-    Shueisha: '集英社',
-    Kodansha: '講談社',
-    Nintendo: '任天堂',
-    Bandai: 'バンダイ',
-    'Bandai Namco Entertainment': 'バンダイナムコエンターテインメント',
-    Aniplex: 'アニプレックス',
-    'Sony Music Entertainment (Japan)': 'ソニー・ミュージックエンタテインメント',
-    'avex pictures': 'エイベックス・ピクチャーズ',
-    'Pony Canyon': 'ポニーキャニオン',
-    'Warner Bros. Japan': 'ワーナー・ブラザース・ジャパン',
-    'Walt Disney Japan': 'ウォルト・ディズニー・ジャパン',
-    'The Walt Disney Company (Japan)': 'ウォルト・ディズニー・ジャパン',
-};
-
 const detailCache = new Map();
+
+function formatCompanyLabel(name) {
+    const escaped = String(name)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+    return escaped.replaceAll(/([・／/])/g, '$1<wbr>');
+}
 
 function formatReleaseDate(releaseDate) {
     if (!releaseDate) return '-';
@@ -224,7 +186,7 @@ function populateModal(detail, movie) {
 
     const companyNames = (detail.production_companies || [])
         .slice(0, 2)
-        .map((company) => COMPANY_MAP[company.name] || company.name)
+        .map((company) => formatCompanyLabel(COMPANY_MAP[company.name] || company.name))
         .join('<br>');
     document.getElementById('modalCompany').innerHTML = companyNames || '-';
     document.getElementById('modalReleaseDate').textContent = formatReleaseDate(releaseDate);
@@ -252,11 +214,11 @@ function populateModal(detail, movie) {
 
     const historyLink = document.getElementById('modalHistoryLink');
     const slug = movie.slug || movie.id || movie.key;
-    if (historyLink && slug) {
-        historyLink.href = `/movies/${encodeURIComponent(slug)}/`;
-        historyLink.hidden = false;
-    } else if (historyLink) {
-        historyLink.hidden = true;
+    const showHistory = Boolean(movie.isActive) && Boolean(slug);
+    if (historyLink) {
+        historyLink.hidden = !showHistory;
+        historyLink.href = showHistory ? `/movies/${encodeURIComponent(slug)}/` : '#';
+        historyLink.closest('.modal-history-wrap')?.toggleAttribute('hidden', !showHistory);
     }
 
     modalLoading.style.display = 'none';

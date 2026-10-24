@@ -67,11 +67,15 @@ class TmdbClient
     }
 
     /**
+     * 言語を付けない場合、TMDb は人名を英語のまま返す。
+     *
      * @return array<string, mixed>|null
      */
-    public function getMovieCredits(int $movieId): ?array
+    public function getMovieCredits(int $movieId, string $language = 'ja-JP'): ?array
     {
-        $data = $this->request('get', "/movie/{$movieId}/credits");
+        $data = $this->request('get', "/movie/{$movieId}/credits", [
+            'language' => $language,
+        ]);
 
         if ($data === null || ! isset($data['cast'], $data['crew'])) {
             return null;

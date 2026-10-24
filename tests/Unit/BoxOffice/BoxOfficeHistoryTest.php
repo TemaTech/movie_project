@@ -235,8 +235,55 @@ class BoxOfficeHistoryTest extends TestCase
         $result = Insights::compute('japan', $current, $observations, [], $now);
 
         $this->assertSame('2026-08-10T03:00:00+09:00', $result['movies']['jp-a']['lastChangeAt']);
+        $this->assertSame('2026-08-10T03:00:00+09:00', $result['movies']['jp-a']['lastIncreaseAt']);
         $this->assertFalse($result['movies']['jp-a']['changedRecently']);
         $this->assertTrue($result['movies']['jp-a']['onBoard']);
+    }
+
+    public function test_last_increase_at_ignores_later_fetches_that_did_not_raise_the_gross(): void
+    {
+        $now = new DateTimeImmutable('2026-10-24T12:00:00+09:00');
+        $japan = Insights::compute('japan', [
+            $this->current('jp-a', '取得だけ続いた映画', 5_203_000_000, true),
+            $this->current('jp-b', '修正後に再び伸びた映画', 5_300_000_000, true),
+        ], [
+            'jp-a' => [
+                $this->obs('jp-a', '2026-10-01T03:00:00+09:00', 5_000_000_000, true),
+                $this->obs('jp-a', '2026-10-10T03:00:00+09:00', 5_500_000_000, true),
+                $this->obs('jp-a', '2026-10-12T03:00:00+09:00', 5_200_000_000, true, true),
+                $this->obs('jp-a', '2026-10-20T03:00:00+09:00', 5_200_000_000, false),
+                $this->obs('jp-a', '2026-10-22T03:00:00+09:00', 5_204_000_000, true),
+                $this->obs('jp-a', '2026-10-24T03:00:00+09:00', 5_203_000_000, true),
+            ],
+            'jp-b' => [
+                $this->obs('jp-b', '2026-10-01T03:00:00+09:00', 5_000_000_000, true),
+                $this->obs('jp-b', '2026-10-10T03:00:00+09:00', 5_500_000_000, true),
+                $this->obs('jp-b', '2026-10-12T03:00:00+09:00', 5_200_000_000, true, true),
+                $this->obs('jp-b', '2026-10-18T03:00:00+09:00', 5_300_000_000, true),
+                $this->obs('jp-b', '2026-10-24T03:00:00+09:00', 5_300_000_000, true),
+            ],
+        ], [], $now);
+        $global = Insights::compute('global', [
+            $this->current('g-a', '世界映画', 2_939_000_000, true),
+        ], [
+            'g-a' => [
+                $this->obs('g-a', '2026-10-01T03:00:00+09:00', 2_900_000_000, true),
+                $this->obs('g-a', '2026-10-18T03:00:00+09:00', 2_926_000_000, true),
+                $this->obs('g-a', '2026-10-24T03:00:00+09:00', 2_939_000_000, true),
+            ],
+        ], [], $now);
+
+        $this->assertSame('2026-10-10T03:00:00+09:00', $japan['movies']['jp-a']['lastIncreaseAt']);
+        $this->assertSame('2026-10-18T03:00:00+09:00', $japan['movies']['jp-b']['lastIncreaseAt']);
+        $this->assertSame('2026-10-24T03:00:00+09:00', $global['movies']['g-a']['lastIncreaseAt']);
+        $this->assertNull(Insights::compute('japan', [
+            $this->current('jp-flat', '横ばい', 5_000_000_000, false),
+        ], [
+            'jp-flat' => [
+                $this->obs('jp-flat', '2026-10-01T03:00:00+09:00', 5_000_000_000, true),
+                $this->obs('jp-flat', '2026-10-24T03:00:00+09:00', 5_000_000_000, false),
+            ],
+        ], [], $now)['movies']['jp-flat']['lastIncreaseAt']);
     }
 
     public function test_milestones_require_an_observed_crossing(): void

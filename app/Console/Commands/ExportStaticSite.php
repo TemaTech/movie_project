@@ -34,6 +34,13 @@ class ExportStaticSite extends Command
     /** JS の PER_PAGE（resources/js/static-site.js）と揃える */
     private const RANKING_PAGE_SIZE = 100;
 
+    private const CHART_DOT_RADIUS = 3.2;
+
+    private const CHART_DOT_LAST_RADIUS = 4.4;
+
+    /** ラベルの縁取り（stroke-width の半分）。これが丸点に被ると点が見えなくなる。 */
+    private const CHART_LABEL_STROKE = 2.0;
+
     /** @var list<string> */
     private const COMPARE_COLORS = [
         '#7dd3fc',
@@ -505,6 +512,7 @@ TXT;
                 'releaseDatePrecision' => ! empty($insight['currentReleaseDate'])
                     ? 'day'
                     : ($insight['releaseDatePrecision'] ?? ($movie['releaseDatePrecision'] ?? null)),
+                'grossIncreasedAt' => $insight['lastIncreaseAt'] ?? null,
             ];
         }
 
@@ -645,6 +653,7 @@ TXT;
                         'releaseDatePrecision' => ! empty($item['currentReleaseDate'])
                             ? 'day'
                             : ($item['releaseDatePrecision'] ?? null),
+                        'grossIncreasedAt' => $item['lastIncreaseAt'] ?? null,
                     ],
                 ];
             }
@@ -1145,7 +1154,7 @@ XML);
             $px = $xOf($row);
             $py = $yPos($row['boxOffice']);
             $coords[] = sprintf('%.1f,%.1f', $px, $py);
-            $dots .= sprintf('<circle cx="%.1f" cy="%.1f" r="3.2" class="movie-chart-dot"/>', $px, $py);
+            $dots .= sprintf('<circle cx="%.1f" cy="%.1f" r="%.1f" class="movie-chart-dot"/>', $px, $py, self::CHART_DOT_RADIUS);
         }
         $valueLabels = ($others === [] && count($self) <= 12)
             ? $this->chartValueLabels($self, $xOf, $yPos, $padL, $plotW, $width, $height, $isJapan)
@@ -1153,14 +1162,17 @@ XML);
         $lastRow = $self[array_key_last($self)];
         $lastX = $xOf($lastRow);
         $lastY = $yPos($lastRow['boxOffice']);
-        $dots .= sprintf('<circle cx="%.1f" cy="%.1f" r="4.4" class="movie-chart-dot is-last"/>', $lastX, $lastY);
+        $dots .= sprintf('<circle cx="%.1f" cy="%.1f" r="%.1f" class="movie-chart-dot is-last"/>', $lastX, $lastY, self::CHART_DOT_LAST_RADIUS);
 
         $polyline = implode(' ', $coords);
         $area = 'M '.sprintf('%.1f,%.1f', $xOf($self[0]), $baseY)
             .' L '.$polyline
             .' L '.sprintf('%.1f,%.1f', $lastX, $baseY).' Z';
 
-        $xTicks = $this->chartXTicks($self, $others, $useDays);
+        $announceDates = $others === [];
+        $xTicks = $announceDates
+            ? $this->chartAnnouncementTicks($self, $useDays, $xOf, $padL, $xRight)
+            : $this->chartXTicks($self, $others, $useDays);
         $axis = '<line x1="'.sprintf('%.1f', $padL).'" y1="'.sprintf('%.1f', $baseY)
             .'" x2="'.sprintf('%.1f', $xRight).'" y2="'.sprintf('%.1f', $baseY).'" class="movie-chart-baseline"/>';
         foreach ($xTicks as $tick) {
@@ -1196,7 +1208,7 @@ XML);
             .$axis
             .'</svg>';
 
-        $hits = $this->chartHitsHtml($self, $others, $selfTitle, $isJapan, $useDays, $xOf, $yPos, $width, $height);
+        $hits = $this->chartHitsHtml($self, $others, $selfTitle, $isJapan, $useDays, $announceDates, $xOf, $yPos, $width, $height);
         $yAxis = '<div class="movie-chart-y" aria-hidden="true">';
         foreach ($yTicks as $index => $threshold) {
             $top = ($yPos($threshold) + 3.5) / $height * 100;
@@ -1228,6 +1240,7 @@ XML);
         string $selfTitle,
         bool $isJapan,
         bool $useDays,
+        bool $announceDates,
         callable $xOf,
         callable $yPos,
         int $width,
@@ -1242,9 +1255,11 @@ XML);
             foreach ($item['points'] as $row) {
                 $left = $xOf($row) / $width * 100;
                 $top = $yPos($row['boxOffice']) / $height * 100;
-                $dayLabel = $useDays
-                    ? (((int) $row['day'] === 0) ? '公開当日' : '公開'.(int) $row['day'].'日')
-                    : $this->chartTsLabel((int) $row['ts']);
+                $dayLabel = $announceDates
+                    ? $this->chartHitDateLabel($row)
+                    : ($useDays
+                        ? (((int) $row['day'] === 0) ? '公開当日' : '公開'.(int) $row['day'].'日')
+                        : $this->chartTsLabel((int) $row['ts']));
                 $amount = Insights::formatAmount((int) $row['boxOffice'], $isJapan);
                 $title = (string) $item['title'];
                 $line = $item['self']
@@ -1390,6 +1405,95 @@ XML);
         }
 
         return $ticks;
+    }
+
+    /**
+     * 単体グラフの横軸は発表日。点ごとに日付を置き、ラベルが隣と重なるものだけ省く。
+     *
+     * @param  list<array{at: string, ts: int, day: int|null, boxOffice: int}>  $rows
+     * @param  callable(array<string, mixed>): float  $xOf
+     * @return list<array{x: int, label: string}>
+     */
+    private function chartAnnouncementTicks(array $rows, bool $useDays, callable $xOf, float $padL, float $xRight): array
+    {
+        if ($rows === []) {
+            return [];
+        }
+
+        $withYear = $this->chartDatesSpanYears($rows);
+        $candidates = [];
+        foreach ($rows as $row) {
+            $px = $xOf($row);
+            $anchor = 'middle';
+            if ($px <= $padL + 8) {
+                $anchor = 'start';
+            } elseif ($px >= $xRight - 8) {
+                $anchor = 'end';
+            }
+            $label = $this->chartAnnouncementLabel((int) $row['ts'], $withYear);
+            $candidates[] = [
+                'x' => $useDays ? (int) $row['day'] : (int) $row['ts'],
+                'label' => $label,
+                'rect' => $this->chartLabelRect($px, 0, $this->chartLabelWidth($label), $anchor),
+            ];
+        }
+
+        $last = count($candidates) - 1;
+        $chosen = [0 => $candidates[0]];
+        $placed = [$candidates[0]['rect']];
+        if ($last > 0) {
+            $chosen[$last] = $candidates[$last];
+            $placed[] = $candidates[$last]['rect'];
+        }
+        for ($index = 1; $index < $last; $index++) {
+            if ($this->chartRectsOverlap($candidates[$index]['rect'], $placed, 8)) {
+                continue;
+            }
+            $chosen[$index] = $candidates[$index];
+            $placed[] = $candidates[$index]['rect'];
+        }
+        ksort($chosen);
+
+        $ticks = [];
+        foreach ($chosen as $item) {
+            $ticks[] = ['x' => $item['x'], 'label' => $item['label']];
+        }
+
+        return $ticks;
+    }
+
+    /**
+     * @param  list<array{ts: int}>  $rows
+     */
+    private function chartDatesSpanYears(array $rows): bool
+    {
+        $first = Carbon::createFromTimestamp((int) $rows[0]['ts'])->timezone('Asia/Tokyo')->year;
+        $last = Carbon::createFromTimestamp((int) $rows[array_key_last($rows)]['ts'])->timezone('Asia/Tokyo')->year;
+
+        return $first !== $last;
+    }
+
+    private function chartAnnouncementLabel(int $ts, bool $withYear): string
+    {
+        return Carbon::createFromTimestamp($ts)
+            ->timezone('Asia/Tokyo')
+            ->format($withYear ? 'Y/n/j' : 'n/j');
+    }
+
+    /**
+     * @param  array{ts: int, day: int|null}  $row
+     */
+    private function chartHitDateLabel(array $row): string
+    {
+        $label = $this->chartAnnouncementLabel((int) $row['ts'], true);
+        if ($row['day'] === null) {
+            return $label;
+        }
+
+        $day = (int) $row['day'];
+        $open = $day === 0 ? '公開当日' : '公開'.$day.'日';
+
+        return $label.'（'.$open.'）';
     }
 
     /**
@@ -1611,7 +1715,48 @@ XML);
     }
 
     /**
+     * 点のすぐ上を優先し、丸点に乗るときは下、さらに上下へずらす。
+     *
+     * @return list<array{0: float, 1: float, 2: 'start'|'middle'|'end'}>
+     */
+    private function chartPointLabelCandidates(float $py, float $labelX, string $anchor): array
+    {
+        $candidates = [];
+        foreach ([$py - 10, $py + 21, $py - 24, $py + 34] as $y) {
+            $candidates[] = [$labelX, $y, $anchor];
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * @param  array{0: float, 1: float, 2: float, 3: float}  $rect
+     * @param  list<array{0: float, 1: float, 2: float}>  $dots
+     */
+    private function chartLabelHitsDots(array $rect, array $dots): bool
+    {
+        $x1 = $rect[0] - self::CHART_LABEL_STROKE;
+        $y1 = $rect[1] - self::CHART_LABEL_STROKE;
+        $x2 = $rect[2] + self::CHART_LABEL_STROKE;
+        $y2 = $rect[3] + self::CHART_LABEL_STROKE;
+
+        foreach ($dots as [$px, $py, $radius]) {
+            $nearestX = min(max($px, $x1), $x2);
+            $nearestY = min(max($py, $y1), $y2);
+            $dx = $px - $nearestX;
+            $dy = $py - $nearestY;
+            $limit = $radius + self::CHART_LABEL_STROKE;
+            if (($dx * $dx + $dy * $dy) < ($limit * $limit)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * 点が近いときの数字は、上下にずらしても重なるものだけ省く。両端の数字は残す。
+     * 縁取りが丸点に被る位置は使わない。
      *
      * @param  list<array{at: string, ts: int, day: int|null, boxOffice: int}>  $rows
      * @param  callable(array<string, mixed>): float  $xOf
@@ -1637,6 +1782,14 @@ XML);
         }
 
         $last = count($items) - 1;
+        $dots = [];
+        foreach ($items as $index => $item) {
+            $dots[] = [
+                $item['px'],
+                $item['py'],
+                $index === $last ? self::CHART_DOT_LAST_RADIUS : self::CHART_DOT_RADIUS,
+            ];
+        }
         $order = [$last];
         if ($last > 0) {
             $order[] = 0;
@@ -1652,16 +1805,26 @@ XML);
             $labelWidth = $this->chartLabelWidth($item['text']) + 6;
             [$labelX, $anchor] = $this->chartPointLabelPlacement($item['px'], $padL, $plotW);
             $fit = null;
-            foreach ([$item['py'] - 10, $item['py'] + 16, $item['py'] - 24, $item['py'] + 30] as $y) {
+            $clearOfDots = null;
+            foreach ($this->chartPointLabelCandidates($item['py'], $labelX, $anchor) as [$x, $y, $candidateAnchor]) {
                 if ($y < 12 || $y > $height - 18) {
                     continue;
                 }
-                $rect = $this->chartLabelRect($labelX, $y, $labelWidth, $anchor);
-                if ($rect[0] < -2 || $rect[2] > $width + 2 || $this->chartRectsOverlap($rect, $placed, 8)) {
+                $rect = $this->chartLabelRect($x, $y, $labelWidth, $candidateAnchor);
+                if ($rect[0] < -2 || $rect[2] > $width + 2 || $this->chartLabelHitsDots($rect, $dots)) {
                     continue;
                 }
-                $fit = [$labelX, $y, $anchor, $rect];
+                if ($this->chartRectsOverlap($rect, $placed, 8)) {
+                    if ($clearOfDots === null) {
+                        $clearOfDots = [$x, $y, $candidateAnchor, $rect];
+                    }
+                    continue;
+                }
+                $fit = [$x, $y, $candidateAnchor, $rect];
                 break;
+            }
+            if ($fit === null && ($index === 0 || $index === $last)) {
+                $fit = $clearOfDots;
             }
             if ($fit === null && ($index === 0 || $index === $last)) {
                 $y = max(12.0, $item['py'] - 10);
@@ -2033,9 +2196,11 @@ XML);
         $eRevenueYen = $this->h($isJapan ? ($movie['revenue'] ?? '-') : ($movie['revenueYen'] ?? '-'));
         $yenRow = $isJapan ? '' : "<div><dt>日本換算</dt><dd>{$eRevenueYen}</dd></div>\n            ";
         $eReleaseDate = $this->h($this->formatReleaseDate($releaseDate));
-        $updatedOn = $this->formatRankingDate(is_string($movie['updatedAt'] ?? null) ? $movie['updatedAt'] : null);
-        $updatedRow = $updatedOn !== null
-            ? '<div><dt>最終更新</dt><dd>'.$this->h($updatedOn).'</dd></div>'."\n            "
+        $history = is_array($movie['pageHistory'] ?? null) ? $movie['pageHistory'] : [];
+        $increasedAt = is_string($history['grossIncreasedAt'] ?? null) ? $history['grossIncreasedAt'] : null;
+        $increasedOn = $this->formatRankingDate($increasedAt);
+        $increasedRow = $increasedOn !== null
+            ? '<div><dt>興行が増えた日</dt><dd>'.$this->h($increasedOn).'</dd></div>'."\n            "
             : '';
         $eHomeUrl = $this->h($homeUrl);
         $footerInner = $this->siteFooterInnerHtml();
@@ -2105,7 +2270,7 @@ XML);
           <dl class="movie-hero-stats">
             <div><dt>{$eRankLabel}</dt><dd>{$eRankValue}</dd></div>
             <div><dt>興行収入</dt><dd>{$eRevenue}</dd></div>
-            {$yenRow}{$updatedRow}<div><dt>公開日</dt><dd>{$eReleaseDate}</dd></div>
+            {$yenRow}{$increasedRow}<div><dt>公開日</dt><dd>{$eReleaseDate}</dd></div>
           </dl>
         </div>
         {$historyHtml}

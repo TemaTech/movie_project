@@ -290,15 +290,18 @@ trait FetchesTmdbMovieDetails
         }
 
         $client = new TmdbClient($apiKey);
-        $detail = $client->getMovie($tmdbId, 'ja-JP');
+        // 映画情報と同じ ja-JP を credits にも渡す。言語なしの credits は監督・キャスト名が英語になる。
+        $detail = $client->getMovie($tmdbId, 'ja-JP', ['credits']);
 
         if ($detail === null) {
             return null;
         }
 
-        $credits = $client->getMovieCredits($tmdbId);
-        if ($credits !== null) {
-            $detail['credits'] = $credits;
+        if (! isset($detail['credits']['cast'], $detail['credits']['crew'])) {
+            $credits = $client->getMovieCredits($tmdbId, 'ja-JP');
+            if ($credits !== null) {
+                $detail['credits'] = $credits;
+            }
         }
 
         return $detail;
@@ -313,6 +316,7 @@ trait FetchesTmdbMovieDetails
         ));
 
         return [
+            'names_language' => 'ja-JP',
             'title' => $detail['title'] ?? '',
             'original_title' => $detail['original_title'] ?? '',
             'tagline' => $detail['tagline'] ?? '',
@@ -346,42 +350,85 @@ trait FetchesTmdbMovieDetails
         bool $refresh = false
     ): bool {
         $cachePath = storage_path("app/static-details/{$movieId}.json");
-        $export = null;
-        $tmdbId = null;
+        $stale = null;
 
         if (! $refresh && File::exists($cachePath)) {
-            $export = json_decode(File::get($cachePath), true);
-            if (! is_array($export)) {
-                return false;
+            $cached = json_decode(File::get($cachePath), true);
+            if (is_array($cached)) {
+                if ($this->cachedDetailIsReusable($cached)) {
+                    $this->publishCachedMovieDetail($cachePath, $detailsDir, $movieId, $movie, $cached);
+
+                    return true;
+                }
+
+                $stale = $cached;
             }
-
-            File::ensureDirectoryExists($detailsDir);
-            File::copy($cachePath, "{$detailsDir}/{$movieId}.json");
-            $tmdbId = $this->findTmdbId($movie);
-        } else {
-            $tmdbId = $this->findTmdbId($movie);
-            if (! $tmdbId) {
-                return false;
-            }
-
-            $detail = $this->fetchTmdbMovieDetail($tmdbId);
-            if (! $detail) {
-                return false;
-            }
-
-            $tmdbId = (int) ($detail['id'] ?? $tmdbId);
-            $export = $this->slimTmdbDetail($detail);
-            $json = json_encode($export, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-            File::ensureDirectoryExists(dirname($cachePath));
-            File::put($cachePath, $json);
-            File::ensureDirectoryExists($detailsDir);
-            File::put("{$detailsDir}/{$movieId}.json", $json);
         }
 
+        $tmdbId = $this->findTmdbId($movie);
+        $detail = $tmdbId ? $this->fetchTmdbMovieDetail($tmdbId) : null;
+        if (! is_array($detail)) {
+            if ($stale !== null) {
+                $this->publishCachedMovieDetail($cachePath, $detailsDir, $movieId, $movie, $stale);
+            }
+
+            return $stale !== null;
+        }
+
+        $tmdbId = (int) ($detail['id'] ?? $tmdbId);
+        $export = $this->slimTmdbDetail($detail);
+        $json = json_encode($export, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        File::ensureDirectoryExists(dirname($cachePath));
+        File::put($cachePath, $json);
+        File::ensureDirectoryExists($detailsDir);
+        File::put("{$detailsDir}/{$movieId}.json", $json);
         $this->backfillMovieMetadata($movie, $tmdbId, $export);
 
         return true;
+    }
+
+    /**
+     * 言語なしで保存されたクレジットは人名がすべてラテン文字になる。
+     * 日本語の人名が含まれる旧キャッシュは、ja-JP で取得済みなので再取得しない。
+     *
+     * @param  array<string, mixed>  $export
+     */
+    private function cachedDetailIsReusable(array $export): bool
+    {
+        if (($export['names_language'] ?? null) === 'ja-JP') {
+            return true;
+        }
+
+        $credits = is_array($export['credits'] ?? null) ? $export['credits'] : [];
+        $people = array_merge(
+            is_array($credits['cast'] ?? null) ? $credits['cast'] : [],
+            is_array($credits['crew'] ?? null) ? $credits['crew'] : [],
+        );
+
+        foreach ($people as $person) {
+            $name = is_array($person) ? trim((string) ($person['name'] ?? '')) : '';
+            if ($name !== '' && preg_match('/\p{Hiragana}|\p{Katakana}|\p{Han}/u', $name)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $export
+     */
+    private function publishCachedMovieDetail(
+        string $cachePath,
+        string $detailsDir,
+        string $movieId,
+        GlobalMovie|JapaneseMovie $movie,
+        array $export
+    ): void {
+        File::ensureDirectoryExists($detailsDir);
+        File::copy($cachePath, "{$detailsDir}/{$movieId}.json");
+        $this->backfillMovieMetadata($movie, $this->findTmdbId($movie), $export);
     }
 
     private function backfillMovieMetadata(GlobalMovie|JapaneseMovie $movie, ?int $tmdbId, array $export): void

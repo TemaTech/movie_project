@@ -71,7 +71,7 @@ class SeoExportTest extends TestCase
         $this->assertStringNotContainsString('Crawl-delay', $robots);
     }
 
-    public function test_movie_page_shows_the_box_office_update_date_beside_the_revenue(): void
+    public function test_movie_page_shows_the_last_day_box_office_increased(): void
     {
         config(['app.url' => 'https://mubiran.com']);
         $html = $this->invoke('moviePageHtml', [
@@ -80,23 +80,29 @@ class SeoExportTest extends TestCase
             'revenue' => '29.39億ドル',
             'revenueYen' => '4408.5億円',
             'rank' => 1,
-            'updatedAt' => '2026-10-22T03:00:00+09:00',
+            'updatedAt' => '2026-10-24T03:00:00+09:00',
+            'pageHistory' => [
+                'grossIncreasedAt' => '2026-10-22T03:00:00+09:00',
+            ],
             'posterUrl' => '',
             'genres' => [],
         ], false, sys_get_temp_dir());
 
         $this->assertMatchesRegularExpression(
-            '/<dt>興行収入<\/dt><dd>29\.39億ドル<\/dd><\/div>\s*<div><dt>日本換算<\/dt><dd>4408\.5億円<\/dd><\/div>\s*<div><dt>最終更新<\/dt><dd>2026年10月22日<\/dd>/',
+            '/<dt>興行収入<\/dt><dd>29\.39億ドル<\/dd><\/div>\s*<div><dt>日本換算<\/dt><dd>4408\.5億円<\/dd><\/div>\s*<div><dt>興行が増えた日<\/dt><dd>2026年10月22日<\/dd>/',
             $html,
         );
-        $this->assertDoesNotMatchRegularExpression(
-            '/<dt>最終更新<\/dt>/',
+        $this->assertStringNotContainsString('最終更新', $html);
+        $this->assertStringNotContainsString('2026年10月24日', $html);
+        $this->assertStringNotContainsString(
+            '興行が増えた日',
             $this->invoke('moviePageHtml', [
                 'id' => 'undated',
                 'title' => '日付なし',
                 'revenue' => '1億円',
                 'revenueYen' => null,
                 'rank' => 2,
+                'updatedAt' => '2026-10-24T03:00:00+09:00',
                 'posterUrl' => '',
                 'genres' => [],
             ], true, sys_get_temp_dir()),

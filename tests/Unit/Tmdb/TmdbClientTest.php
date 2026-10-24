@@ -61,6 +61,31 @@ class TmdbClientTest extends TestCase
         $this->assertSame(1671537444, $movie['revenue']);
     }
 
+    public function test_get_movie_credits_requests_japanese_names(): void
+    {
+        Http::fake([
+            'api.themoviedb.org/3/movie/299534/credits*' => Http::response([
+                'cast' => [
+                    ['name' => 'ロバート・ダウニー・Jr.'],
+                ],
+                'crew' => [
+                    ['job' => 'Director', 'name' => 'アンソニー・ルッソ'],
+                ],
+            ], 200),
+        ]);
+
+        $credits = (new TmdbClient('test-api-key', 1))->getMovieCredits(299534);
+
+        $this->assertSame('ロバート・ダウニー・Jr.', $credits['cast'][0]['name']);
+        $this->assertSame('アンソニー・ルッソ', $credits['crew'][0]['name']);
+        Http::assertSent(function ($request) {
+            parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+
+            return str_contains($request->url(), '/movie/299534/credits')
+                && ($query['language'] ?? null) === 'ja-JP';
+        });
+    }
+
     public function test_discover_movies_retries_on_server_error(): void
     {
         Http::fake([

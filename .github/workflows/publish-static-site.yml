@@ -70,8 +70,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: storage/app/static-details
-          key: static-details-${{ runner.os }}-v1
-          restore-keys: static-details-${{ runner.os }}-v1
+          key: static-details-${{ runner.os }}-v2
+          restore-keys: static-details-${{ runner.os }}-v2
 
       - name: Restore poster image cache
         uses: actions/cache@v4

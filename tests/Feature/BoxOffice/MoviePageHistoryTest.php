@@ -30,9 +30,11 @@ class MoviePageHistoryTest extends TestCase
         $this->assertStringContainsString('movie-chart-scroll', $svg);
         $this->assertStringContainsString('class="movie-chart-y"', $svg);
         $this->assertStringContainsString('横に動かすと続きが見られます。', $svg);
-        $this->assertStringContainsString('当日', $svg);
-        $this->assertStringContainsString('9日', $svg);
-        $this->assertStringContainsString('公開9日', $svg);
+        $this->assertStringContainsString('>8/1<', $svg);
+        $this->assertStringContainsString('>8/10<', $svg);
+        $this->assertStringContainsString('2026/8/10（公開9日）', $svg);
+        $this->assertStringContainsString('2026/8/1（公開当日）', $svg);
+        $this->assertStringNotContainsString('>当日<', $svg);
         $this->assertStringContainsString('movie-chart-tip', $svg);
         $this->assertStringContainsString('data-y-zoomed="1"', $svg);
         $this->assertDoesNotMatchRegularExpression('/class="movie-chart-guide-label">0億円</', $svg);
@@ -69,13 +71,52 @@ class MoviePageHistoryTest extends TestCase
             ['at' => '2026-08-20T03:00:00+09:00', 'boxOffice' => 6_000_000_000],
             ['at' => '2026-08-22T03:00:00+09:00', 'boxOffice' => 6_200_000_000],
         ], true, '2026-08-01');
-        $axisDays = [];
-        if (preg_match_all('/>(当日|\d+日)<\/text>/', $clustered, $matches)) {
-            $axisDays = $matches[1];
+        foreach (['8/1', '8/3', '8/20', '8/22'] as $date) {
+            $this->assertStringContainsString('>'.$date.'<', $clustered);
         }
-        $this->assertNotContains('2日', $axisDays);
-        $this->assertContains('当日', $axisDays);
-        $this->assertContains('21日', $axisDays);
+    }
+
+    public function test_trajectory_axis_labels_announcement_dates_and_skips_overlaps(): void
+    {
+        $command = $this->app->make(ExportStaticSite::class);
+        $revival = $this->invoke($command, 'trajectorySvg', [
+            ['at' => '2026-08-15T03:00:00+09:00', 'boxOffice' => 2_799_000_000],
+            ['at' => '2026-09-29T03:00:00+09:00', 'boxOffice' => 2_885_000_000],
+            ['at' => '2026-10-13T03:00:00+09:00', 'boxOffice' => 2_927_000_000],
+            ['at' => '2026-10-22T03:00:00+09:00', 'boxOffice' => 2_939_000_000],
+        ], false, '2026-09-25');
+
+        foreach (['8/15', '9/29', '10/13', '10/22'] as $date) {
+            $this->assertStringContainsString('>'.$date.'<', $revival, $date.' が横軸にない');
+        }
+        $this->assertStringContainsString('2026/9/29（公開4日）', $revival);
+        $this->assertStringContainsString('2026/10/13（公開18日）', $revival);
+        $this->assertStringNotContainsString('>4日<', $revival);
+        $this->assertStringNotContainsString('>当日<', $revival);
+
+        $dense = [];
+        for ($day = 1; $day <= 20; $day++) {
+            $dense[] = [
+                'at' => sprintf('2026-08-%02dT03:00:00+09:00', $day),
+                'boxOffice' => 4_000_000_000 + $day * 50_000_000,
+            ];
+        }
+        $svg = $this->invoke($command, 'trajectorySvg', $dense, true, '2026-08-01');
+        preg_match_all(
+            '/<text x="([0-9.]+)" y="226" text-anchor="(?:start|middle|end)" class="movie-chart-axis">([^<]+)/',
+            $svg,
+            $axis,
+            PREG_SET_ORDER,
+        );
+        $labels = array_column($axis, 2);
+        $this->assertContains('8/1', $labels);
+        $this->assertContains('8/20', $labels);
+        $this->assertNotContains('8/2', $labels);
+        $this->assertLessThan(count($dense), count($labels));
+        $xs = array_map(fn (array $row): float => (float) $row[1], $axis);
+        for ($i = 1; $i < count($xs); $i++) {
+            $this->assertGreaterThanOrEqual(28, $xs[$i] - $xs[$i - 1]);
+        }
     }
 
     public function test_trajectory_svg_zooms_when_totals_stay_in_a_narrow_band(): void
@@ -136,6 +177,54 @@ class MoviePageHistoryTest extends TestCase
         $this->assertStringNotContainsString('点に触れると', $html);
     }
 
+    public function test_point_labels_do_not_cover_nearby_dots(): void
+    {
+        $command = $this->app->make(ExportStaticSite::class);
+        $svg = $this->invoke($command, 'trajectorySvg', [
+            ['at' => '2026-08-01T03:00:00+09:00', 'boxOffice' => 1_000_000_000],
+            ['at' => '2026-09-01T03:00:00+09:00', 'boxOffice' => 2_233_000_000],
+            ['at' => '2026-09-03T03:00:00+09:00', 'boxOffice' => 2_333_000_000],
+            ['at' => '2026-09-20T03:00:00+09:00', 'boxOffice' => 2_335_000_000],
+        ], false, '2026-07-01');
+
+        preg_match_all(
+            '/<circle cx="([0-9.]+)" cy="([0-9.]+)" r="([0-9.]+)" class="movie-chart-dot/',
+            $svg,
+            $dots,
+            PREG_SET_ORDER,
+        );
+        preg_match_all(
+            '/<text x="([0-9.]+)" y="([0-9.]+)" text-anchor="(start|middle|end)" class="movie-chart-point-label">([^<]+)/',
+            $svg,
+            $labels,
+            PREG_SET_ORDER,
+        );
+        $shown = array_column($labels, 4);
+        $this->assertContains('22.33億', $shown);
+        $this->assertContains('23.33億', $shown);
+
+        foreach ($labels as $label) {
+            $width = $this->invoke($command, 'chartLabelWidth', $label[4]) + 6;
+            $rect = $this->invoke($command, 'chartLabelRect', (float) $label[1], (float) $label[2], $width, $label[3]);
+            $rect[0] -= 2;
+            $rect[1] -= 2;
+            $rect[2] += 2;
+            $rect[3] += 2;
+            foreach ($dots as $dot) {
+                $px = (float) $dot[1];
+                $py = (float) $dot[2];
+                $nearestX = min(max($px, $rect[0]), $rect[2]);
+                $nearestY = min(max($py, $rect[1]), $rect[3]);
+                $distance = hypot($px - $nearestX, $py - $nearestY);
+                $this->assertGreaterThanOrEqual(
+                    (float) $dot[3] + 2,
+                    $distance,
+                    $label[4].' が丸点に被っています',
+                );
+            }
+        }
+    }
+
     public function test_trajectory_svg_collapses_display_equal_totals(): void
     {
         $command = $this->app->make(ExportStaticSite::class);
@@ -147,8 +236,8 @@ class MoviePageHistoryTest extends TestCase
 
         preg_match_all('/class="movie-chart-point-label">([^<]+)/', $svg, $labels);
         $this->assertSame(['20.22億', '23.33億'], $labels[1]);
-        $this->assertStringContainsString('公開33日', $svg);
-        $this->assertStringNotContainsString('公開34日', $svg);
+        $this->assertStringContainsString('2026/8/31（公開33日）', $svg);
+        $this->assertStringNotContainsString('2026/9/1', $svg);
     }
 
     public function test_trajectory_section_includes_day_and_total_table(): void

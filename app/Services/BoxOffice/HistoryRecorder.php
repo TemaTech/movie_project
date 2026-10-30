@@ -15,8 +15,7 @@ class HistoryRecorder
     public function __construct(
         private readonly RegistryRepository $registry,
         private readonly ObservationRepository $observations,
-    ) {
-    }
+    ) {}
 
     public static function fromConfig(): self
     {
@@ -106,6 +105,7 @@ class HistoryRecorder
             }
         }
 
+        $this->observations->compact($region);
         $this->registry->save();
 
         return $warnings;

@@ -461,6 +461,7 @@ class Insights
             foreach ($rows as $row) {
                 if ((int) $row['boxOffice'] < $threshold) {
                     $seenBelow = true;
+
                     continue;
                 }
                 if ($seenBelow) {
@@ -600,11 +601,17 @@ class Insights
      */
     private static function sparkline(array $observations, bool $isJapan): array
     {
-        $points = [];
+        $usable = [];
         foreach ($observations as $row) {
             if (! empty($row['correction'])) {
                 continue;
             }
+            $usable[] = $row;
+        }
+        usort($usable, fn (array $a, array $b) => strcmp($a['observedAt'] ?? '', $b['observedAt'] ?? ''));
+
+        $points = [];
+        foreach (ObservationStore::keepLatestPerDate($usable) as $row) {
             $boxOffice = (int) $row['boxOffice'];
             $previous = $points === [] ? null : $points[array_key_last($points)];
             if ($previous && self::formatAmount($previous['boxOffice'], $isJapan) === self::formatAmount($boxOffice, $isJapan)) {

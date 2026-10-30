@@ -137,6 +137,74 @@ class BoxOfficeHistoryTest extends TestCase
         $this->assertSame(2_332_508_000, $rows[0]['boxOffice']);
     }
 
+    public function test_same_day_snapshots_keep_the_latest_value_and_compact_the_file(): void
+    {
+        $recorder = HistoryRecorder::fromBasePath($this->dir);
+        $recorder->resolve([
+            'region' => 'global',
+            'title' => 'Endgame',
+            'tmdbId' => 299534,
+            'releaseYear' => 2019,
+        ]);
+        $movie = [
+            'movie_id' => 'tmdb-299534',
+            'title' => 'Endgame',
+            'box_office' => 2_891_000_000,
+            'is_active' => true,
+        ];
+        $recorder->recordSnapshot('global', [$movie], new DateTimeImmutable('2026-10-04T03:15:00+09:00'));
+        $movie['box_office'] = 2_892_000_000;
+        $recorder->recordSnapshot('global', [$movie], new DateTimeImmutable('2026-10-04T21:15:00+09:00'));
+
+        $path = $this->dir.'/observations/global/2026-10.ndjson';
+        $this->assertFileExists($path);
+        $this->assertSame(1, substr_count((string) file_get_contents($path), '"key":"tmdb-299534"'));
+
+        $rows = (new ObservationStore($this->dir.'/observations'))->loadByKey('global')['tmdb-299534'];
+        $this->assertCount(1, $rows);
+        $this->assertSame(2_892_000_000, $rows[0]['boxOffice']);
+        $this->assertSame('2026-10-04T21:15:00+09:00', $rows[0]['observedAt']);
+    }
+
+    public function test_load_collapses_existing_same_day_duplicates_to_the_latest(): void
+    {
+        $store = new ObservationStore($this->dir.'/observations');
+        $store->append('global', $this->obs('tmdb-1', '2026-10-04T03:15:00+09:00', 2_891_000_000, true));
+        $store->append('global', $this->obs('tmdb-1', '2026-10-04T21:15:00+09:00', 2_892_000_000, true));
+
+        $rows = $store->loadByKey('global')['tmdb-1'];
+        $this->assertCount(1, $rows);
+        $this->assertSame(2_892_000_000, $rows[0]['boxOffice']);
+        $this->assertSame(1, $store->compact('global'));
+        $this->assertSame(1, substr_count(
+            (string) file_get_contents($this->dir.'/observations/global/2026-10.ndjson'),
+            '"key":"tmdb-1"',
+        ));
+        $this->assertSame(0, $store->compact('global'));
+    }
+
+    public function test_sparkline_keeps_one_point_per_date(): void
+    {
+        $now = new DateTimeImmutable('2026-10-04T22:00:00+09:00');
+        $result = Insights::compute('global', [
+            $this->current('tmdb-1', 'Endgame', 2_892_000_000, false),
+        ], [
+            'tmdb-1' => [
+                $this->obs('tmdb-1', '2026-10-04T03:15:00+09:00', 2_891_000_000, false),
+                $this->obs('tmdb-1', '2026-10-04T21:15:00+09:00', 2_892_000_000, false),
+            ],
+        ], [
+            'tmdb-1' => [
+                'releaseDate' => '2019-04-24',
+                'releaseDatePrecision' => 'day',
+            ],
+        ], $now);
+
+        $this->assertCount(1, $result['movies']['tmdb-1']['sparkline']);
+        $this->assertSame(2_892_000_000, $result['movies']['tmdb-1']['sparkline'][0]['boxOffice']);
+        $this->assertSame('2026-10-04T21:15:00+09:00', $result['movies']['tmdb-1']['sparkline'][0]['at']);
+    }
+
     public function test_display_equal_observations_are_collapsed_on_load(): void
     {
         $store = new ObservationStore($this->dir.'/observations');

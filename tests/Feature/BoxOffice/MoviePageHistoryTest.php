@@ -91,6 +91,8 @@ class MoviePageHistoryTest extends TestCase
         }
         $this->assertStringContainsString('2026/9/29（公開4日）', $revival);
         $this->assertStringContainsString('2026/10/13（公開18日）', $revival);
+        $this->assertStringContainsString('2026/8/15', $revival);
+        $this->assertStringNotContainsString('2026/8/15（公開当日）', $revival);
         $this->assertStringNotContainsString('>4日<', $revival);
         $this->assertStringNotContainsString('>当日<', $revival);
 
@@ -117,6 +119,114 @@ class MoviePageHistoryTest extends TestCase
         for ($i = 1; $i < count($xs); $i++) {
             $this->assertGreaterThanOrEqual(28, $xs[$i] - $xs[$i - 1]);
         }
+    }
+
+    public function test_old_film_day_labels_use_original_release_and_collapse_same_date(): void
+    {
+        $command = $this->app->make(ExportStaticSite::class);
+        $svg = $this->invoke($command, 'trajectorySvg', [
+            ['at' => '2026-08-15T03:40:40+09:00', 'boxOffice' => 2_799_439_100],
+            ['at' => '2026-09-27T20:10:40+09:00', 'boxOffice' => 2_810_639_100],
+            ['at' => '2026-09-29T07:52:06+09:00', 'boxOffice' => 2_885_439_100],
+            ['at' => '2026-10-04T03:15:00+09:00', 'boxOffice' => 2_891_000_000],
+            ['at' => '2026-10-04T21:15:00+09:00', 'boxOffice' => 2_892_000_000],
+        ], false, '2019-04-24');
+
+        $this->assertStringNotContainsString('公開当日', $svg);
+        $this->assertStringContainsString('2026/8/15（公開2670日）', $svg);
+        $this->assertStringContainsString('2026/9/27（公開2713日）', $svg);
+        $this->assertStringContainsString('2026/9/29（公開2715日）', $svg);
+        $this->assertStringContainsString('2026/10/4（公開2720日）', $svg);
+        preg_match_all('/class="movie-chart-hit is-self"/', $svg, $hits);
+        $this->assertCount(4, $hits[0]);
+        $this->assertStringContainsString('28.92億ドル', $svg);
+        $this->assertStringNotContainsString('28.91億ドル', $svg);
+
+        $peer = $this->invoke($command, 'chartRows', [
+            ['at' => '2026-08-01T03:00:00+09:00', 'boxOffice' => 400_000_000],
+            ['at' => '2026-08-20T03:00:00+09:00', 'boxOffice' => 800_000_000],
+        ], '2026-08-01', 'day', false);
+        $series = new \ReflectionProperty($command, 'activeSeries');
+        $series->setAccessible(true);
+        $series->setValue($command, [
+            'japan' => [],
+            'global' => [[
+                'key' => 'tmdb-new',
+                'title' => '新作',
+                'color' => '#7dd3fc',
+                'points' => $peer,
+            ]],
+        ]);
+
+        $html = $this->invoke($command, 'trajectorySection', [
+            'title' => 'アベンジャーズ／エンドゲーム',
+            'isActive' => true,
+            'id' => 'tmdb-299534',
+            'pageHistory' => [
+                'seriesKey' => 'tmdb-299534',
+                'sparkline' => [
+                    ['at' => '2026-08-15T03:40:40+09:00', 'boxOffice' => 2_799_439_100],
+                    ['at' => '2026-10-04T03:15:00+09:00', 'boxOffice' => 2_891_000_000],
+                    ['at' => '2026-10-04T21:15:00+09:00', 'boxOffice' => 2_892_000_000],
+                ],
+                'releaseDate' => '2019-04-24',
+                'releaseDatePrecision' => 'day',
+            ],
+        ], false);
+        $this->assertStringContainsString('公開2670日', $html);
+        $this->assertStringContainsString('>2720日<', $html);
+        $this->assertStringNotContainsString('公開当日', $html);
+        $this->assertStringNotContainsString('公開中と比較', $html);
+        preg_match_all('/<td>2026\/10\/4<\/td>/', $html, $tableDates);
+        $this->assertCount(1, $tableDates[0]);
+    }
+
+    public function test_new_release_keeps_opening_day_labels_and_can_compare(): void
+    {
+        $command = $this->app->make(ExportStaticSite::class);
+        $newFilm = $this->invoke($command, 'chartRows', [
+            ['at' => '2026-08-01T03:00:00+09:00', 'boxOffice' => 400_000_000],
+            ['at' => '2026-08-20T03:00:00+09:00', 'boxOffice' => 800_000_000],
+        ], '2026-08-01', 'day', false);
+        $peer = $this->invoke($command, 'chartRows', [
+            ['at' => '2026-07-20T03:00:00+09:00', 'boxOffice' => 300_000_000],
+            ['at' => '2026-08-10T03:00:00+09:00', 'boxOffice' => 600_000_000],
+        ], '2026-07-20', 'day', false);
+
+        $series = new \ReflectionProperty($command, 'activeSeries');
+        $series->setAccessible(true);
+        $series->setValue($command, [
+            'japan' => [],
+            'global' => [[
+                'key' => 'tmdb-peer',
+                'title' => '同時期の新作',
+                'color' => '#7dd3fc',
+                'points' => $peer,
+            ]],
+        ]);
+
+        $html = $this->invoke($command, 'trajectorySection', [
+            'title' => '新作',
+            'isActive' => true,
+            'id' => 'tmdb-new',
+            'pageHistory' => [
+                'seriesKey' => 'tmdb-new',
+                'sparkline' => [
+                    ['at' => '2026-08-01T03:00:00+09:00', 'boxOffice' => 400_000_000],
+                    ['at' => '2026-08-20T03:00:00+09:00', 'boxOffice' => 800_000_000],
+                ],
+                'releaseDate' => '2026-08-01',
+                'releaseDatePrecision' => 'day',
+            ],
+        ], false);
+
+        $this->assertStringContainsString('2026/8/1（公開当日）', $html);
+        $this->assertStringContainsString('2026/8/20（公開19日）', $html);
+        $this->assertStringContainsString('公開中と比較', $html);
+        $this->assertStringContainsString('公開日数を揃えて比較しています。', $html);
+        $this->assertCount(2, $newFilm);
+        $this->assertSame(0, $newFilm[0]['day']);
+        $this->assertSame(19, $newFilm[1]['day']);
     }
 
     public function test_trajectory_svg_zooms_when_totals_stay_in_a_narrow_band(): void

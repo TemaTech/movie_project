@@ -23,9 +23,10 @@ interface ObservationRepository
      * @param  array<string, mixed>  $current
      * @param  array<string, mixed>|null  $previous
      */
-    /**
-     * @param  array<string, mixed>  $current
-     * @param  array<string, mixed>|null  $previous
-     */
     public function shouldRecord(array $current, ?array $previous, bool $isJapan = false): bool;
+
+    /**
+     * 月次ファイルを、作品×東京日付につき最新の1件だけ残す形に書き直す。
+     */
+    public function compact(string $region): int;
 }

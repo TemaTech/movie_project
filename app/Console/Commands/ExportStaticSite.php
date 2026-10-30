@@ -59,13 +59,13 @@ class ExportStaticSite extends Command
         $refreshDetails = (bool) $this->option('refresh-details');
 
         File::deleteDirectory($output);
-        File::ensureDirectoryExists($output . '/data/details');
+        File::ensureDirectoryExists($output.'/data/details');
 
         $globalModels = GlobalMovie::orderBy('box_office', 'desc')->get();
         $japanModels = JapaneseMovie::orderBy('box_office', 'desc')->get();
 
-        $this->exportMovieDetails($globalModels, $output . '/data/details', $refreshDetails);
-        $this->exportMovieDetails($japanModels, $output . '/data/details', $refreshDetails);
+        $this->exportMovieDetails($globalModels, $output.'/data/details', $refreshDetails);
+        $this->exportMovieDetails($japanModels, $output.'/data/details', $refreshDetails);
 
         $global = $globalModels->values()
             ->map(fn (GlobalMovie $movie, int $index) => $this->movieData($movie, $index + 1, false))
@@ -95,7 +95,7 @@ class ExportStaticSite extends Command
         $globalLastUpdated = $this->maxLastUpdated(GlobalMovie::class);
         $japanLastUpdated = $this->maxLastUpdated(JapaneseMovie::class);
 
-        File::put($output . '/data/movies.json', json_encode([
+        File::put($output.'/data/movies.json', json_encode([
             'generatedAt' => now('Asia/Tokyo')->toIso8601String(),
             'usdJpy' => $this->usdJpy(),
             'globalLastUpdated' => $globalLastUpdated,
@@ -120,11 +120,11 @@ class ExportStaticSite extends Command
         $this->exportNowPage($output);
         $this->exportJapanRankingPage($output, $japan, $japanLastUpdated);
         $this->exportSitemap($output, $global, $japan, $boardOnly);
-        File::put($output . '/index.html', $this->indexHtml('/', $global, $globalLastUpdated));
+        File::put($output.'/index.html', $this->indexHtml('/', $global, $globalLastUpdated));
 
         $moviePageCount = count($global) + count($japan) + count($boardOnly);
         $this->info("Static site exported to {$output}");
-        $this->line("Global: ".count($global)." movies / Japan: ".count($japan)." movies");
+        $this->line('Global: '.count($global).' movies / Japan: '.count($japan).' movies');
         $this->line("Movie pages: {$moviePageCount}");
 
         return self::SUCCESS;
@@ -326,9 +326,9 @@ class ExportStaticSite extends Command
             'revenueBillion' => $revenueBillion,
             'productionCountry' => $isJapan ? ($movie->production_country ?? '日本') : null,
             'revenue' => $isJapan
-                ? number_format($movie->box_office / 100000000, 1) . '億円'
-                : number_format($movie->box_office / 100000000, 2) . '億ドル',
-            'revenueYen' => $isJapan ? null : number_format($movie->box_office * $usdJpy / 100000000, 1) . '億円',
+                ? number_format($movie->box_office / 100000000, 1).'億円'
+                : number_format($movie->box_office / 100000000, 2).'億ドル',
+            'revenueYen' => $isJapan ? null : number_format($movie->box_office * $usdJpy / 100000000, 1).'億円',
             'analysis' => $movie->ai_analysis,
             'sourceUrl' => $movie->data_source_url,
             'updatedAt' => $movie->last_updated
@@ -354,14 +354,14 @@ class ExportStaticSite extends Command
         }
 
         if (str_starts_with($poster, 'posters/')) {
-            return '/storage/' . $poster;
+            return '/storage/'.$poster;
         }
 
         if (str_starts_with($poster, 'http')) {
             return $poster;
         }
 
-        return 'https://image.tmdb.org/t/p/w342' . $poster;
+        return 'https://image.tmdb.org/t/p/w342'.$poster;
     }
 
     private function copyPublicAssets(string $output): void
@@ -369,20 +369,20 @@ class ExportStaticSite extends Command
         foreach (['build', 'images'] as $directory) {
             $source = public_path($directory);
             if (File::isDirectory($source)) {
-                File::copyDirectory($source, $output . '/' . $directory);
+                File::copyDirectory($source, $output.'/'.$directory);
             }
         }
 
         foreach (['sw.js', 'favicon.ico', 'site.webmanifest', 'google84b5e42071a0a6f0.html'] as $file) {
             $source = public_path($file);
             if (File::exists($source)) {
-                File::copy($source, $output . '/' . $file);
+                File::copy($source, $output.'/'.$file);
             }
         }
 
         $storage = storage_path('app/public');
         if (File::isDirectory($storage)) {
-            File::copyDirectory($storage, $output . '/storage');
+            File::copyDirectory($storage, $output.'/storage');
         }
     }
 
@@ -407,7 +407,7 @@ TXT;
 
     private function exportRobotsTxt(string $output): void
     {
-        File::put($output . '/robots.txt', $this->robotsTxt());
+        File::put($output.'/robots.txt', $this->robotsTxt());
     }
 
     private function usdJpy(): float
@@ -508,10 +508,8 @@ TXT;
                 'nextMilestone' => $insight['nextMilestone'] ?? null,
                 'nextToOvertake' => $insight['nextToOvertake'] ?? null,
                 'periodGrowth' => $insight['periodGrowth'] ?? [],
-                'releaseDate' => $insight['currentReleaseDate'] ?? $insight['releaseDate'] ?? ($movie['releaseDate'] ?? null),
-                'releaseDatePrecision' => ! empty($insight['currentReleaseDate'])
-                    ? 'day'
-                    : ($insight['releaseDatePrecision'] ?? ($movie['releaseDatePrecision'] ?? null)),
+                'releaseDate' => $insight['releaseDate'] ?? ($movie['releaseDate'] ?? null),
+                'releaseDatePrecision' => $insight['releaseDatePrecision'] ?? ($movie['releaseDatePrecision'] ?? null),
                 'grossIncreasedAt' => $insight['lastIncreaseAt'] ?? null,
             ];
         }
@@ -519,6 +517,7 @@ TXT;
         foreach (['board', 'today', 'milestones'] as $bucket) {
             $computed[$bucket] = array_map(function (array $item) use ($movies) {
                 $movie = collect($movies)->firstWhere('id', $item['key']) ?? [];
+
                 return array_merge($item, [
                     'posterUrl' => $movie['posterUrl'] ?? null,
                     'slug' => $item['key'],
@@ -649,10 +648,8 @@ TXT;
                         'nextMilestone' => $item['nextMilestone'] ?? null,
                         'nextToOvertake' => $item['nextToOvertake'] ?? null,
                         'periodGrowth' => $item['periodGrowth'] ?? [],
-                        'releaseDate' => $item['currentReleaseDate'] ?? $item['releaseDate'] ?? null,
-                        'releaseDatePrecision' => ! empty($item['currentReleaseDate'])
-                            ? 'day'
-                            : ($item['releaseDatePrecision'] ?? null),
+                        'releaseDate' => $item['releaseDate'] ?? null,
+                        'releaseDatePrecision' => $item['releaseDatePrecision'] ?? null,
                         'grossIncreasedAt' => $item['lastIncreaseAt'] ?? null,
                     ],
                 ];
@@ -664,7 +661,7 @@ TXT;
 
     private function exportNowPlaying(string $output, array $global, array $japan, array $globalInsights, array $japanInsights): void
     {
-        File::put($output . '/data/now-playing.json', json_encode([
+        File::put($output.'/data/now-playing.json', json_encode([
             'generatedAt' => now('Asia/Tokyo')->toIso8601String(),
             'disclaimer' => '日本の興行収入は配給会社の発表ベースです。数字は毎日は動きません。伸びは前回の発表との差です。',
             'japanLastUpdated' => $this->maxLastUpdated(JapaneseMovie::class),
@@ -942,7 +939,9 @@ XML);
             }
         }
 
-        $compare = $others === [] ? '' : $this->chartSvg($self, $others, $isJapan, 'compare', (string) ($movie['title'] ?? 'この作品'));
+        $compare = ($others === [] || ! $this->chartRangesOverlap($self, $others))
+            ? ''
+            : $this->chartSvg($self, $others, $isJapan, 'compare', (string) ($movie['title'] ?? 'この作品'));
         if ($compare === '') {
             return '<section class="movie-section movie-trajectory"><h2>興収の推移</h2>'.$soloPanel.$table.'</section>';
         }
@@ -990,7 +989,7 @@ XML);
             $at = Carbon::createFromTimestamp((int) $row['ts'])->timezone('Asia/Tokyo');
             if ($fromRelease) {
                 $day = (int) $row['day'];
-                $dayLabel = $day === 0 ? '当日' : $day.'日';
+                $dayLabel = $this->chartDayAxisLabel($day) ?? '—';
             } else {
                 $day = (int) floor(($at->copy()->startOfDay()->getTimestamp() - $origin->getTimestamp()) / 86400);
                 $dayLabel = $day === 0 ? '初日' : $day.'日';
@@ -1258,7 +1257,7 @@ XML);
                 $dayLabel = $announceDates
                     ? $this->chartHitDateLabel($row)
                     : ($useDays
-                        ? (((int) $row['day'] === 0) ? '公開当日' : '公開'.(int) $row['day'].'日')
+                        ? ($this->chartOpenDayPhrase(isset($row['day']) ? (int) $row['day'] : null) ?? $this->chartTsLabel((int) $row['ts']))
                         : $this->chartTsLabel((int) $row['ts']));
                 $amount = Insights::formatAmount((int) $row['boxOffice'], $isJapan);
                 $title = (string) $item['title'];
@@ -1306,7 +1305,31 @@ XML);
 
         usort($rows, fn (array $a, array $b) => $a['ts'] <=> $b['ts']);
 
-        return $this->collapseSameChartAmounts($rows, $isJapan);
+        return $this->collapseSameChartAmounts($this->collapseSameChartDates($rows), $isJapan);
+    }
+
+    /**
+     * @param  list<array{at: string, ts: int, day: int|null, boxOffice: int}>  $rows
+     * @return list<array{at: string, ts: int, day: int|null, boxOffice: int}>
+     */
+    private function collapseSameChartDates(array $rows): array
+    {
+        $byDay = [];
+        foreach ($rows as $row) {
+            $day = Carbon::createFromTimestamp((int) $row['ts'])->timezone('Asia/Tokyo')->format('Y-m-d');
+            $previous = $byDay[$day] ?? null;
+            if ($previous === null
+                || (int) $row['ts'] > (int) $previous['ts']
+                || ((int) $row['ts'] === (int) $previous['ts'] && (int) $row['boxOffice'] > (int) $previous['boxOffice'])
+            ) {
+                $byDay[$day] = $row;
+            }
+        }
+
+        $collapsed = array_values($byDay);
+        usort($collapsed, fn (array $a, array $b) => $a['ts'] <=> $b['ts']);
+
+        return $collapsed;
     }
 
     /**
@@ -1328,18 +1351,62 @@ XML);
     }
 
     /**
-     * リバイバル中は、比較グラフの起点を今回の劇場公開日にする。
+     * グラフの公開日数は、リバイバルではなく作品の初公開日を起点にする。
+     * 「公開当日」は実際の公開日と一致する点だけに付ける。
      *
      * @param  array<string, mixed>  $insight
      * @return array{0: ?string, 1: ?string}
      */
     private function chartOrigin(array $insight): array
     {
-        if (! empty($insight['currentReleaseDate'])) {
-            return [$insight['currentReleaseDate'], 'day'];
+        return [$insight['releaseDate'] ?? null, $insight['releaseDatePrecision'] ?? null];
+    }
+
+    /**
+     * 公開中比較は、公開からの日数が重なる作品同士だけにする。
+     * 初公開から数年後に観測が始まった過去作を、新作の公開当日と並べない。
+     *
+     * @param  list<array{day: int|null}>  $self
+     * @param  list<array{points: list<array{day: int|null}>}>  $others
+     */
+    private function chartRangesOverlap(array $self, array $others): bool
+    {
+        $selfRange = $this->chartDayRange($self);
+        if ($selfRange === null) {
+            return false;
         }
 
-        return [$insight['releaseDate'] ?? null, $insight['releaseDatePrecision'] ?? null];
+        foreach ($others as $other) {
+            $otherRange = $this->chartDayRange($other['points'] ?? []);
+            if ($otherRange === null) {
+                continue;
+            }
+            if ($selfRange[0] <= $otherRange[1] && $otherRange[0] <= $selfRange[1]) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<array{day: int|null}>  $rows
+     * @return array{0: int, 1: int}|null
+     */
+    private function chartDayRange(array $rows): ?array
+    {
+        $days = [];
+        foreach ($rows as $row) {
+            if ($row['day'] === null) {
+                continue;
+            }
+            $days[] = (int) $row['day'];
+        }
+        if ($days === []) {
+            return null;
+        }
+
+        return [min($days), max($days)];
     }
 
     private function chartDayNumber(?string $releaseDate, ?string $precision, Carbon $at): ?int
@@ -1354,9 +1421,25 @@ XML);
             return null;
         }
 
-        $days = (int) floor(($at->copy()->startOfDay()->getTimestamp() - $released->getTimestamp()) / 86400);
+        return (int) floor(($at->copy()->startOfDay()->getTimestamp() - $released->getTimestamp()) / 86400);
+    }
 
-        return max(0, $days);
+    private function chartOpenDayPhrase(?int $day): ?string
+    {
+        if ($day === null || $day < 0) {
+            return null;
+        }
+
+        return $day === 0 ? '公開当日' : '公開'.$day.'日';
+    }
+
+    private function chartDayAxisLabel(?int $day): ?string
+    {
+        if ($day === null || $day < 0) {
+            return null;
+        }
+
+        return $day === 0 ? '当日' : $day.'日';
     }
 
     /**
@@ -1399,7 +1482,7 @@ XML);
             $ticks[] = [
                 'x' => $value,
                 'label' => $useDays
-                    ? ($value === 0 ? '当日' : $value.'日')
+                    ? ($this->chartDayAxisLabel($value) ?? $value.'日')
                     : $this->chartTsLabel($value),
             ];
         }
@@ -1490,8 +1573,10 @@ XML);
             return $label;
         }
 
-        $day = (int) $row['day'];
-        $open = $day === 0 ? '公開当日' : '公開'.$day.'日';
+        $open = $this->chartOpenDayPhrase(isset($row['day']) ? (int) $row['day'] : null);
+        if ($open === null) {
+            return $label;
+        }
 
         return $label.'（'.$open.'）';
     }
@@ -1818,6 +1903,7 @@ XML);
                     if ($clearOfDots === null) {
                         $clearOfDots = [$x, $y, $candidateAnchor, $rect];
                     }
+
                     continue;
                 }
                 $fit = [$x, $y, $candidateAnchor, $rect];
@@ -1884,9 +1970,9 @@ XML);
     {
         foreach ($placed as $other) {
             if ($rect[0] < $other[2] + $gap
-                && $rect[2] + $gap > $other[0]
+                && $other[0] < $rect[2] + $gap
                 && $rect[1] < $other[3] + $gap
-                && $rect[3] + $gap > $other[1]) {
+                && $other[1] < $rect[3] + $gap) {
                 return true;
             }
         }
@@ -1952,16 +2038,16 @@ XML);
     private function writeMoviePage(string $output, array $movie, bool $isJapan): void
     {
         $slug = $this->movieSlug($movie['id']);
-        $dir = $output . '/movies/' . $slug;
+        $dir = $output.'/movies/'.$slug;
         File::ensureDirectoryExists($dir);
-        File::put($dir . '/index.html', $this->moviePageHtml($movie, $isJapan, $output));
+        File::put($dir.'/index.html', $this->moviePageHtml($movie, $isJapan, $output));
     }
 
     private function loadExportedDetail(string $output, string $movieId): ?array
     {
         $paths = [
-            $output . '/data/details/' . $movieId . '.json',
-            storage_path('app/static-details/' . $movieId . '.json'),
+            $output.'/data/details/'.$movieId.'.json',
+            storage_path('app/static-details/'.$movieId.'.json'),
         ];
 
         foreach ($paths as $path) {
@@ -1995,14 +2081,14 @@ XML);
         $baseUrl = rtrim(config('app.url'), '/');
 
         if (empty($url)) {
-            return $baseUrl . '/images/android-chrome-512x512.png';
+            return $baseUrl.'/images/android-chrome-512x512.png';
         }
 
         if (str_starts_with($url, 'http')) {
             return $url;
         }
 
-        return $baseUrl . (str_starts_with($url, '/') ? $url : '/' . $url);
+        return $baseUrl.(str_starts_with($url, '/') ? $url : '/'.$url);
     }
 
     private function h(?string $value): string
@@ -2031,13 +2117,13 @@ XML);
         $entry = $this->viteEntry();
 
         return collect($entry['css'] ?? [])
-            ->map(fn (string $file) => '<link rel="stylesheet" href="/build/' . e($file) . '">')
+            ->map(fn (string $file) => '<link rel="stylesheet" href="/build/'.e($file).'">')
             ->implode("\n    ");
     }
 
     private function viteScript(): string
     {
-        return '/build/' . e($this->viteEntry()['file']);
+        return '/build/'.e($this->viteEntry()['file']);
     }
 
     private function exportSitemap(string $output, array $global, array $japan, array $boardOnly = []): void
@@ -2084,7 +2170,7 @@ XML);
 
         foreach (array_merge($global, $japan, $boardOnly) as $movie) {
             $urls[] = [
-                'loc' => "{$baseUrl}/movies/" . $this->movieSlug($movie['id']) . '/',
+                'loc' => "{$baseUrl}/movies/".$this->movieSlug($movie['id']).'/',
                 'lastmod' => $this->movieLastmod($movie, $defaultLastmod),
                 'changefreq' => 'weekly',
                 'priority' => '0.6',
@@ -2094,17 +2180,17 @@ XML);
         $body = '';
         foreach ($urls as $url) {
             $body .= "    <url>\n";
-            $body .= '        <loc>' . $this->h($url['loc']) . "</loc>\n";
-            $body .= '        <lastmod>' . $this->h($url['lastmod']) . "</lastmod>\n";
-            $body .= '        <changefreq>' . $url['changefreq'] . "</changefreq>\n";
-            $body .= '        <priority>' . $url['priority'] . "</priority>\n";
+            $body .= '        <loc>'.$this->h($url['loc'])."</loc>\n";
+            $body .= '        <lastmod>'.$this->h($url['lastmod'])."</lastmod>\n";
+            $body .= '        <changefreq>'.$url['changefreq']."</changefreq>\n";
+            $body .= '        <priority>'.$url['priority']."</priority>\n";
             $body .= "    </url>\n";
         }
 
-        File::put($output . '/sitemap.xml', "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-            . "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n"
-            . $body
-            . "</urlset>\n");
+        File::put($output.'/sitemap.xml', "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            ."<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n"
+            .$body
+            ."</urlset>\n");
     }
 
     private function moviePageHtml(array $movie, bool $isJapan, string $output): string
@@ -2120,7 +2206,7 @@ XML);
         $overview = $detail['overview'] ?? '';
         $releaseDate = $detail['release_date'] ?? $movie['releaseDate'] ?? null;
         $rankLabel = $isJapan ? '日本ランキング' : '世界ランキング';
-        $revenueText = $movie['revenue'] . ($movie['revenueYen'] ? "（{$movie['revenueYen']}）" : '');
+        $revenueText = $movie['revenue'].($movie['revenueYen'] ? "（{$movie['revenueYen']}）" : '');
 
         $rankValue = is_numeric($movie['rank'] ?? null) ? '第'.$movie['rank'].'位' : (string) ($movie['rank'] ?? '圏外');
         $pageTitle = "{$title} の興行収入 {$movie['revenue']} | {$rankLabel}{$rankValue} - MUBIRAN";
@@ -2128,9 +2214,9 @@ XML);
         if ($originalTitle && $originalTitle !== $title) {
             $description .= "原題: {$originalTitle}。";
         }
-        $description .= '公開日: ' . $this->formatReleaseDate($releaseDate) . '。';
+        $description .= '公開日: '.$this->formatReleaseDate($releaseDate).'。';
         if ($overview) {
-            $description .= mb_substr($overview, 0, 120) . (mb_strlen($overview) > 120 ? '…' : '');
+            $description .= mb_substr($overview, 0, 120).(mb_strlen($overview) > 120 ? '…' : '');
         }
 
         $keywords = implode(',', array_filter([
@@ -2146,11 +2232,11 @@ XML);
         $styles = $this->viteStyles();
 
         $subtitle = ($originalTitle && $originalTitle !== $title)
-            ? '<p class="movie-original-title">' . $this->h($originalTitle) . '</p>'
+            ? '<p class="movie-original-title">'.$this->h($originalTitle).'</p>'
             : '';
 
         $posterHtml = $movie['posterUrl']
-            ? '<div class="movie-poster-frame"><img src="' . $this->h($this->absoluteUrl($movie['posterUrl'])) . '" alt="' . $this->h($title) . '" class="movie-poster" width="160" height="240" loading="lazy"></div>'
+            ? '<div class="movie-poster-frame"><img src="'.$this->h($this->absoluteUrl($movie['posterUrl'])).'" alt="'.$this->h($title).'" class="movie-poster" width="160" height="240" loading="lazy"></div>'
             : '';
 
         $jsonLd = json_encode([
@@ -2289,12 +2375,12 @@ HTML;
 
     private function exportTrustPages(string $output): void
     {
-        File::ensureDirectoryExists($output . '/about');
-        File::ensureDirectoryExists($output . '/privacy');
+        File::ensureDirectoryExists($output.'/about');
+        File::ensureDirectoryExists($output.'/privacy');
 
-        File::put($output . '/about/index.html', $this->aboutPageHtml());
-        File::put($output . '/privacy/index.html', $this->privacyPageHtml());
-        File::put($output . '/404.html', $this->notFoundPageHtml());
+        File::put($output.'/about/index.html', $this->aboutPageHtml());
+        File::put($output.'/privacy/index.html', $this->privacyPageHtml());
+        File::put($output.'/404.html', $this->notFoundPageHtml());
     }
 
     private function siteFooterInnerHtml(): string
@@ -2328,8 +2414,8 @@ HTML;
         string $robots = 'index, follow',
     ): string {
         $baseUrl = rtrim(config('app.url'), '/');
-        $canonical = $baseUrl . $path;
-        $ogImage = $baseUrl . '/images/android-chrome-512x512.png';
+        $canonical = $baseUrl.$path;
+        $ogImage = $baseUrl.'/images/android-chrome-512x512.png';
         $styles = $this->viteStyles();
 
         $ePageTitle = $this->h($pageTitle);

@@ -1,7 +1,5 @@
-{"key":"tmdb-969681","observedAt":"2026-09-01T07:16:48+09:00","boxOffice":2333326398,"isActive":true}
 {"key":"tmdb-980477","observedAt":"2026-09-01T11:55:41+09:00","boxOffice":2270700370,"isActive":false}
 {"key":"tmdb-969681","observedAt":"2026-09-01T19:57:12+09:00","boxOffice":2332821029,"isActive":true,"correction":true}
-{"key":"tmdb-969681","observedAt":"2026-09-02T00:54:07+09:00","boxOffice":2333326398,"isActive":true}
 {"key":"tmdb-330","observedAt":"2026-09-02T00:54:07+09:00","boxOffice":618638999,"isActive":false}
 {"key":"tmdb-615","observedAt":"2026-09-02T00:54:07+09:00","boxOffice":610063468,"isActive":false}
 {"key":"tmdb-11631","observedAt":"2026-09-02T00:54:07+09:00","boxOffice":609841637,"isActive":false}
@@ -25,7 +23,6 @@
 {"key":"tmdb-299534","observedAt":"2026-09-27T20:10:40+09:00","boxOffice":2810639100,"isActive":false}
 {"key":"tmdb-1368337","observedAt":"2026-09-28T11:53:37+09:00","boxOffice":1751248000,"isActive":true}
 {"key":"tmdb-969681","observedAt":"2026-09-28T21:33:06+09:00","boxOffice":2495683000,"isActive":true}
-{"key":"tmdb-299534","observedAt":"2026-09-29T07:52:06+09:00","boxOffice":2885439100,"isActive":false}
 {"key":"tmdb-299534","observedAt":"2026-09-29T11:58:31+09:00","boxOffice":2885439100,"isActive":true}
 {"key":"tmdb-634649","observedAt":"2026-09-29T11:58:31+09:00","boxOffice":1921426073,"isActive":true}
 {"key":"tmdb-361743","observedAt":"2026-09-29T11:58:31+09:00","boxOffice":1488732821,"isActive":true}

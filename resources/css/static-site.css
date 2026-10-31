@@ -1,5 +1,6 @@
 /* 抑制そのものは書き出しHTMLのインラインCSSが担う。JS無効時はこの一覧を見せる。 */
-html.js .ranking-static { display: none; }
+html.js .ranking-static,
+html.js .now-static { display: none; }
 .ranking-static-intro { color: var(--text-secondary); line-height: 1.7; margin: 0 0 16px; }
 .ranking-static-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .ranking-static-list li { display: flex; gap: 12px; align-items: baseline; }

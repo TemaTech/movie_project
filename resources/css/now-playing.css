@@ -70,6 +70,9 @@
     margin-bottom: 10px;
 }
 .now-hero-title { font-size: 1.35rem; line-height: 1.3; margin-bottom: 8px; }
+.now-hero-title a,
+.now-title a,
+.now-waiting-title a { color: inherit; text-decoration: none; }
 .now-hero-delta {
     font-family: var(--font-num);
     font-size: clamp(2rem, 6vw, 2.8rem);

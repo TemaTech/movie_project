@@ -31,7 +31,7 @@ class ExportStaticSite extends Command
     /** @var array<string, list<array{key: string, title: string, points: list<array{at: string, boxOffice: int}>}>> */
     private array $activeSeries = ['japan' => [], 'global' => []];
 
-    /** JS の PER_PAGE（resources/js/static-site.js）と揃える */
+    /** JS の PER_PAGE（resources/js/static-site.js）。画面のページ分割に使う。静的HTMLは全件を載せる。 */
     private const RANKING_PAGE_SIZE = 100;
 
     private const CHART_DOT_RADIUS = 3.2;
@@ -112,12 +112,13 @@ class ExportStaticSite extends Command
         $this->copyPublicAssets($output);
         $this->exportRobotsTxt($output);
         $boardOnly = $this->boardOnlyMovies($globalInsights, $japanInsights, $global, $japan);
-        $this->exportMoviePages($output, collect($global), collect($japan));
+        $knownIds = $this->knownMovieIds($global, $japan, $boardOnly);
+        $this->exportMoviePages($output, collect($global), collect($japan), $knownIds);
         foreach ($boardOnly as $movie) {
-            $this->writeMoviePage($output, $movie, ($movie['region'] ?? '') === 'japan');
+            $this->writeMoviePage($output, $movie, ($movie['region'] ?? '') === 'japan', $knownIds);
         }
         $this->exportTrustPages($output);
-        $this->exportNowPage($output);
+        $this->exportNowPage($output, $globalInsights, $japanInsights);
         $this->exportJapanRankingPage($output, $japan, $japanLastUpdated);
         $this->exportSitemap($output, $global, $japan, $boardOnly);
         File::put($output.'/index.html', $this->indexHtml('/', $global, $globalLastUpdated));
@@ -400,7 +401,6 @@ Allow: /
 Sitemap: {$baseUrl}/sitemap.xml
 
 # 検索エンジンにクロールしてほしくないディレクトリ
-Disallow: /storage/
 Disallow: /data/
 TXT;
     }
@@ -663,7 +663,7 @@ TXT;
     {
         File::put($output.'/data/now-playing.json', json_encode([
             'generatedAt' => now('Asia/Tokyo')->toIso8601String(),
-            'disclaimer' => '日本の興行収入は配給会社の発表ベースです。数字は毎日は動きません。伸びは前回の発表との差です。',
+            'disclaimer' => $this->nowDisclaimer(),
             'japanLastUpdated' => $this->maxLastUpdated(JapaneseMovie::class),
             'globalLastUpdated' => $this->maxLastUpdated(GlobalMovie::class),
             'japan' => [
@@ -772,11 +772,15 @@ TXT;
 XML);
     }
 
-    private function exportNowPage(string $output): void
+    /**
+     * @param  array<string, mixed>  $globalInsights
+     * @param  array<string, mixed>  $japanInsights
+     */
+    private function exportNowPage(string $output, array $globalInsights, array $japanInsights): void
     {
         File::ensureDirectoryExists($output.'/now/global');
-        File::put($output.'/now/index.html', $this->indexHtml('/now/'));
-        File::put($output.'/now/global/index.html', $this->indexHtml('/now/global/'));
+        File::put($output.'/now/index.html', $this->indexHtml('/now/', [], null, $this->nowPayload($japanInsights)));
+        File::put($output.'/now/global/index.html', $this->indexHtml('/now/global/', [], null, $this->nowPayload($globalInsights)));
     }
 
     /**
@@ -2024,23 +2028,30 @@ XML);
         return Carbon::createFromTimestamp($ts)->timezone('Asia/Tokyo')->format('n/j');
     }
 
-    private function exportMoviePages(string $output, $global, $japan): void
+    /**
+     * @param  array<string, true>  $knownIds
+     */
+    private function exportMoviePages(string $output, $global, $japan, array $knownIds = []): void
     {
         foreach ($global->values()->all() as $movie) {
-            $this->writeMoviePage($output, $movie, false);
+            $this->writeMoviePage($output, $movie, false, $knownIds);
         }
 
         foreach ($japan->values()->all() as $movie) {
-            $this->writeMoviePage($output, $movie, true);
+            $this->writeMoviePage($output, $movie, true, $knownIds);
         }
     }
 
-    private function writeMoviePage(string $output, array $movie, bool $isJapan): void
+    /**
+     * @param  array<string, mixed>  $movie
+     * @param  array<string, true>  $knownIds
+     */
+    private function writeMoviePage(string $output, array $movie, bool $isJapan, array $knownIds = []): void
     {
         $slug = $this->movieSlug($movie['id']);
         $dir = $output.'/movies/'.$slug;
         File::ensureDirectoryExists($dir);
-        File::put($dir.'/index.html', $this->moviePageHtml($movie, $isJapan, $output));
+        File::put($dir.'/index.html', $this->moviePageHtml($movie, $isJapan, $output, $knownIds));
     }
 
     private function loadExportedDetail(string $output, string $movieId): ?array
@@ -2193,13 +2204,19 @@ XML);
             ."</urlset>\n");
     }
 
-    private function moviePageHtml(array $movie, bool $isJapan, string $output): string
+    /**
+     * @param  array<string, mixed>  $movie
+     * @param  array<string, true>  $knownIds
+     */
+    private function moviePageHtml(array $movie, bool $isJapan, string $output, array $knownIds = []): string
     {
         $baseUrl = rtrim(config('app.url'), '/');
         $detail = $this->loadExportedDetail($output, $movie['id']) ?? [];
         $slug = $this->movieSlug($movie['id']);
         $pageUrl = "{$baseUrl}/movies/{$slug}/";
         $homeUrl = $baseUrl.($isJapan ? '/japan/' : '/');
+        $siblingPath = $this->siblingMoviePath($movie, $isJapan, $knownIds);
+        $siblingUrl = $siblingPath ? $baseUrl.$siblingPath : null;
 
         $title = $movie['title'];
         $originalTitle = $detail['original_title'] ?? $movie['originalTitle'] ?? '';
@@ -2266,6 +2283,7 @@ XML);
                     'url' => $pageUrl,
                     'image' => $ogImage,
                     'inLanguage' => 'ja',
+                    'sameAs' => $siblingUrl,
                 ],
             ],
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG);
@@ -2299,6 +2317,12 @@ XML);
         }
         $backParts[] = '<a href="'.$eHomeUrl.'">'.$eRankLabel.'一覧に戻る</a>';
         $backHtml = '<p class="movie-back-link">'.implode(' · ', $backParts).'</p>';
+        $relatedLink = $siblingUrl
+            ? '<link rel="related" href="'.$this->h($siblingUrl).'">'."\n    "
+            : '';
+        $siblingAnchor = $siblingPath
+            ? '<a href="'.$this->h($siblingPath).'" hidden>'.($isJapan ? '世界ランキングの同作品' : '日本ランキングの同作品').'</a>'
+            : '';
 
         return <<<HTML
 <!doctype html>
@@ -2312,7 +2336,7 @@ XML);
     <meta name="author" content="ムビラン">
     <meta name="language" content="ja">
     <link rel="canonical" href="{$ePageUrl}">
-    <title>{$ePageTitle}</title>
+    {$relatedLink}<title>{$ePageTitle}</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
@@ -2362,6 +2386,7 @@ XML);
         {$historyHtml}
       </article>
       {$backHtml}
+      {$siblingAnchor}
     </main>
     <footer>
       <div class="container">
@@ -2694,14 +2719,71 @@ HTML;
     }
 
     /**
-     * 検索エンジンと JS 無効時向けのランキングHTMLを、アプリ描画まで画面に出さない。
+     * @param  list<array<string, mixed>>  $global
+     * @param  list<array<string, mixed>>  $japan
+     * @param  list<array<string, mixed>>  $boardOnly
+     * @return array<string, true>
+     */
+    private function knownMovieIds(array $global, array $japan, array $boardOnly): array
+    {
+        $knownIds = [];
+        foreach (array_merge($global, $japan, $boardOnly) as $movie) {
+            $id = (string) ($movie['id'] ?? '');
+            if ($id !== '') {
+                $knownIds[$id] = true;
+            }
+        }
+
+        return $knownIds;
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     * @param  array<string, true>  $knownIds
+     */
+    private function siblingMoviePath(array $movie, bool $isJapan, array $knownIds): ?string
+    {
+        $tmdbId = MovieIdentity::tmdbIdFromKey((string) ($movie['id'] ?? ''));
+        if ($tmdbId === null) {
+            return null;
+        }
+
+        $sibling = $isJapan ? 'tmdb-'.$tmdbId : 'jp-tmdb-'.$tmdbId;
+        if (! isset($knownIds[$sibling])) {
+            return null;
+        }
+
+        return '/movies/'.$sibling.'/';
+    }
+
+    private function nowDisclaimer(): string
+    {
+        return '日本の興行収入は配給会社の発表ベースです。数字は毎日は動きません。伸びは前回の発表との差です。';
+    }
+
+    /**
+     * @param  array<string, mixed>  $insights
+     * @return array{board: list<array<string, mixed>>, today: list<array<string, mixed>>, milestones: list<array<string, mixed>>, disclaimer: string}
+     */
+    private function nowPayload(array $insights): array
+    {
+        return [
+            'board' => is_array($insights['board'] ?? null) ? $insights['board'] : [],
+            'today' => is_array($insights['today'] ?? null) ? $insights['today'] : [],
+            'milestones' => is_array($insights['milestones'] ?? null) ? $insights['milestones'] : [],
+            'disclaimer' => $this->nowDisclaimer(),
+        ];
+    }
+
+    /**
+     * 検索エンジンと JS 無効時向けの本文を、アプリ描画まで画面に出さない。
      * html.js が付くのはインラインスクリプトが動いたときだけなので、JS 無効時は一覧が見える。
      */
     private function rankingFallbackGuard(): string
     {
         return <<<'HTML'
 <script>document.documentElement.classList.add('js')</script>
-<style>html.js .ranking-static{display:none}</style>
+<style>html.js .ranking-static,html.js .now-static{display:none}</style>
 HTML;
     }
 
@@ -2715,7 +2797,7 @@ HTML;
         $otherHref = $isJapan ? '/' : '/japan/';
         $otherLabel = $isJapan ? '世界映画興行収入ランキング' : '日本映画興行収入ランキング';
         $items = '';
-        foreach (array_slice($movies, 0, self::RANKING_PAGE_SIZE) as $movie) {
+        foreach ($movies as $movie) {
             $slug = $this->movieSlug((string) ($movie['slug'] ?? $movie['id'] ?? ''));
             if ($slug === '') {
                 continue;
@@ -2740,7 +2822,7 @@ HTML;
     {
         $baseUrl = rtrim(config('app.url'), '/');
         $elements = [];
-        foreach (array_slice($movies, 0, self::RANKING_PAGE_SIZE) as $offset => $movie) {
+        foreach ($movies as $offset => $movie) {
             $slug = $this->movieSlug((string) ($movie['slug'] ?? $movie['id'] ?? ''));
             $title = (string) ($movie['title'] ?? '');
             if ($slug === '' || $title === '') {
@@ -2769,10 +2851,408 @@ HTML;
     }
 
     /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function nowStaticHtml(array $payload, bool $isGlobal): string
+    {
+        $heading = $isGlobal ? '公開中映画の勢い（世界）' : '公開中映画の勢い（日本）';
+        $lead = $isGlobal
+            ? '世界興行収入の動きを記録しています。数字は集計サイトの更新ベースです。'
+            : '日本の興行収入は配給会社の発表ベース。発表のたびに、伸びとペースを記録しています。';
+        $otherHref = $isGlobal ? '/now/' : '/now/global/';
+        $otherLabel = $isGlobal ? '公開中映画の勢い（日本）' : '公開中映画の勢い（世界）';
+        $board = is_array($payload['board'] ?? null) ? $payload['board'] : [];
+        $moving = [];
+        $waiting = [];
+        foreach ($board as $movie) {
+            if (! is_array($movie)) {
+                continue;
+            }
+            if (($movie['delta'] ?? null) !== null) {
+                $moving[] = $movie;
+            } else {
+                $waiting[] = $movie;
+            }
+        }
+        $moving = $this->sortNowBoard($moving, 'delta');
+        usort($waiting, fn (array $left, array $right) => ((int) ($right['boxOffice'] ?? 0)) <=> ((int) ($left['boxOffice'] ?? 0)));
+        $hero = $moving[0] ?? null;
+        $rest = $hero === null ? $moving : array_values(array_filter($moving, fn (array $movie) => $movie !== $hero));
+
+        $sections = '<p class="now-lead">'.$this->h($lead).'</p>';
+        if (is_array($hero)) {
+            $sections .= $this->nowHeroHtml($hero);
+        }
+        if ($rest !== []) {
+            $sections .= '<h2 class="now-section-title">伸びている作品</h2>'
+                .'<section class="now-board" aria-label="伸びている作品">'
+                .implode('', array_map(fn (array $movie) => $this->nowCardHtml($movie), $rest))
+                .'</section>';
+        } elseif ($hero === null && $board !== []) {
+            $sections .= '<p class="now-quiet now-board-empty">いまは次の発表待ちです。数字が動いた作品がここに並びます。</p>';
+        }
+        if ($board === []) {
+            $sections .= '<p class="now-quiet now-board-empty">いま公開中として追跡している作品はありません。データが入り次第ここに並びます。</p>';
+        }
+        if ($waiting !== []) {
+            $sections .= '<section class="now-waiting" aria-label="次の発表待ち">'
+                .'<h2 class="now-section-title">次の発表待ち</h2>'
+                .'<ul class="now-waiting-list">'
+                .implode('', array_map(fn (array $movie) => $this->nowWaitingHtml($movie), $waiting))
+                .'</ul></section>';
+        }
+        $sections .= $this->nowTimelineHtml($payload);
+        $sections .= '<p class="now-disclaimer">'.$this->h((string) ($payload['disclaimer'] ?? $this->nowDisclaimer())).'</p>';
+
+        return '<main class="container now-static">'
+            .'<h1 class="page-title now-page-title">'.$this->h($heading).'</h1>'
+            .'<div class="now-page">'.$sections.'</div>'
+            .'<p class="ranking-static-switch"><a href="'.$this->h($otherHref).'">'.$this->h($otherLabel).'</a></p>'
+            .'</main>';
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $movies
+     * @return list<array<string, mixed>>
+     */
+    private function sortNowBoard(array $movies, string $sort = 'delta'): array
+    {
+        usort($movies, function (array $left, array $right) use ($sort): int {
+            return match ($sort) {
+                'pace' => ((float) ($right['dailyPace'] ?? -1)) <=> ((float) ($left['dailyPace'] ?? -1)),
+                'total' => ((int) ($right['boxOffice'] ?? 0)) <=> ((int) ($left['boxOffice'] ?? 0)),
+                'rank' => ((int) ($right['rankDelta'] ?? -999)) <=> ((int) ($left['rankDelta'] ?? -999)),
+                'days' => ((int) ($left['daysSinceRelease'] ?? 9999)) <=> ((int) ($right['daysSinceRelease'] ?? 9999)),
+                default => ((float) ($right['delta'] ?? -1)) <=> ((float) ($left['delta'] ?? -1)),
+            };
+        });
+
+        return $movies;
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function nowMovieHref(array $movie): string
+    {
+        $slug = (string) ($movie['slug'] ?? $movie['key'] ?? $movie['id'] ?? '');
+
+        return $slug === '' ? '' : '/movies/'.$this->h($slug).'/';
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function nowTitleLink(array $movie): string
+    {
+        $href = $this->nowMovieHref($movie);
+        $title = $this->h((string) ($movie['title'] ?? ''));
+        if ($href === '') {
+            return $title;
+        }
+
+        return '<a href="'.$href.'">'.$title.'</a>';
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function nowPosterDiv(array $movie, string $className): string
+    {
+        $url = (string) ($movie['posterUrl'] ?? '');
+        if ($url === '') {
+            return '<div class="'.$this->h($className).' now-poster-empty"></div>';
+        }
+
+        return '<div class="'.$this->h($className).'" style="background-image:url(\''.$this->h($url).'\')"></div>';
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function nowPeriodLine(array $movie): string
+    {
+        $items = is_array($movie['periodGrowth'] ?? null) ? $movie['periodGrowth'] : [];
+        if ($items === []) {
+            return '';
+        }
+        $spans = [];
+        foreach ($items as $item) {
+            if (! is_array($item) || ($item['label'] ?? '') === '') {
+                continue;
+            }
+            $spans[] = '<span>'.$this->h((string) $item['label']).'</span>';
+        }
+
+        return $spans === [] ? '' : '<p class="now-period">'.implode('', $spans).'</p>';
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function nowMilestoneText(array $movie): string
+    {
+        $next = is_array($movie['nextMilestone'] ?? null) ? $movie['nextMilestone'] : null;
+        if ($next === null || ($next['label'] ?? '') === '' || ($next['remainingLabel'] ?? '') === '') {
+            return '';
+        }
+
+        return $next['label'].'まで あと'.$next['remainingLabel'];
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function nowContextText(array $movie): string
+    {
+        $parts = [];
+        if (($movie['daysSinceRelease'] ?? null) !== null) {
+            $parts[] = '公開'.(int) $movie['daysSinceRelease'].'日目';
+        }
+        if (! empty($movie['rank'])) {
+            $parts[] = '歴代'.(int) $movie['rank'].'位';
+        }
+        if (! empty($movie['rankDeltaLabel'])) {
+            $parts[] = (string) $movie['rankDeltaLabel'];
+        }
+
+        return implode('・', $parts);
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function nowHeroHtml(array $movie): string
+    {
+        $href = $this->nowMovieHref($movie);
+        $backdrop = ($movie['posterUrl'] ?? '') !== ''
+            ? '<div class="now-hero-backdrop" style="background-image:url(\''.$this->h((string) $movie['posterUrl']).'\')"></div>'
+            : '';
+        $milestone = $this->nowMilestoneText($movie);
+        $stats = '';
+        if (! empty($movie['dailyPaceLabel'])) {
+            $stats .= '<div class="now-hero-stat"><span>ペース</span><strong>'.$this->h((string) $movie['dailyPaceLabel']).'</strong></div>';
+        }
+        $stats .= '<div class="now-hero-stat"><span>累計</span><strong>'.$this->h((string) ($movie['revenueLabel'] ?? $movie['revenue'] ?? '')).'</strong></div>';
+        if ($milestone !== '') {
+            $stats .= '<div class="now-hero-stat now-hero-milestone"><span>次の節目</span><strong>'.$this->h($milestone).'</strong></div>';
+        }
+        $deltaSmall = ! empty($movie['daysSincePrev'])
+            ? ' '.$this->h((string) $movie['daysSincePrev']).'日ぶりの発表'
+            : ' 前回発表から';
+        $context = $this->nowContextText($movie);
+        $passed = ! empty($movie['passedLabel'])
+            ? '<p class="now-hero-passed">'.$this->h((string) $movie['passedLabel']).'</p>'
+            : '';
+
+        return '<section class="now-hero"'.($href !== '' ? ' data-movie-id="'.$this->h((string) ($movie['key'] ?? '')).'"' : '').'>'
+            .$backdrop
+            .'<div class="now-hero-inner">'
+            .$this->nowPosterDiv($movie, 'now-hero-poster')
+            .'<div class="now-hero-body">'
+            .'<p class="now-hero-tag">今いちばん伸びている</p>'
+            .'<div class="now-hero-title-row"><h2 class="now-hero-title">'.$this->nowTitleLink($movie).'</h2></div>'
+            .'<p class="now-hero-delta">'.$this->h((string) ($movie['deltaLabel'] ?? '')).'<small>'.$deltaSmall.'</small></p>'
+            .$this->nowPeriodLine($movie)
+            .'<div class="now-hero-stats">'.$stats.'</div>'
+            .$passed
+            .($context !== '' ? '<p class="now-hero-context">'.$this->h($context).'</p>' : '')
+            .'</div></div></section>';
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function nowCardHtml(array $movie): string
+    {
+        $href = $this->nowMovieHref($movie);
+        $milestone = $this->nowMilestoneText($movie);
+        $context = $this->nowContextText($movie);
+        $deltaSmall = ! empty($movie['daysSincePrev'])
+            ? '<small> '.$this->h((string) $movie['daysSincePrev']).'日ぶりの発表</small>'
+            : '';
+        $pace = ! empty($movie['dailyPaceLabel'])
+            ? '<span class="now-stat">ペース '.$this->h((string) $movie['dailyPaceLabel']).'</span>'
+            : '';
+        $passed = ! empty($movie['passedLabel'])
+            ? '<p class="now-passed">'.$this->h((string) $movie['passedLabel']).'</p>'
+            : '';
+        $spark = $this->nowSparklineSvg(array_slice(is_array($movie['sparkline'] ?? null) ? $movie['sparkline'] : [], -16));
+
+        return '<article class="now-card"'.($href !== '' ? ' data-movie-id="'.$this->h((string) ($movie['key'] ?? '')).'"' : '').'>'
+            .$this->nowPosterDiv($movie, 'now-poster')
+            .'<div class="now-card-body">'
+            .'<div class="now-card-top"><h3 class="now-title">'.$this->nowTitleLink($movie).'</h3></div>'
+            .'<p class="now-card-delta">'.$this->h((string) ($movie['deltaLabel'] ?? '')).$deltaSmall.'</p>'
+            .$this->nowPeriodLine($movie)
+            .'<div class="now-card-stats">'
+            .$pace
+            .'<span class="now-stat">累計 '.$this->h((string) ($movie['revenueLabel'] ?? $movie['revenue'] ?? '')).'</span>'
+            .($milestone !== '' ? '<span class="now-stat now-stat-milestone">'.$this->h($milestone).'</span>' : '')
+            .'</div>'
+            .$passed
+            .'<div class="now-card-foot"><span class="now-context">'.$this->h($context).'</span>'.$spark.'</div>'
+            .'</div></article>';
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function nowWaitingHtml(array $movie): string
+    {
+        $period = [];
+        foreach (is_array($movie['periodGrowth'] ?? null) ? $movie['periodGrowth'] : [] as $item) {
+            if (is_array($item) && ($item['label'] ?? '') !== '') {
+                $period[] = (string) $item['label'];
+            }
+        }
+        $meta = array_filter([
+            '累計 '.($movie['revenueLabel'] ?? $movie['revenue'] ?? ''),
+            $period === [] ? null : implode(' · ', $period),
+            ($movie['daysSinceRelease'] ?? null) !== null ? '公開'.(int) $movie['daysSinceRelease'].'日目' : '',
+            ! empty($movie['lastObservedAt']) ? $this->formatNowDate((string) $movie['lastObservedAt']).'記録' : '',
+        ]);
+
+        return '<li class="now-waiting-row" data-movie-id="'.$this->h((string) ($movie['key'] ?? '')).'">'
+            .$this->nowPosterDiv($movie, 'now-waiting-poster')
+            .'<div class="now-waiting-body">'
+            .'<div class="now-waiting-title-row"><span class="now-waiting-title">'.$this->nowTitleLink($movie).'</span></div>'
+            .'<span class="now-waiting-meta">'.$this->h(implode('・', $meta)).'</span>'
+            .'</div>'
+            .'<span class="now-waiting-status">次の発表待ち</span>'
+            .'</li>';
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function nowTimelineHtml(array $payload): string
+    {
+        $items = [];
+        foreach (is_array($payload['today'] ?? null) ? $payload['today'] : [] as $movie) {
+            if (! is_array($movie) || empty($movie['deltaLabel'])) {
+                continue;
+            }
+            $items[] = [
+                'at' => (string) ($movie['lastChangeAt'] ?? $movie['lastObservedAt'] ?? ''),
+                'type' => 'delta',
+                'title' => (string) ($movie['title'] ?? ''),
+                'text' => $movie['deltaLabel'].(! empty($movie['dailyPaceLabel']) ? '（'.$movie['dailyPaceLabel'].'のペース）' : ''),
+            ];
+        }
+        foreach (is_array($payload['milestones'] ?? null) ? $payload['milestones'] : [] as $milestone) {
+            if (! is_array($milestone)) {
+                continue;
+            }
+            $items[] = [
+                'at' => (string) ($milestone['reachedAt'] ?? ''),
+                'type' => 'milestone',
+                'title' => (string) ($milestone['title'] ?? ''),
+                'text' => (string) ($milestone['label'] ?? '').(isset($milestone['daysToReach']) && $milestone['daysToReach'] !== null
+                    ? '（公開'.(int) $milestone['daysToReach'].'日目）'
+                    : ''),
+            ];
+        }
+        usort($items, fn (array $left, array $right) => strcmp($right['at'], $left['at']));
+        $items = array_slice($items, 0, 10);
+        if ($items === []) {
+            $list = '<p class="now-quiet">直近の発表・節目の到達はまだありません。</p>';
+        } else {
+            $rows = '';
+            foreach ($items as $item) {
+                $rows .= '<li class="now-timeline-item now-timeline-'.$this->h($item['type']).'">'
+                    .'<span class="now-timeline-date">'.$this->h($this->formatNowDate($item['at'])).'</span>'
+                    .'<span class="now-timeline-text"><strong>'.$this->h($item['title']).'</strong> '.$this->h($item['text']).'</span>'
+                    .'</li>';
+            }
+            $list = '<ul>'.$rows.'</ul>';
+        }
+
+        return '<section class="now-timeline" aria-label="最近の動き"><h2>最近の動き</h2>'.$list.'</section>';
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $points
+     */
+    private function nowSparklineSvg(array $points): string
+    {
+        if (count($points) < 2) {
+            return '';
+        }
+        $values = array_map(fn (array $point) => (float) ($point['boxOffice'] ?? 0), $points);
+        $min = min($values);
+        $max = max($values);
+        $span = max(1, $max - $min);
+        $width = 84;
+        $height = 28;
+        $last = count($values) - 1;
+        $coords = [];
+        foreach ($values as $index => $value) {
+            $x = $last === 0 ? 0.0 : ($index / $last) * $width;
+            $y = $height - (($value - $min) / $span) * ($height - 4) - 2;
+            $coords[] = sprintf('%.1f,%.1f', $x, $y);
+        }
+
+        return '<svg class="now-sparkline" viewBox="0 0 '.$width.' '.$height.'" width="'.$width.'" height="'.$height.'" aria-hidden="true">'
+            .'<polyline fill="none" stroke="currentColor" stroke-width="2" points="'.implode(' ', $coords).'"/>'
+            .'</svg>';
+    }
+
+    private function formatNowDate(?string $iso): string
+    {
+        if ($iso === null || $iso === '') {
+            return '';
+        }
+        try {
+            return Carbon::parse($iso)->timezone('Asia/Tokyo')->format('n/j');
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function nowItemListJson(array $payload, bool $isGlobal): string
+    {
+        $baseUrl = rtrim(config('app.url'), '/');
+        $elements = [];
+        foreach (is_array($payload['board'] ?? null) ? $payload['board'] : [] as $offset => $movie) {
+            if (! is_array($movie)) {
+                continue;
+            }
+            $slug = (string) ($movie['slug'] ?? $movie['key'] ?? '');
+            $title = (string) ($movie['title'] ?? '');
+            if ($slug === '' || $title === '') {
+                continue;
+            }
+            $elements[] = [
+                '@type' => 'ListItem',
+                'position' => $offset + 1,
+                'name' => $title,
+                'url' => $baseUrl.'/movies/'.$slug.'/',
+            ];
+        }
+        if ($elements === []) {
+            return '';
+        }
+
+        $json = json_encode([
+            '@context' => 'https://schema.org',
+            '@type' => 'ItemList',
+            'name' => $isGlobal ? '公開中映画の勢い（世界）' : '公開中映画の勢い（日本）',
+            'itemListElement' => $elements,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG);
+
+        return '<script type="application/ld+json">'.$json.'</script>';
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $rankingMovies
+     * @param  array<string, mixed>|null  $nowPayload
      * @return array{title: string, description: string, canonical: string, jsonLd: string, appHtml: string}
      */
-    private function indexMeta(string $path, array $rankingMovies = [], ?string $rankingUpdated = null): array
+    private function indexMeta(string $path, array $rankingMovies = [], ?string $rankingUpdated = null, ?array $nowPayload = null): array
     {
         $baseUrl = rtrim(config('app.url'), '/');
         $canonical = $baseUrl.($path === '/' ? '/' : rtrim($path, '/').'/');
@@ -2780,6 +3260,7 @@ HTML;
         $isNow = str_starts_with($path, '/now');
         $isJapanRanking = $path === '/japan' || $path === '/japan/';
         $isRanking = ! $isNow && ($path === '/' || $isJapanRanking);
+        $nowPayload ??= ['board' => [], 'today' => [], 'milestones' => [], 'disclaimer' => $this->nowDisclaimer()];
 
         if ($isNowGlobal) {
             $title = '公開中映画の興行収入の勢い（世界） | MUBIRAN';
@@ -2799,19 +3280,24 @@ HTML;
             'title' => $title,
             'description' => $description,
             'canonical' => $canonical,
-            'jsonLd' => $isRanking ? $this->rankingItemListJson($rankingMovies, $isJapanRanking) : '',
-            'appHtml' => $isRanking ? $this->rankingStaticHtml($rankingMovies, $isJapanRanking, $rankingUpdated) : '',
+            'jsonLd' => $isRanking
+                ? $this->rankingItemListJson($rankingMovies, $isJapanRanking)
+                : ($isNow ? $this->nowItemListJson($nowPayload, $isNowGlobal) : ''),
+            'appHtml' => $isRanking
+                ? $this->rankingStaticHtml($rankingMovies, $isJapanRanking, $rankingUpdated)
+                : ($isNow ? $this->nowStaticHtml($nowPayload, $isNowGlobal) : ''),
         ];
     }
 
     /**
      * @param  list<array<string, mixed>>  $rankingMovies
+     * @param  array<string, mixed>|null  $nowPayload
      */
-    private function indexHtml(string $path = '/', array $rankingMovies = [], ?string $rankingUpdated = null): string
+    private function indexHtml(string $path = '/', array $rankingMovies = [], ?string $rankingUpdated = null, ?array $nowPayload = null): string
     {
         $styles = $this->viteStyles();
         $script = $this->viteScript();
-        $meta = $this->indexMeta($path, $rankingMovies, $rankingUpdated);
+        $meta = $this->indexMeta($path, $rankingMovies, $rankingUpdated, $nowPayload);
         $title = $this->h($meta['title']);
         $description = $this->h($meta['description']);
         $canonical = $this->h($meta['canonical']);
@@ -2867,6 +3353,7 @@ HTML;
         if (!node || !node.closest) return;
         var link = node.closest('#app a[href^="/movies/"]');
         if (!link || event.button !== 0) return;
+        if (link.closest('.now-hero, .now-card, .now-waiting-row')) return;
         event.preventDefault();
       }, true);
     </script>

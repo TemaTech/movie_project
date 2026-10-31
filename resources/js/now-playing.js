@@ -48,6 +48,14 @@ function sortMovies(movies, sort) {
     return copy;
 }
 
+function movieHref(movie) {
+    return `/movies/${encodeURIComponent(movie.slug || movie.key || movie.id)}/`;
+}
+
+function movieTitleLink(movie) {
+    return `<a href="${escapeHtml(movieHref(movie))}">${escapeHtml(movie.title)}</a>`;
+}
+
 function modalTrigger(movie) {
     return `<button type="button" class="now-permalink" data-open-modal="${escapeHtml(movie.key)}">あらすじ</button>`;
 }
@@ -103,7 +111,7 @@ function heroSection(movie) {
             <div class="now-hero-body">
                 <p class="now-hero-tag">今いちばん伸びている</p>
                 <div class="now-hero-title-row">
-                    <h2 class="now-hero-title">${escapeHtml(movie.title)}</h2>
+                    <h2 class="now-hero-title">${movieTitleLink(movie)}</h2>
                     ${titleActions(movie)}
                 </div>
                 <p class="now-hero-delta">${escapeHtml(movie.deltaLabel || '')}<small>${movie.daysSincePrev ? ` ${movie.daysSincePrev}日ぶりの発表` : ' 前回発表から'}</small></p>
@@ -128,7 +136,7 @@ function movingCard(movie) {
         ${posterDiv(movie, 'now-poster')}
         <div class="now-card-body">
             <div class="now-card-top">
-                <h3 class="now-title">${escapeHtml(movie.title)}</h3>
+                <h3 class="now-title">${movieTitleLink(movie)}</h3>
                 ${titleActions(movie)}
             </div>
             <p class="now-card-delta">${escapeHtml(movie.deltaLabel || '')}<small>${movie.daysSincePrev ? ` ${movie.daysSincePrev}日ぶりの発表` : ''}</small></p>
@@ -160,7 +168,7 @@ function waitingRow(movie) {
         ${posterDiv(movie, 'now-waiting-poster')}
         <div class="now-waiting-body">
             <div class="now-waiting-title-row">
-                <span class="now-waiting-title">${escapeHtml(movie.title)}</span>
+                <span class="now-waiting-title">${movieTitleLink(movie)}</span>
                 ${titleActions(movie)}
             </div>
             <span class="now-waiting-meta">${escapeHtml(meta)}</span>

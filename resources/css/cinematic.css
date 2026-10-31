@@ -327,6 +327,7 @@ header {
     margin-bottom: 4px;
     display: block;
     color: var(--text-primary);
+    text-decoration: none;
 }
 .movie-title-en {
     font-size: 0.85rem;

@@ -378,7 +378,7 @@ function clickedElement(event) {
 
 function movieTitleHtml(movie, style = '') {
     const styleAttr = style ? ` style="${style}"` : '';
-    return `<span class="movie-title ${titleClass(movie.title)}"${styleAttr}>${escapeHtml(movie.title)}</span>`;
+    return `<a class="movie-title ${titleClass(movie.title)}" href="${escapeHtml(moviePageHref(movie))}"${styleAttr}>${escapeHtml(movie.title)}</a>`;
 }
 
 function movieFromPageLink(link) {

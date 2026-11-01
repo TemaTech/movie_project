@@ -53,6 +53,16 @@ function formatReleaseDate(releaseDate) {
     return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
+function pickReleaseDate(detail, movie) {
+    const stored = movie.releaseDate || null;
+    const precision = movie.releaseDatePrecision || null;
+    const isJapan = String(movie.id || movie.slug || '').startsWith('jp-');
+    if (isJapan && stored && (!precision || precision === 'day')) {
+        return stored;
+    }
+    return detail.release_date || stored;
+}
+
 function toYen(usd) {
     if (!usd || usd === 0) return '-';
     return `${((usd * usdJpy) / 100000000).toFixed(1)}億円`;
@@ -180,7 +190,7 @@ function populateModal(detail, movie) {
     document.getElementById('modalPoster').src = posterPath;
     document.getElementById('modalPoster').alt = detail.title || movie.title;
 
-    const releaseDate = detail.release_date || movie.releaseDate;
+    const releaseDate = pickReleaseDate(detail, movie);
     document.getElementById('modalYear').textContent = releaseDate ? releaseDate.slice(0, 4) : '-';
     document.getElementById('modalRuntime').textContent = detail.runtime ? `${detail.runtime}分` : '-';
     document.getElementById('modalRating').textContent = `★ ${detail.vote_average ? detail.vote_average.toFixed(1) : '-'}`;

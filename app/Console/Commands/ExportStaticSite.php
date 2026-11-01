@@ -9,6 +9,7 @@ use App\Services\BoxOffice\Contracts\RegistryRepository;
 use App\Services\BoxOffice\HistoryRecorder;
 use App\Services\BoxOffice\Insights;
 use App\Services\BoxOffice\MovieIdentity;
+use App\Services\BoxOffice\RegionalReleaseDate;
 use App\Services\BoxOffice\TheatricalRun;
 use App\Services\News\BoxOfficeNewsMatcher;
 use App\Services\News\YahooBoxOfficeNews;
@@ -2221,7 +2222,12 @@ XML);
         $title = $movie['title'];
         $originalTitle = $detail['original_title'] ?? $movie['originalTitle'] ?? '';
         $overview = $detail['overview'] ?? '';
-        $releaseDate = $detail['release_date'] ?? $movie['releaseDate'] ?? null;
+        $releaseDate = RegionalReleaseDate::displayed(
+            is_string($movie['releaseDate'] ?? null) ? $movie['releaseDate'] : null,
+            is_string($movie['releaseDatePrecision'] ?? null) ? $movie['releaseDatePrecision'] : null,
+            is_string($detail['release_date'] ?? null) ? $detail['release_date'] : null,
+            $isJapan,
+        );
         $rankLabel = $isJapan ? '日本ランキング' : '世界ランキング';
         $revenueText = $movie['revenue'].($movie['revenueYen'] ? "（{$movie['revenueYen']}）" : '');
 

@@ -4,6 +4,7 @@ namespace Tests\Unit\Tmdb;
 
 use App\Console\Commands\ExportStaticSite;
 use App\Models\GlobalMovie;
+use App\Models\JapaneseMovie;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use ReflectionMethod;
@@ -13,7 +14,13 @@ class MovieDetailExportTest extends TestCase
 {
     protected function tearDown(): void
     {
-        foreach (['test-credit-lang-en', 'test-credit-lang-ja'] as $movieId) {
+        foreach ([
+            'test-credit-lang-en',
+            'test-credit-lang-ja',
+            'jp-tmdb-1084244',
+            'jp-lion-king-2019',
+            'tmdb-1084244',
+        ] as $movieId) {
             File::delete(storage_path("app/static-details/{$movieId}.json"));
         }
         File::deleteDirectory(storage_path('framework/testing/movie-details'));
@@ -100,6 +107,92 @@ class MovieDetailExportTest extends TestCase
         $this->assertSame('アンソニー・ルッソ', $detail['credits']['crew'][0]['name']);
     }
 
+    public function test_japanese_detail_export_uses_the_stored_theatrical_date(): void
+    {
+        Http::preventStrayRequests();
+        $movieId = 'jp-tmdb-1084244';
+        $this->writeCache($movieId, [
+            'names_language' => 'ja-JP',
+            'title' => 'トイ・ストーリー５',
+            'release_date' => '2026-06-17',
+            'credits' => [
+                'cast' => [['name' => 'トム・ハンクス']],
+                'crew' => [['job' => 'Director', 'name' => 'アンドリュー・スタントン']],
+            ],
+        ]);
+
+        $movie = new JapaneseMovie;
+        $movie->movie_id = $movieId;
+        $movie->tmdb_id = 1084244;
+        $movie->title = 'トイ・ストーリー5';
+        $movie->poster_path = '/poster.jpg';
+        $movie->release_date = '2026-07-03';
+        $movie->release_date_precision = 'day';
+
+        $detailsDir = storage_path('framework/testing/movie-details');
+        $this->assertTrue($this->exportDetail($movieId, $movie, $detailsDir));
+
+        $detail = json_decode(File::get("{$detailsDir}/{$movieId}.json"), true);
+        $this->assertSame('2026-07-03', $detail['release_date']);
+        $cached = json_decode(File::get(storage_path("app/static-details/{$movieId}.json")), true);
+        $this->assertSame('2026-07-03', $cached['release_date']);
+    }
+
+    public function test_year_precision_japanese_detail_keeps_tmdb_date(): void
+    {
+        Http::preventStrayRequests();
+        $movieId = 'jp-lion-king-2019';
+        $this->writeCache($movieId, [
+            'names_language' => 'ja-JP',
+            'title' => 'ライオン・キング',
+            'release_date' => '2019-07-12',
+            'credits' => [
+                'cast' => [['name' => 'ドナルド・グローヴァー']],
+                'crew' => [['job' => 'Director', 'name' => 'ジョン・ファヴロー']],
+            ],
+        ]);
+
+        $movie = new JapaneseMovie;
+        $movie->movie_id = $movieId;
+        $movie->tmdb_id = 420818;
+        $movie->title = 'ライオン・キング（2019年）';
+        $movie->poster_path = '/poster.jpg';
+        $movie->release_date = '2019-01-01';
+        $movie->release_date_precision = 'year';
+
+        $detailsDir = storage_path('framework/testing/movie-details');
+        $this->assertTrue($this->exportDetail($movieId, $movie, $detailsDir));
+
+        $detail = json_decode(File::get("{$detailsDir}/{$movieId}.json"), true);
+        $this->assertSame('2019-07-12', $detail['release_date']);
+    }
+
+    public function test_global_detail_export_keeps_the_tmdb_primary_date(): void
+    {
+        Http::preventStrayRequests();
+        $movieId = 'tmdb-1084244';
+        $this->writeCache($movieId, [
+            'names_language' => 'ja-JP',
+            'title' => 'トイ・ストーリー５',
+            'release_date' => '2026-06-17',
+            'credits' => [
+                'cast' => [['name' => 'トム・ハンクス']],
+                'crew' => [['job' => 'Director', 'name' => 'アンドリュー・スタントン']],
+            ],
+        ]);
+
+        $movie = $this->movie($movieId);
+        $movie->tmdb_id = 1084244;
+        $movie->release_date = '2026-06-17';
+        $movie->release_date_precision = 'day';
+
+        $detailsDir = storage_path('framework/testing/movie-details');
+        $this->assertTrue($this->exportDetail($movieId, $movie, $detailsDir));
+
+        $detail = json_decode(File::get("{$detailsDir}/{$movieId}.json"), true);
+        $this->assertSame('2026-06-17', $detail['release_date']);
+    }
+
     private function movie(string $movieId): GlobalMovie
     {
         $movie = new GlobalMovie;
@@ -121,7 +214,7 @@ class MovieDetailExportTest extends TestCase
         File::put($path, json_encode($detail, JSON_UNESCAPED_UNICODE));
     }
 
-    private function exportDetail(string $movieId, GlobalMovie $movie, string $detailsDir): bool
+    private function exportDetail(string $movieId, GlobalMovie|JapaneseMovie $movie, string $detailsDir): bool
     {
         $method = new ReflectionMethod(ExportStaticSite::class, 'exportMovieDetail');
         $method->setAccessible(true);

@@ -137,6 +137,84 @@ class SeoExportTest extends TestCase
         $this->assertStringContainsString('日本ランキングの同作品', $html);
     }
 
+    public function test_japan_movie_page_shows_the_stored_japanese_release_date(): void
+    {
+        config(['app.url' => 'https://mubiran.com']);
+        $dir = sys_get_temp_dir().'/mubiran-jp-date-'.bin2hex(random_bytes(4));
+        mkdir($dir.'/data/details', 0777, true);
+        file_put_contents($dir.'/data/details/jp-tmdb-1084244.json', json_encode([
+            'title' => 'トイ・ストーリー５',
+            'original_title' => 'Toy Story 5',
+            'release_date' => '2026-06-17',
+        ], JSON_UNESCAPED_UNICODE));
+
+        try {
+            $html = $this->invoke('moviePageHtml', [
+                'id' => 'jp-tmdb-1084244',
+                'title' => 'トイ・ストーリー5',
+                'originalTitle' => 'Toy Story 5',
+                'revenue' => '130.4億円',
+                'revenueYen' => null,
+                'rank' => 34,
+                'releaseDate' => '2026-06-17',
+                'releaseDatePrecision' => 'day',
+                'pageHistory' => [
+                    'releaseDate' => '2026-07-03',
+                    'releaseDatePrecision' => 'day',
+                ],
+                'updatedAt' => '2026-10-14T21:00:00+09:00',
+                'posterUrl' => '',
+                'genres' => [],
+            ], true, $dir);
+        } finally {
+            @unlink($dir.'/data/details/jp-tmdb-1084244.json');
+            @rmdir($dir.'/data/details');
+            @rmdir($dir.'/data');
+            @rmdir($dir);
+        }
+
+        $this->assertStringContainsString('<dt>公開日</dt><dd>2026年7月3日</dd>', $html);
+        $this->assertStringNotContainsString('2026年6月17日', $html);
+        $this->assertStringContainsString('"datePublished":"2026-07-03"', $html);
+        $this->assertStringContainsString('公開日: 2026年7月3日。', $html);
+    }
+
+    public function test_global_movie_page_keeps_the_tmdb_primary_release_date(): void
+    {
+        config(['app.url' => 'https://mubiran.com']);
+        $dir = sys_get_temp_dir().'/mubiran-global-date-'.bin2hex(random_bytes(4));
+        mkdir($dir.'/data/details', 0777, true);
+        file_put_contents($dir.'/data/details/tmdb-1084244.json', json_encode([
+            'title' => 'トイ・ストーリー５',
+            'original_title' => 'Toy Story 5',
+            'release_date' => '2026-06-17',
+        ], JSON_UNESCAPED_UNICODE));
+
+        try {
+            $html = $this->invoke('moviePageHtml', [
+                'id' => 'tmdb-1084244',
+                'title' => 'トイ・ストーリー５',
+                'originalTitle' => 'Toy Story 5',
+                'revenue' => '11.48億ドル',
+                'revenueYen' => '1,722.0億円',
+                'rank' => 36,
+                'releaseDate' => '2026-07-03',
+                'releaseDatePrecision' => 'day',
+                'updatedAt' => '2026-10-12T03:00:00+09:00',
+                'posterUrl' => '',
+                'genres' => [],
+            ], false, $dir);
+        } finally {
+            @unlink($dir.'/data/details/tmdb-1084244.json');
+            @rmdir($dir.'/data/details');
+            @rmdir($dir.'/data');
+            @rmdir($dir);
+        }
+
+        $this->assertStringContainsString('<dt>公開日</dt><dd>2026年6月17日</dd>', $html);
+        $this->assertStringNotContainsString('2026年7月3日', $html);
+    }
+
     public function test_movie_page_shows_the_last_day_box_office_increased(): void
     {
         config(['app.url' => 'https://mubiran.com']);

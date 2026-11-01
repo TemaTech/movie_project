@@ -4,7 +4,9 @@ namespace App\Console\Traits;
 
 use App\Models\GlobalMovie;
 use App\Models\JapaneseMovie;
+use App\Services\BoxOffice\HistoryRecorder;
 use App\Services\BoxOffice\MovieIdentity;
+use App\Services\BoxOffice\RegionalReleaseDate;
 use App\Services\Tmdb\TmdbClient;
 use Illuminate\Support\Facades\File;
 
@@ -376,13 +378,8 @@ trait FetchesTmdbMovieDetails
         }
 
         $tmdbId = (int) ($detail['id'] ?? $tmdbId);
-        $export = $this->slimTmdbDetail($detail);
-        $json = json_encode($export, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-        File::ensureDirectoryExists(dirname($cachePath));
-        File::put($cachePath, $json);
-        File::ensureDirectoryExists($detailsDir);
-        File::put("{$detailsDir}/{$movieId}.json", $json);
+        $export = $this->applyRegionalReleaseDate($movie, $this->slimTmdbDetail($detail));
+        $this->writeMovieDetailFiles($cachePath, $detailsDir, $movieId, $export);
         $this->backfillMovieMetadata($movie, $tmdbId, $export);
 
         return true;
@@ -426,9 +423,92 @@ trait FetchesTmdbMovieDetails
         GlobalMovie|JapaneseMovie $movie,
         array $export
     ): void {
-        File::ensureDirectoryExists($detailsDir);
-        File::copy($cachePath, "{$detailsDir}/{$movieId}.json");
+        $export = $this->applyRegionalReleaseDate($movie, $export);
+        $this->writeMovieDetailFiles($cachePath, $detailsDir, $movieId, $export);
         $this->backfillMovieMetadata($movie, $this->findTmdbId($movie), $export);
+    }
+
+    /**
+     * 日本作品はチャートと同じ日本公開日を詳細JSONにも載せる。
+     * 年精度だけの日付は 1月1日になるので、TMDB の日付を残す。
+     *
+     * @param  array<string, mixed>  $export
+     * @return array<string, mixed>
+     */
+    private function applyRegionalReleaseDate(GlobalMovie|JapaneseMovie $movie, array $export): array
+    {
+        [$stored, $precision] = $this->storedReleaseDate($movie);
+        $tmdb = isset($export['release_date']) && is_string($export['release_date'])
+            ? $export['release_date']
+            : null;
+        $chosen = RegionalReleaseDate::displayed(
+            $stored,
+            $precision,
+            $tmdb,
+            $movie instanceof JapaneseMovie,
+        );
+        if ($chosen !== null) {
+            $export['release_date'] = $chosen;
+        }
+
+        return $export;
+    }
+
+    /**
+     * 日本作品は git の registry.json（チャートと同じ）を優先する。
+     *
+     * @return array{0: ?string, 1: ?string}
+     */
+    private function storedReleaseDate(GlobalMovie|JapaneseMovie $movie): array
+    {
+        $stored = $movie->release_date?->format('Y-m-d');
+        $precision = is_string($movie->release_date_precision ?? null) ? $movie->release_date_precision : null;
+
+        if ($movie instanceof JapaneseMovie) {
+            $fromRegistry = $this->japaneseReleaseFromRegistry((string) $movie->movie_id);
+            if ($fromRegistry !== null) {
+                return $fromRegistry;
+            }
+        }
+
+        return [$stored, $precision];
+    }
+
+    /**
+     * @return array{0: string, 1: ?string}|null
+     */
+    private function japaneseReleaseFromRegistry(string $movieId): ?array
+    {
+        static $movies = false;
+        if ($movies === false) {
+            try {
+                $movies = HistoryRecorder::fromConfig()->registry()->movies();
+            } catch (\Throwable) {
+                $movies = [];
+            }
+        }
+
+        $row = is_array($movies) ? ($movies[$movieId] ?? null) : null;
+        if (! is_array($row) || ! is_string($row['releaseDate'] ?? null) || $row['releaseDate'] === '') {
+            return null;
+        }
+
+        return [
+            $row['releaseDate'],
+            is_string($row['releaseDatePrecision'] ?? null) ? $row['releaseDatePrecision'] : null,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $export
+     */
+    private function writeMovieDetailFiles(string $cachePath, string $detailsDir, string $movieId, array $export): void
+    {
+        $json = json_encode($export, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        File::ensureDirectoryExists(dirname($cachePath));
+        File::put($cachePath, $json);
+        File::ensureDirectoryExists($detailsDir);
+        File::put("{$detailsDir}/{$movieId}.json", $json);
     }
 
     private function backfillMovieMetadata(GlobalMovie|JapaneseMovie $movie, ?int $tmdbId, array $export): void

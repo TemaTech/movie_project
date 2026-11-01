@@ -38,4 +38,19 @@ class RegionalReleaseDateTest extends TestCase
             RegionalReleaseDate::displayed(null, 'year', '2012-07-12', true),
         );
     }
+
+    public function test_stored_prefers_the_chart_history_date(): void
+    {
+        [$date, $precision] = RegionalReleaseDate::stored([
+            'releaseDate' => '2026-06-17',
+            'releaseDatePrecision' => 'day',
+            'pageHistory' => [
+                'releaseDate' => '2026-07-03',
+                'releaseDatePrecision' => 'day',
+            ],
+        ]);
+
+        $this->assertSame('2026-07-03', $date);
+        $this->assertSame('day', $precision);
+    }
 }

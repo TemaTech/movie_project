@@ -4,6 +4,7 @@ namespace App\Console\Traits;
 
 use App\Models\GlobalMovie;
 use App\Models\JapaneseMovie;
+use App\Services\BoxOffice\HistoryRecorder;
 use App\Services\BoxOffice\MovieIdentity;
 use App\Services\BoxOffice\RegionalReleaseDate;
 use App\Services\Tmdb\TmdbClient;
@@ -436,8 +437,7 @@ trait FetchesTmdbMovieDetails
      */
     private function applyRegionalReleaseDate(GlobalMovie|JapaneseMovie $movie, array $export): array
     {
-        $stored = $movie->release_date?->format('Y-m-d');
-        $precision = is_string($movie->release_date_precision ?? null) ? $movie->release_date_precision : null;
+        [$stored, $precision] = $this->storedReleaseDate($movie);
         $tmdb = isset($export['release_date']) && is_string($export['release_date'])
             ? $export['release_date']
             : null;
@@ -452,6 +452,51 @@ trait FetchesTmdbMovieDetails
         }
 
         return $export;
+    }
+
+    /**
+     * 日本作品は git の registry.json（チャートと同じ）を優先する。
+     *
+     * @return array{0: ?string, 1: ?string}
+     */
+    private function storedReleaseDate(GlobalMovie|JapaneseMovie $movie): array
+    {
+        $stored = $movie->release_date?->format('Y-m-d');
+        $precision = is_string($movie->release_date_precision ?? null) ? $movie->release_date_precision : null;
+
+        if ($movie instanceof JapaneseMovie) {
+            $fromRegistry = $this->japaneseReleaseFromRegistry((string) $movie->movie_id);
+            if ($fromRegistry !== null) {
+                return $fromRegistry;
+            }
+        }
+
+        return [$stored, $precision];
+    }
+
+    /**
+     * @return array{0: string, 1: ?string}|null
+     */
+    private function japaneseReleaseFromRegistry(string $movieId): ?array
+    {
+        static $movies = false;
+        if ($movies === false) {
+            try {
+                $movies = HistoryRecorder::fromConfig()->registry()->movies();
+            } catch (\Throwable) {
+                $movies = [];
+            }
+        }
+
+        $row = is_array($movies) ? ($movies[$movieId] ?? null) : null;
+        if (! is_array($row) || ! is_string($row['releaseDate'] ?? null) || $row['releaseDate'] === '') {
+            return null;
+        }
+
+        return [
+            $row['releaseDate'],
+            is_string($row['releaseDatePrecision'] ?? null) ? $row['releaseDatePrecision'] : null,
+        ];
     }
 
     /**

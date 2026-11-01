@@ -126,7 +126,7 @@ class MovieDetailExportTest extends TestCase
         $movie->tmdb_id = 1084244;
         $movie->title = 'トイ・ストーリー5';
         $movie->poster_path = '/poster.jpg';
-        $movie->release_date = '2026-07-03';
+        $movie->release_date = '2026-06-17';
         $movie->release_date_precision = 'day';
 
         $detailsDir = storage_path('framework/testing/movie-details');

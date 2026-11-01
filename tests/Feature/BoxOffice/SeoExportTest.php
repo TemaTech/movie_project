@@ -156,8 +156,12 @@ class SeoExportTest extends TestCase
                 'revenue' => '130.4億円',
                 'revenueYen' => null,
                 'rank' => 34,
-                'releaseDate' => '2026-07-03',
+                'releaseDate' => '2026-06-17',
                 'releaseDatePrecision' => 'day',
+                'pageHistory' => [
+                    'releaseDate' => '2026-07-03',
+                    'releaseDatePrecision' => 'day',
+                ],
                 'updatedAt' => '2026-10-14T21:00:00+09:00',
                 'posterUrl' => '',
                 'genres' => [],

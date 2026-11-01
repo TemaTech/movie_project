@@ -2222,9 +2222,10 @@ XML);
         $title = $movie['title'];
         $originalTitle = $detail['original_title'] ?? $movie['originalTitle'] ?? '';
         $overview = $detail['overview'] ?? '';
+        [$storedReleaseDate, $storedPrecision] = RegionalReleaseDate::stored($movie);
         $releaseDate = RegionalReleaseDate::displayed(
-            is_string($movie['releaseDate'] ?? null) ? $movie['releaseDate'] : null,
-            is_string($movie['releaseDatePrecision'] ?? null) ? $movie['releaseDatePrecision'] : null,
+            $storedReleaseDate,
+            $storedPrecision,
             is_string($detail['release_date'] ?? null) ? $detail['release_date'] : null,
             $isJapan,
         );

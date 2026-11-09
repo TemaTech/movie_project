@@ -7224,6 +7224,48 @@
                 "182_585"
             ],
             "firstSeenAt": "2026-10-03T19:56:52+09:00"
+        },
+        "jp-tmdb-420818": {
+            "key": "jp-tmdb-420818",
+            "region": "japan",
+            "title": "ライオン・キング",
+            "normalizedTitle": "ライオン キング",
+            "releaseYear": 2019,
+            "releaseDate": "2019-08-09",
+            "releaseDatePrecision": "day",
+            "tmdbId": 420818,
+            "legacyIds": [
+                "jp_133_27cfae5e"
+            ],
+            "firstSeenAt": "2026-11-09T23:50:07+09:00"
+        },
+        "jp-tmdb-150689": {
+            "key": "jp-tmdb-150689",
+            "region": "japan",
+            "title": "シンデレラ",
+            "normalizedTitle": "シンデレラ",
+            "releaseYear": 2015,
+            "releaseDate": "2015-04-25",
+            "releaseDatePrecision": "day",
+            "tmdbId": 150689,
+            "legacyIds": [
+                "jp_163_4c2b2803"
+            ],
+            "firstSeenAt": "2026-11-09T23:50:21+09:00"
+        },
+        "jp-tmdb-1924": {
+            "key": "jp-tmdb-1924",
+            "region": "japan",
+            "title": "スーパーマン",
+            "normalizedTitle": "スーパーマン",
+            "releaseYear": 1979,
+            "releaseDate": "1979-06-30",
+            "releaseDatePrecision": "day",
+            "tmdbId": 1924,
+            "legacyIds": [
+                "jp_167_24422fbc"
+            ],
+            "firstSeenAt": "2026-11-09T23:50:24+09:00"
         }
     },
     "aliases": {
@@ -9145,6 +9187,9 @@
         "global_118_1311031": "tmdb-1311031",
         "118_1311031": "tmdb-1311031",
         "jp_080_20b41c60": "jp-tmdb-936075",
-        "jp_081_46cfe2c9": "jp-tmdb-280"
+        "jp_081_46cfe2c9": "jp-tmdb-280",
+        "jp_133_27cfae5e": "jp-tmdb-420818",
+        "jp_163_4c2b2803": "jp-tmdb-150689",
+        "jp_167_24422fbc": "jp-tmdb-1924"
     }
 }

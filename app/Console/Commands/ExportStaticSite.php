@@ -35,6 +35,9 @@ class ExportStaticSite extends Command
     /** JS の PER_PAGE（resources/js/static-site.js）。画面のページ分割に使う。静的HTMLは全件を載せる。 */
     private const RANKING_PAGE_SIZE = 100;
 
+    /** 作品ページの meta description の目安（日本語）。事実部分は切らず、あらすじだけ残りの枠に入れる。 */
+    private const MOVIE_META_DESCRIPTION_LIMIT = 120;
+
     private const CHART_DOT_RADIUS = 3.2;
 
     private const CHART_DOT_LAST_RADIUS = 4.4;
@@ -2030,7 +2033,7 @@ XML);
     }
 
     /**
-     * @param  array<string, true>  $knownIds
+     * @param  array<string, true|array<string, mixed>>  $knownIds
      */
     private function exportMoviePages(string $output, $global, $japan, array $knownIds = []): void
     {
@@ -2045,7 +2048,7 @@ XML);
 
     /**
      * @param  array<string, mixed>  $movie
-     * @param  array<string, true>  $knownIds
+     * @param  array<string, true|array<string, mixed>>  $knownIds
      */
     private function writeMoviePage(string $output, array $movie, bool $isJapan, array $knownIds = []): void
     {
@@ -2205,9 +2208,168 @@ XML);
             ."</urlset>\n");
     }
 
+    private function formatRankValue(mixed $rank): string
+    {
+        return is_numeric($rank) ? '第'.$rank.'位' : (string) ($rank ?? '圏外');
+    }
+
+    /**
+     * 興収が増えた日を優先し、無ければ最終取得日時を「時点」として使う。
+     *
+     * @param  array<string, mixed>  $movie
+     */
+    private function movieAsOfTimestamp(array $movie): ?string
+    {
+        $history = is_array($movie['pageHistory'] ?? null) ? $movie['pageHistory'] : [];
+        foreach ([
+            $history['grossIncreasedAt'] ?? null,
+            $movie['updatedAt'] ?? null,
+        ] as $raw) {
+            if (! is_string($raw) || $raw === '') {
+                continue;
+            }
+
+            try {
+                return Carbon::parse($raw)->timezone('Asia/Tokyo')->toAtomString();
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 世界ページの revenueYen は固定レートの円換算であり、日本興収ではない。スニペットには出さない。
+     *
+     * @param  array<string, mixed>  $movie
+     * @param  array<string, true|array<string, mixed>>  $knownIds
+     */
+    private function siblingDescriptionClause(array $movie, bool $isJapan, array $knownIds): ?string
+    {
+        $tmdbId = MovieIdentity::tmdbIdFromKey((string) ($movie['id'] ?? ''));
+        if ($tmdbId === null) {
+            return null;
+        }
+
+        $siblingId = $isJapan ? 'tmdb-'.$tmdbId : 'jp-tmdb-'.$tmdbId;
+        $info = $knownIds[$siblingId] ?? null;
+        if (! is_array($info)) {
+            return null;
+        }
+
+        $revenue = trim((string) ($info['revenue'] ?? ''));
+        if ($revenue === '') {
+            return null;
+        }
+
+        $market = $isJapan ? '世界興収' : '日本興収';
+        $rankLabel = $isJapan ? '世界ランキング' : '日本ランキング';
+
+        return $market.'は'.$revenue.'（'.$rankLabel.$this->formatRankValue($info['rank'] ?? null).'）。';
+    }
+
     /**
      * @param  array<string, mixed>  $movie
-     * @param  array<string, true>  $knownIds
+     * @param  array<string, true|array<string, mixed>>  $knownIds
+     */
+    private function movieMetaDescription(
+        array $movie,
+        bool $isJapan,
+        string $title,
+        ?string $releaseDate,
+        string $overview,
+        array $knownIds,
+    ): string {
+        $market = $isJapan ? '日本興収' : '世界興収';
+        $rankLabel = $isJapan ? '日本ランキング' : '世界ランキング';
+        $lead = $title.'の'.$market.'は'.($movie['revenue'] ?? '').'（'.$rankLabel.$this->formatRankValue($movie['rank'] ?? null).'）。';
+
+        $releaseLabel = $this->formatReleaseDate($releaseDate);
+        if ($releaseLabel !== '-') {
+            $lead .= $releaseLabel.'公開。';
+        }
+
+        $asOf = $this->formatRankingDate($this->movieAsOfTimestamp($movie));
+        if ($asOf !== null) {
+            $lead .= $asOf.'時点。';
+        }
+
+        $sibling = $this->siblingDescriptionClause($movie, $isJapan, $knownIds);
+        if ($sibling !== null) {
+            $lead .= $sibling;
+        }
+
+        $overview = trim($overview);
+        if ($overview === '') {
+            return $lead;
+        }
+
+        $room = self::MOVIE_META_DESCRIPTION_LIMIT - mb_strlen($lead);
+        if ($room < 12) {
+            return $lead;
+        }
+
+        if (mb_strlen($overview) <= $room) {
+            return $lead.$overview;
+        }
+
+        return $lead.mb_substr($overview, 0, $room - 1).'…';
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     * @return array<string, mixed>|null
+     */
+    private function movieBoxOfficeJsonLd(array $movie, bool $isJapan): ?array
+    {
+        $amount = (int) ($movie['boxOffice'] ?? 0);
+        if ($amount <= 0) {
+            return null;
+        }
+
+        return [
+            '@type' => 'MonetaryAmount',
+            'currency' => $isJapan ? 'JPY' : 'USD',
+            'value' => $amount,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     * @return array<string, mixed>
+     */
+    private function movieJsonLd(
+        array $movie,
+        bool $isJapan,
+        string $title,
+        string $originalTitle,
+        string $overview,
+        ?string $releaseDate,
+        string $pageUrl,
+        string $ogImage,
+        ?string $siblingUrl,
+    ): array {
+        $node = [
+            '@type' => 'Movie',
+            'name' => $title,
+            'alternateName' => $originalTitle !== '' ? $originalTitle : null,
+            'datePublished' => $releaseDate ?: null,
+            'dateModified' => $this->movieAsOfTimestamp($movie),
+            'description' => $overview !== '' ? $overview : null,
+            'url' => $pageUrl,
+            'image' => $ogImage,
+            'inLanguage' => 'ja',
+            'sameAs' => $siblingUrl,
+            'boxOffice' => $this->movieBoxOfficeJsonLd($movie, $isJapan),
+        ];
+
+        return array_filter($node, fn (mixed $value): bool => $value !== null && $value !== '');
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     * @param  array<string, true|array<string, mixed>>  $knownIds
      */
     private function moviePageHtml(array $movie, bool $isJapan, string $output, array $knownIds = []): string
     {
@@ -2230,18 +2392,9 @@ XML);
             $isJapan,
         );
         $rankLabel = $isJapan ? '日本ランキング' : '世界ランキング';
-        $revenueText = $movie['revenue'].($movie['revenueYen'] ? "（{$movie['revenueYen']}）" : '');
-
-        $rankValue = is_numeric($movie['rank'] ?? null) ? '第'.$movie['rank'].'位' : (string) ($movie['rank'] ?? '圏外');
+        $rankValue = $this->formatRankValue($movie['rank'] ?? null);
         $pageTitle = "{$title} の興行収入 {$movie['revenue']} | {$rankLabel}{$rankValue} - MUBIRAN";
-        $description = "{$title}の興行収入は{$revenueText}（{$rankLabel}{$rankValue}）。";
-        if ($originalTitle && $originalTitle !== $title) {
-            $description .= "原題: {$originalTitle}。";
-        }
-        $description .= '公開日: '.$this->formatReleaseDate($releaseDate).'。';
-        if ($overview) {
-            $description .= mb_substr($overview, 0, 120).(mb_strlen($overview) > 120 ? '…' : '');
-        }
+        $description = $this->movieMetaDescription($movie, $isJapan, $title, $releaseDate, $overview, $knownIds);
 
         $keywords = implode(',', array_filter([
             $title,
@@ -2281,17 +2434,17 @@ XML);
                         ],
                     ],
                 ],
-                [
-                    '@type' => 'Movie',
-                    'name' => $title,
-                    'alternateName' => $originalTitle ?: null,
-                    'datePublished' => $releaseDate,
-                    'description' => $overview ?: null,
-                    'url' => $pageUrl,
-                    'image' => $ogImage,
-                    'inLanguage' => 'ja',
-                    'sameAs' => $siblingUrl,
-                ],
+                $this->movieJsonLd(
+                    $movie,
+                    $isJapan,
+                    $title,
+                    $originalTitle,
+                    $overview,
+                    $releaseDate,
+                    $pageUrl,
+                    $ogImage,
+                    $siblingUrl,
+                ),
             ],
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG);
 
@@ -2729,16 +2882,21 @@ HTML;
      * @param  list<array<string, mixed>>  $global
      * @param  list<array<string, mixed>>  $japan
      * @param  list<array<string, mixed>>  $boardOnly
-     * @return array<string, true>
+     * @return array<string, array{revenue: string, rank: mixed}>
      */
     private function knownMovieIds(array $global, array $japan, array $boardOnly): array
     {
         $knownIds = [];
         foreach (array_merge($global, $japan, $boardOnly) as $movie) {
             $id = (string) ($movie['id'] ?? '');
-            if ($id !== '') {
-                $knownIds[$id] = true;
+            if ($id === '') {
+                continue;
             }
+
+            $knownIds[$id] = [
+                'revenue' => (string) ($movie['revenue'] ?? ''),
+                'rank' => $movie['rank'] ?? null,
+            ];
         }
 
         return $knownIds;
@@ -2746,7 +2904,7 @@ HTML;
 
     /**
      * @param  array<string, mixed>  $movie
-     * @param  array<string, true>  $knownIds
+     * @param  array<string, true|array<string, mixed>>  $knownIds
      */
     private function siblingMoviePath(array $movie, bool $isJapan, array $knownIds): ?string
     {

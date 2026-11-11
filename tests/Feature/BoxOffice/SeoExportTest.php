@@ -8,6 +8,12 @@ use Tests\TestCase;
 
 class SeoExportTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->ensureViteManifest();
+    }
+
     public function test_ranking_fallback_stays_available_without_javascript(): void
     {
         $guard = $this->invoke('rankingFallbackGuard');
@@ -176,7 +182,7 @@ class SeoExportTest extends TestCase
         $this->assertStringContainsString('<dt>公開日</dt><dd>2026年7月3日</dd>', $html);
         $this->assertStringNotContainsString('2026年6月17日', $html);
         $this->assertStringContainsString('"datePublished":"2026-07-03"', $html);
-        $this->assertStringContainsString('公開日: 2026年7月3日。', $html);
+        $this->assertStringContainsString('2026年7月3日公開。', $html);
     }
 
     public function test_global_movie_page_keeps_the_tmdb_primary_release_date(): void
@@ -279,6 +285,201 @@ class SeoExportTest extends TestCase
         $this->assertSame('fallback', $this->invoke('movieLastmod', [], 'fallback'));
     }
 
+    public function test_world_movie_meta_leads_with_world_gross_not_yen_conversion(): void
+    {
+        config(['app.url' => 'https://mubiran.com']);
+        $dir = $this->detailDir('tmdb-299534', [
+            'title' => 'アベンジャーズ／エンドゲーム',
+            'original_title' => 'Avengers: Endgame',
+            'release_date' => '2019-04-24',
+            'overview' => '破格のメガヒットによって映画史を塗り替え続ける「アベンジャーズ」シリーズが、この春ついに完結。',
+        ]);
+
+        try {
+            $html = $this->invoke('moviePageHtml', [
+                'id' => 'tmdb-299534',
+                'title' => 'アベンジャーズ／エンドゲーム',
+                'originalTitle' => 'Avengers: Endgame',
+                'revenue' => '29.42億ドル',
+                'revenueYen' => '4,413.3億円',
+                'boxOffice' => 2_942_000_000,
+                'rank' => 1,
+                'releaseDate' => '2019-04-24',
+                'releaseDatePrecision' => 'day',
+                'updatedAt' => '2026-10-29T03:00:00+09:00',
+                'pageHistory' => [
+                    'grossIncreasedAt' => '2026-10-28T03:00:00+09:00',
+                ],
+                'posterUrl' => '',
+                'genres' => [],
+            ], false, $dir, [
+                'tmdb-299534' => ['revenue' => '29.42億ドル', 'rank' => 1],
+                'jp-tmdb-299534' => ['revenue' => '61.3億円', 'rank' => 150],
+            ]);
+        } finally {
+            $this->removeDetailDir($dir);
+        }
+
+        $meta = $this->metaDescription($html);
+        $this->assertSame($meta, $this->ogDescription($html));
+        $this->assertSame($meta, $this->twitterDescription($html));
+        $this->assertStringStartsWith(
+            'アベンジャーズ／エンドゲームの世界興収は29.42億ドル（世界ランキング第1位）。2019年4月24日公開。2026年10月28日時点。日本興収は61.3億円（日本ランキング第150位）。',
+            $meta,
+        );
+        $this->assertStringNotContainsString('4,413.3億円', $meta);
+        $this->assertStringNotContainsString('日本換算', $meta);
+        $this->assertLessThanOrEqual(120, mb_strlen($meta));
+
+        $body = $this->bodyHtml($html);
+        $this->assertStringContainsString('<dt>日本換算</dt><dd>4,413.3億円</dd>', $body);
+        $this->assertStringContainsString('<dt>興行収入</dt><dd>29.42億ドル</dd>', $body);
+        $this->assertStringNotContainsString('name="description"', $body);
+
+        $movieLd = $this->movieJsonLd($html);
+        $this->assertSame('Movie', $movieLd['@type']);
+        $this->assertSame('2019-04-24', $movieLd['datePublished']);
+        $this->assertSame('2026-10-28T03:00:00+09:00', $movieLd['dateModified']);
+        $this->assertSame([
+            '@type' => 'MonetaryAmount',
+            'currency' => 'USD',
+            'value' => 2_942_000_000,
+        ], $movieLd['boxOffice']);
+        $this->assertSame('https://mubiran.com/movies/jp-tmdb-299534/', $movieLd['sameAs']);
+        $this->assertSame(
+            '破格のメガヒットによって映画史を塗り替え続ける「アベンジャーズ」シリーズが、この春ついに完結。',
+            $movieLd['description'],
+        );
+        $this->assertContains('BreadcrumbList', array_column($this->jsonLd($html)['@graph'], '@type'));
+    }
+
+    public function test_japan_movie_meta_leads_with_japan_gross_and_omits_missing_fields(): void
+    {
+        config(['app.url' => 'https://mubiran.com']);
+        $dir = $this->detailDir('jp-tmdb-280', [
+            'title' => 'ターミネーター2',
+            'original_title' => 'Terminator 2: Judgment Day',
+            'release_date' => '1991-08-24',
+        ]);
+
+        try {
+            $html = $this->invoke('moviePageHtml', [
+                'id' => 'jp-tmdb-280',
+                'title' => 'ターミネーター2',
+                'originalTitle' => 'Terminator 2: Judgment Day',
+                'revenue' => '87.9億円',
+                'revenueYen' => null,
+                'boxOffice' => 8_790_000_000,
+                'rank' => 81,
+                'releaseDate' => '1991-08-24',
+                'releaseDatePrecision' => 'day',
+                'posterUrl' => '',
+                'genres' => [],
+            ], true, $dir);
+        } finally {
+            $this->removeDetailDir($dir);
+        }
+
+        $meta = $this->metaDescription($html);
+        $this->assertSame(
+            'ターミネーター2の日本興収は87.9億円（日本ランキング第81位）。1991年8月24日公開。',
+            $meta,
+        );
+        $this->assertStringNotContainsString('世界興収', $meta);
+        $this->assertStringNotContainsString('原題:', $meta);
+
+        $movieLd = $this->movieJsonLd($html);
+        $this->assertSame([
+            '@type' => 'MonetaryAmount',
+            'currency' => 'JPY',
+            'value' => 8_790_000_000,
+        ], $movieLd['boxOffice']);
+        $this->assertSame('1991-08-24', $movieLd['datePublished']);
+        $this->assertArrayNotHasKey('dateModified', $movieLd);
+        $this->assertArrayNotHasKey('sameAs', $movieLd);
+        $this->assertStringNotContainsString('日本換算', $this->bodyHtml($html));
+    }
+
+    public function test_thin_movie_page_keeps_a_short_factual_description(): void
+    {
+        config(['app.url' => 'https://mubiran.com']);
+        $dir = $this->detailDir('jp-tmdb-1545621', [
+            'title' => '名探偵コナン ハイウェイの堕天使',
+        ]);
+
+        try {
+            $html = $this->invoke('moviePageHtml', [
+                'id' => 'jp-tmdb-1545621',
+                'title' => '名探偵コナン ハイウェイの堕天使',
+                'revenue' => '137.0億円',
+                'revenueYen' => null,
+                'boxOffice' => 13_700_000_000,
+                'rank' => 28,
+                'updatedAt' => '2026-10-14T21:00:00+09:00',
+                'posterUrl' => '',
+                'genres' => [],
+            ], true, $dir);
+        } finally {
+            $this->removeDetailDir($dir);
+        }
+
+        $this->assertSame(
+            '名探偵コナン ハイウェイの堕天使の日本興収は137.0億円（日本ランキング第28位）。2026年10月14日時点。',
+            $this->metaDescription($html),
+        );
+        $this->assertSame('JPY', $this->movieJsonLd($html)['boxOffice']['currency']);
+        $this->assertSame('2026-10-14T21:00:00+09:00', $this->movieJsonLd($html)['dateModified']);
+        $this->assertArrayNotHasKey('datePublished', $this->movieJsonLd($html));
+    }
+
+    public function test_movie_meta_appends_synopsis_only_within_the_character_budget(): void
+    {
+        $leadMovie = [
+            'id' => 'tmdb-1',
+            'title' => '短い題',
+            'revenue' => '1.00億ドル',
+            'rank' => 2,
+            'releaseDate' => '2024-01-01',
+            'updatedAt' => '2026-01-02T00:00:00+09:00',
+        ];
+        $longOverview = str_repeat('あらすじ', 80);
+        $description = $this->invoke(
+            'movieMetaDescription',
+            $leadMovie,
+            false,
+            '短い題',
+            '2024-01-01',
+            $longOverview,
+            [],
+        );
+
+        $this->assertSame(120, mb_strlen($description));
+        $this->assertStringEndsWith('…', $description);
+        $this->assertStringStartsWith('短い題の世界興収は1.00億ドル（世界ランキング第2位）。2024年1月1日公開。2026年1月2日時点。', $description);
+        $this->assertStringNotContainsString('日本換算', $description);
+        $this->assertStringNotContainsString('日本興収', $description);
+
+        $short = $this->invoke(
+            'movieMetaDescription',
+            $leadMovie,
+            false,
+            '短い題',
+            '2024-01-01',
+            '短いあらすじ。',
+            [],
+        );
+        $this->assertStringEndsWith('短いあらすじ。', $short);
+        $this->assertSame($short, $this->invoke(
+            'movieMetaDescription',
+            $leadMovie,
+            false,
+            '短い題',
+            '2024-01-01',
+            '短いあらすじ。',
+            ['jp-tmdb-1' => true],
+        ));
+    }
+
     /**
      * @return list<array<string, mixed>>
      */
@@ -305,5 +506,104 @@ class SeoExportTest extends TestCase
         $reflection->setAccessible(true);
 
         return $reflection->invoke($this->app->make(ExportStaticSite::class), ...$arguments);
+    }
+
+    /**
+     * @param  array<string, mixed>  $detail
+     */
+    private function detailDir(string $movieId, array $detail): string
+    {
+        $dir = sys_get_temp_dir().'/mubiran-seo-'.bin2hex(random_bytes(4));
+        mkdir($dir.'/data/details', 0777, true);
+        file_put_contents(
+            $dir.'/data/details/'.$movieId.'.json',
+            json_encode($detail, JSON_UNESCAPED_UNICODE),
+        );
+
+        return $dir;
+    }
+
+    private function removeDetailDir(string $dir): void
+    {
+        @unlink($dir.'/data/details/'.basename(str_replace('\\', '/', $dir)));
+        foreach (glob($dir.'/data/details/*.json') ?: [] as $file) {
+            @unlink($file);
+        }
+        @rmdir($dir.'/data/details');
+        @rmdir($dir.'/data');
+        @rmdir($dir);
+    }
+
+    private function ensureViteManifest(): void
+    {
+        $dir = public_path('build');
+        if (! is_dir($dir)) {
+            mkdir($dir, 0777, true);
+        }
+
+        $path = $dir.'/manifest.json';
+        if (! is_file($path)) {
+            file_put_contents($path, json_encode([
+                'resources/js/static-site.js' => [
+                    'file' => 'assets/static-site-test.js',
+                    'css' => ['assets/static-site-test.css'],
+                ],
+            ]));
+        }
+    }
+
+    private function metaDescription(string $html): string
+    {
+        $this->assertSame(1, preg_match('/<meta name="description" content="([^"]*)">/', $html, $matches));
+
+        return html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+
+    private function ogDescription(string $html): string
+    {
+        $this->assertSame(1, preg_match('/<meta property="og:description" content="([^"]*)">/', $html, $matches));
+
+        return html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+
+    private function twitterDescription(string $html): string
+    {
+        $this->assertSame(1, preg_match('/<meta name="twitter:description" content="([^"]*)">/', $html, $matches));
+
+        return html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+
+    private function bodyHtml(string $html): string
+    {
+        $this->assertSame(1, preg_match('/<body\b[^>]*>(.*)<\/body>/s', $html, $matches));
+
+        return $matches[1];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function jsonLd(string $html): array
+    {
+        $this->assertSame(1, preg_match('/<script type="application\/ld\+json">(.*?)<\/script>/s', $html, $matches));
+        $decoded = json_decode($matches[1], true);
+        $this->assertIsArray($decoded);
+        $this->assertSame(JSON_ERROR_NONE, json_last_error());
+
+        return $decoded;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function movieJsonLd(string $html): array
+    {
+        foreach ($this->jsonLd($html)['@graph'] ?? [] as $node) {
+            if (is_array($node) && ($node['@type'] ?? null) === 'Movie') {
+                return $node;
+            }
+        }
+
+        $this->fail('Movie JSON-LD was not found');
     }
 }

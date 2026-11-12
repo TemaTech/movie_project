@@ -1012,8 +1012,8 @@ XML);
                     $deltaLabel = Insights::formatDelta($delta, $isJapan);
                     $deltaClass = ' is-up';
                 } elseif ($delta < 0) {
-                    $deltaLabel = '−'.Insights::formatAmount(abs($delta), $isJapan);
-                    $deltaClass = ' is-down';
+                    $deltaLabel = '—';
+                    $deltaClass = '';
                 } else {
                     $deltaLabel = '±0';
                     $deltaClass = '';

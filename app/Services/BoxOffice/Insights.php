@@ -210,7 +210,8 @@ class Insights
     ): array {
         $boxOffice = (int) $movie['boxOffice'];
         $isJapan = $region === 'japan';
-        $growth = self::growth($observations);
+        $displayObservations = self::withoutSupersededTotals($observations);
+        $growth = self::growth($displayObservations);
         $last = $observations === [] ? null : $observations[array_key_last($observations)];
         $lastObservedAt = $last['observedAt'] ?? null;
         $precision = $registry['releaseDatePrecision'] ?? ($movie['releaseDatePrecision'] ?? null);
@@ -222,7 +223,7 @@ class Insights
         $pacePrecision = $revivalDate ? 'day' : $precision;
         $daysSinceRelease = self::daysSinceRelease($paceDate, $pacePrecision, $now);
         $lastChangeAt = self::lastChangeAt($observations);
-        $lastIncreaseAt = self::lastIncreaseAt($observations, $isJapan);
+        $lastIncreaseAt = self::lastIncreaseAt($displayObservations, $isJapan);
         $isActive = (bool) ($movie['isActive'] ?? false);
         $onBoard = $isActive;
         $changedRecently = $isActive
@@ -230,7 +231,7 @@ class Insights
             && self::hoursBetween(new DateTimeImmutable($lastChangeAt), $now) <= self::TODAY_WITHIN_HOURS
             && count($observations) > 1;
 
-        $milestones = self::milestones($region, $movie, $observations, $paceDate, $pacePrecision);
+        $milestones = self::milestones($region, $movie, $displayObservations, $paceDate, $pacePrecision);
         $recentMilestones = array_values(array_filter(
             $milestones,
             fn (array $item) => isset($item['reachedAt'])
@@ -278,8 +279,8 @@ class Insights
             'nextToOvertake' => $isActive
                 ? self::nextToOvertake($movie['key'], $boxOffice, $currentByKey, $isJapan)
                 : null,
-            'periodGrowth' => self::periodGrowth($observations, $boxOffice, $now, $isJapan),
-            'sparkline' => self::sparkline($observations, $isJapan),
+            'periodGrowth' => self::periodGrowth($displayObservations, $boxOffice, $now, $isJapan),
+            'sparkline' => self::sparkline($displayObservations, $isJapan),
             'hasHistory' => count($observations) > 1,
         ];
     }
@@ -342,7 +343,7 @@ class Insights
             break;
         }
 
-        if ($previous === null || ! empty($current['correction'])) {
+        if ($previous === null) {
             return $empty;
         }
 
@@ -596,19 +597,53 @@ class Insights
     }
 
     /**
+     * 後からの下方修正より高い過去の累計は、表示上なかったことにする。
+     * 保存データは変えず、グラフや増分が減って見えないようにする。
+     *
+     * @param  list<array<string, mixed>>  $observations
+     * @return list<array<string, mixed>>
+     */
+    public static function withoutSupersededTotals(array $observations): array
+    {
+        if ($observations === []) {
+            return [];
+        }
+
+        $rows = $observations;
+        usort($rows, fn (array $a, array $b) => strcmp((string) ($a['observedAt'] ?? ''), (string) ($b['observedAt'] ?? '')));
+
+        $kept = [];
+        $ceiling = null;
+        for ($i = count($rows) - 1; $i >= 0; $i--) {
+            $amount = (int) ($rows[$i]['boxOffice'] ?? 0);
+            if ($ceiling !== null && $amount > $ceiling) {
+                continue;
+            }
+            $kept[] = $rows[$i];
+            $ceiling = $amount;
+        }
+
+        return array_reverse($kept);
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $observations
      * @return list<array{at: string, boxOffice: int}>
      */
     private static function sparkline(array $observations, bool $isJapan): array
     {
-        $usable = [];
-        foreach ($observations as $row) {
-            if (! empty($row['correction'])) {
+        $usable = self::withoutSupersededTotals($observations);
+        $lastIndex = array_key_last($usable);
+        $filtered = [];
+        foreach ($usable as $i => $row) {
+            // 途中の修正点は従来どおり出さない。末尾なら公式の最新値として残す。
+            if (! empty($row['correction']) && $i !== $lastIndex) {
                 continue;
             }
-            $usable[] = $row;
+            $filtered[] = $row;
         }
-        usort($usable, fn (array $a, array $b) => strcmp($a['observedAt'] ?? '', $b['observedAt'] ?? ''));
+        usort($filtered, fn (array $a, array $b) => strcmp($a['observedAt'] ?? '', $b['observedAt'] ?? ''));
+        $usable = $filtered;
 
         $points = [];
         foreach (ObservationStore::keepLatestPerDate($usable) as $row) {

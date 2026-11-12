@@ -183,6 +183,68 @@ class BoxOfficeHistoryTest extends TestCase
         $this->assertSame(0, $store->compact('global'));
     }
 
+    public function test_sparkline_hides_totals_superseded_by_a_later_revision(): void
+    {
+        $now = new DateTimeImmutable('2026-10-24T12:00:00+09:00');
+        $michael = Insights::compute('global', [
+            $this->current('tmdb-936075', 'Michael／マイケル', 1_028_703_388, false),
+        ], [
+            'tmdb-936075' => [
+                $this->obs('tmdb-936075', '2026-08-15T03:40:40+09:00', 1_021_000_000, true),
+                $this->obs('tmdb-936075', '2026-08-29T21:20:28+09:00', 1_032_616_139, true),
+                $this->obs('tmdb-936075', '2026-09-23T19:36:23+09:00', 1_042_616_139, true),
+                $this->obs('tmdb-936075', '2026-10-12T23:04:36+09:00', 1_028_703_388, true, true),
+                $this->obs('tmdb-936075', '2026-10-23T01:25:41+09:00', 1_028_703_388, false),
+            ],
+        ], [], $now);
+        $jedi = Insights::compute('japan', [
+            $this->current('jp-tmdb-1892', 'スター・ウォーズ/ジェダイの復讐', 5_340_000_000, false),
+        ], [
+            'jp-tmdb-1892' => [
+                $this->obs('jp-tmdb-1892', '2026-08-15T03:40:12+09:00', 6_330_000_000, false),
+                $this->obs('jp-tmdb-1892', '2026-10-01T21:10:32+09:00', 5_340_000_000, false, true),
+            ],
+        ], [], $now);
+
+        $michaelSpark = $michael['movies']['tmdb-936075']['sparkline'];
+        $this->assertSame([
+            ['at' => '2026-08-15T03:40:40+09:00', 'boxOffice' => 1_021_000_000],
+            ['at' => '2026-10-23T01:25:41+09:00', 'boxOffice' => 1_028_703_388],
+        ], $michaelSpark);
+        $this->assertSame(1_028_703_388, $michaelSpark[array_key_last($michaelSpark)]['boxOffice']);
+        $this->assertGreaterThanOrEqual(0, $michael['movies']['tmdb-936075']['delta'] ?? 0);
+
+        $jediSpark = $jedi['movies']['jp-tmdb-1892']['sparkline'];
+        $this->assertSame([
+            ['at' => '2026-10-01T21:10:32+09:00', 'boxOffice' => 5_340_000_000],
+        ], $jediSpark);
+        $this->assertNull($jedi['movies']['jp-tmdb-1892']['delta']);
+        foreach ([$michaelSpark, $jediSpark] as $spark) {
+            for ($i = 1; $i < count($spark); $i++) {
+                $this->assertGreaterThanOrEqual($spark[$i - 1]['boxOffice'], $spark[$i]['boxOffice']);
+            }
+        }
+    }
+
+    public function test_sparkline_bounce_back_after_correction_stays_a_single_point(): void
+    {
+        $now = new DateTimeImmutable('2026-09-16T12:00:00+09:00');
+        $result = Insights::compute('japan', [
+            $this->current('jp-tmdb-1891', 'スター・ウォーズ/帝国の逆襲', 5_490_000_000, false),
+        ], [
+            'jp-tmdb-1891' => [
+                $this->obs('jp-tmdb-1891', '2026-08-15T03:40:00+09:00', 5_490_000_000, false),
+                $this->obs('jp-tmdb-1891', '2026-09-08T19:23:16+09:00', 5_480_000_000, false, true),
+                $this->obs('jp-tmdb-1891', '2026-09-15T03:00:00+09:00', 5_490_000_000, false),
+            ],
+        ], [], $now);
+
+        $this->assertSame([
+            ['at' => '2026-09-15T03:00:00+09:00', 'boxOffice' => 5_490_000_000],
+        ], $result['movies']['jp-tmdb-1891']['sparkline']);
+        $this->assertNull($result['movies']['jp-tmdb-1891']['delta']);
+    }
+
     public function test_sparkline_keeps_one_point_per_date(): void
     {
         $now = new DateTimeImmutable('2026-10-04T22:00:00+09:00');
@@ -303,7 +365,7 @@ class BoxOfficeHistoryTest extends TestCase
         $result = Insights::compute('japan', $current, $observations, [], $now);
 
         $this->assertSame('2026-08-10T03:00:00+09:00', $result['movies']['jp-a']['lastChangeAt']);
-        $this->assertSame('2026-08-10T03:00:00+09:00', $result['movies']['jp-a']['lastIncreaseAt']);
+        $this->assertNull($result['movies']['jp-a']['lastIncreaseAt']);
         $this->assertFalse($result['movies']['jp-a']['changedRecently']);
         $this->assertTrue($result['movies']['jp-a']['onBoard']);
     }
@@ -341,7 +403,7 @@ class BoxOfficeHistoryTest extends TestCase
             ],
         ], [], $now);
 
-        $this->assertSame('2026-10-10T03:00:00+09:00', $japan['movies']['jp-a']['lastIncreaseAt']);
+        $this->assertNull($japan['movies']['jp-a']['lastIncreaseAt']);
         $this->assertSame('2026-10-18T03:00:00+09:00', $japan['movies']['jp-b']['lastIncreaseAt']);
         $this->assertSame('2026-10-24T03:00:00+09:00', $global['movies']['g-a']['lastIncreaseAt']);
         $this->assertNull(Insights::compute('japan', [

@@ -3,6 +3,8 @@
 namespace Tests\Feature\BoxOffice;
 
 use App\Console\Commands\ExportStaticSite;
+use App\Services\BoxOffice\Insights;
+use DateTimeImmutable;
 use ReflectionMethod;
 use Tests\TestCase;
 
@@ -348,6 +350,70 @@ class MoviePageHistoryTest extends TestCase
         $this->assertSame(['20.22億', '23.33億'], $labels[1]);
         $this->assertStringContainsString('2026/8/31（公開33日）', $svg);
         $this->assertStringNotContainsString('2026/9/1', $svg);
+    }
+
+    public function test_trajectory_section_does_not_show_a_drop_after_a_downward_revision(): void
+    {
+        $command = $this->app->make(ExportStaticSite::class);
+        $now = new DateTimeImmutable('2026-10-24T12:00:00+09:00');
+        $michael = Insights::compute('global', [[
+            'key' => 'tmdb-936075',
+            'title' => 'Michael／マイケル',
+            'boxOffice' => 1_028_703_388,
+            'isActive' => false,
+        ]], [
+            'tmdb-936075' => [
+                ['key' => 'tmdb-936075', 'observedAt' => '2026-08-15T03:40:40+09:00', 'boxOffice' => 1_021_000_000, 'isActive' => true],
+                ['key' => 'tmdb-936075', 'observedAt' => '2026-08-29T21:20:28+09:00', 'boxOffice' => 1_032_616_139, 'isActive' => true],
+                ['key' => 'tmdb-936075', 'observedAt' => '2026-09-23T19:36:23+09:00', 'boxOffice' => 1_042_616_139, 'isActive' => true],
+                ['key' => 'tmdb-936075', 'observedAt' => '2026-10-12T23:04:36+09:00', 'boxOffice' => 1_028_703_388, 'isActive' => true, 'correction' => true],
+                ['key' => 'tmdb-936075', 'observedAt' => '2026-10-23T01:25:41+09:00', 'boxOffice' => 1_028_703_388, 'isActive' => false],
+            ],
+        ], [], $now)['movies']['tmdb-936075'];
+
+        $html = $this->invoke($command, 'trajectorySection', [
+            'title' => 'Michael／マイケル',
+            'isActive' => false,
+            'pageHistory' => [
+                'sparkline' => $michael['sparkline'],
+                'releaseDate' => '2026-01-31',
+                'releaseDatePrecision' => 'day',
+            ],
+        ], false);
+
+        $this->assertStringContainsString('10.21億ドル', $html);
+        $this->assertStringContainsString('10.29億ドル', $html);
+        $this->assertStringContainsString('+0.08億ドル', $html);
+        $this->assertStringNotContainsString('10.43億ドル', $html);
+        $this->assertStringNotContainsString('−', $html);
+        $this->assertStringNotContainsString('is-down', $html);
+        preg_match_all('/<td class="is-amount">([^<]+)/', $html, $amounts);
+        $this->assertSame(['10.29億ドル', '10.21億ドル'], $amounts[1]);
+        preg_match_all('/<td class="is-delta(?: is-up)?">([^<]+)/', $html, $deltas);
+        $this->assertSame(['+0.08億ドル', '—'], $deltas[1]);
+
+        $jedi = Insights::compute('japan', [[
+            'key' => 'jp-tmdb-1892',
+            'title' => 'スター・ウォーズ/ジェダイの復讐',
+            'boxOffice' => 5_340_000_000,
+            'isActive' => false,
+        ]], [
+            'jp-tmdb-1892' => [
+                ['key' => 'jp-tmdb-1892', 'observedAt' => '2026-08-15T03:40:12+09:00', 'boxOffice' => 6_330_000_000, 'isActive' => false],
+                ['key' => 'jp-tmdb-1892', 'observedAt' => '2026-10-01T21:10:32+09:00', 'boxOffice' => 5_340_000_000, 'isActive' => false, 'correction' => true],
+            ],
+        ], [], $now)['movies']['jp-tmdb-1892'];
+        $jediHtml = $this->invoke($command, 'trajectorySection', [
+            'title' => 'スター・ウォーズ/ジェダイの復讐',
+            'isActive' => false,
+            'pageHistory' => [
+                'sparkline' => $jedi['sparkline'],
+                'releaseDate' => '1983-07-02',
+                'releaseDatePrecision' => 'day',
+            ],
+        ], true);
+        $this->assertSame('', $jediHtml);
+        $this->assertSame(5_340_000_000, $jedi['sparkline'][0]['boxOffice']);
     }
 
     public function test_trajectory_section_includes_day_and_total_table(): void

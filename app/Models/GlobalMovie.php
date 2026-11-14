@@ -10,11 +10,15 @@ class GlobalMovie extends Model
     use HasFactory;
 
     protected $connection = 'mysql';
+
     protected $table = 'global_movies';
-    
+
     protected $primaryKey = 'movie_id';
+
     protected $keyType = 'string';
+
     public $incrementing = false;
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -32,7 +36,10 @@ class GlobalMovie extends Model
         'data_source',
         'data_source_url',
         'last_updated',
-        'is_active'
+        'is_active',
+        'in_ranking',
+        'tmdb_collection_id',
+        'tmdb_collection_name',
     ];
 
     protected $casts = [
@@ -42,11 +49,11 @@ class GlobalMovie extends Model
         'budget' => 'integer',
         'last_updated' => 'datetime',
         'is_active' => 'boolean',
+        'in_ranking' => 'boolean',
+        'tmdb_collection_id' => 'integer',
     ];
 
     protected $attributes = [
-        'genres' => '[]'
+        'genres' => '[]',
     ];
-
-
 }

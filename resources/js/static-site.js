@@ -264,17 +264,49 @@ function getPageMovies(rankedMovies) {
     return rankedMovies.slice(start, start + PER_PAGE);
 }
 
+function rankingChip(movie) {
+    if (!movie.rankingPosition) return '';
+    return `<a class="series-ranking-chip" href="${escapeHtml(moviePageHref(movie))}" title="歴代ランキング">${escapeHtml(String(movie.rankingPosition))}</a>`;
+}
+
+function isSeriesPage() {
+    return document.body?.dataset?.page === 'series';
+}
+
+function seriesRankLabel(movie) {
+    const rank = Number(movie.rank);
+    return Number.isInteger(rank) && rank > 0 ? String(rank) : '—';
+}
+
+function seriesYearLine(movie, tag = 'span') {
+    if (!isSeriesPage()) return '';
+    let year = movie.releaseYear;
+    if (!year && typeof movie.releaseDate === 'string') {
+        const match = movie.releaseDate.match(/^((?:19|20)\d{2})/);
+        if (match) year = match[1];
+    }
+    if (!year) return '';
+    return `<${tag} class="series-release-year">${escapeHtml(String(year))}年</${tag}>`;
+}
+
+function isSeriesPodium(movie) {
+    const rank = Number(movie.rank);
+    return Number.isInteger(rank) && rank >= 1 && rank <= 3;
+}
+
 function movieCard(movie) {
     const url = posterUrl(movie.posterUrl);
     const subtitle = showOriginalTitle(movie)
         ? `<div class="movie-title-en">${escapeHtml(movie.originalTitle)}</div>` : '';
     const bgImage = url ? `<div class="card-bg-image" style="background-image:url('${escapeHtml(url)}')"></div>` : '';
-    return `<article class="top-card rank-${movie.rank} ${movie.isActive ? 'active-movie' : ''}${movie.news?.length ? ' has-news' : ''}" data-movie-id="${escapeHtml(movie.id)}" role="button" tabindex="0" aria-label="${escapeHtml(movie.title)}の詳細を見る">
+    const rankClass = Number.isInteger(Number(movie.rank)) && Number(movie.rank) > 0 ? `rank-${movie.rank}` : 'rank-none';
+    return `<article class="top-card ${rankClass} ${movie.isActive ? 'active-movie' : ''}${movie.news?.length ? ' has-news' : ''}" data-movie-id="${escapeHtml(movie.id)}" role="button" tabindex="0" aria-label="${escapeHtml(movie.title)}の詳細を見る">
         ${movie.isActive ? '<div class="active-badge-card">公開中</div>' : ''}
-        <div class="rank-badge">${movie.rank}</div>
+        <div class="rank-badge">${isSeriesPage() ? escapeHtml(seriesRankLabel(movie)) : movie.rank}</div>
         <div class="card-poster ${url ? '' : 'poster-placeholder'}" ${posterStyle(movie.posterUrl)}></div>
         ${bgImage}
         ${titleLine(movie)}
+        ${seriesYearLine(movie, 'div')}
         ${subtitle}
         <div class="revenue-container">
             <div class="revenue-main" style="color: var(--accent-gold);">${escapeHtml(movie.revenue)}</div>
@@ -290,14 +322,18 @@ function movieRow(movie, isJapan) {
     const subtitle = showOriginalTitle(movie)
         ? `<span class="movie-title-en">${escapeHtml(movie.originalTitle)}</span>` : '';
     const bgImage = url ? `<div class="list-bg-image" style="background-image:url('${escapeHtml(url)}')"></div>` : '';
-    const barWidth = revenueBarWidth(movie, isJapan);
-    return `<article class="list-item ${movie.isActive ? 'active-movie' : ''} ${isJapan ? 'is-japan' : ''}${movie.news?.length ? ' has-news' : ''}" data-movie-id="${escapeHtml(movie.id)}" role="button" tabindex="0" aria-label="${escapeHtml(movie.title)}の詳細を見る">
+    const barWidth = isSeriesPage() && movie.metric === 'distributor_rentals' ? 0 : revenueBarWidth(movie, isJapan);
+    const rental = movie.metric === 'distributor_rentals' ? ' is-rental' : '';
+    const rankLabel = isSeriesPage() ? seriesRankLabel(movie) : movie.rank;
+    const rankClass = isSeriesPage() && seriesRankLabel(movie) === '—' ? ' list-rank-unranked' : '';
+    return `<article class="list-item ${movie.isActive ? 'active-movie' : ''} ${isJapan ? 'is-japan' : ''}${movie.news?.length ? ' has-news' : ''}${rental}" data-movie-id="${escapeHtml(movie.id)}" role="button" tabindex="0" aria-label="${escapeHtml(movie.title)}の詳細を見る">
         ${movie.isActive ? '<div class="active-badge-card">公開中</div>' : ''}
         <div class="revenue-bar-bg" style="width: ${barWidth}%;"></div>
         ${bgImage}
-        <div class="list-rank">${movie.rank}</div>
+        <div class="list-rank${rankClass}">${rankLabel}</div>
         <div class="list-info">
             ${titleLine(movie)}
+            ${seriesYearLine(movie, 'span')}
             ${subtitle}
         </div>
         <div class="list-revenue">
@@ -404,7 +440,7 @@ document.addEventListener('click', (event) => {
 }, true);
 
 function titleLine(movie) {
-    return `<div class="title-line">${movieTitleHtml(movie)}${newsButton(movie)}</div>`;
+    return `<div class="title-line">${movieTitleHtml(movie)}${newsButton(movie)}${rankingChip(movie)}</div>`;
 }
 
 function documentTitle() {
@@ -499,7 +535,7 @@ function footerHtml() {
         ? String(Math.round(Number(siteData.usdJpy)))
         : '150';
     return `<footer><div class="container">
-        <p class="site-footer-links"><a href="/now/">公開中の動向</a> · <a href="/about/">このサイトについて</a> · <a href="/privacy/">プライバシーポリシー</a> · <a href="/feed.xml">RSS</a></p>
+        <p class="site-footer-links"><a href="/series/">シリーズ興行収入</a> · <a href="/now/">公開中の動向</a> · <a href="/about/">このサイトについて</a> · <a href="/privacy/">プライバシーポリシー</a> · <a href="/feed.xml">RSS</a></p>
         <p>&copy; ${year} MUBIRAN. All rights reserved.</p>
         <p class="site-footer-attr">
             <a class="tmdb-attr" href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">
@@ -659,7 +695,63 @@ function init(data) {
     watchRankingTitleFit(() => state.view === 'ranking');
 }
 
-fetch('/data/movies.json')
-    .then((response) => response.ok ? response.json() : Promise.reject(new Error('ランキングデータを読み込めませんでした。')))
-    .then(init)
-    .catch((error) => { app.innerHTML = `<p class="static-error">${escapeHtml(error.message)}</p>`; });
+function initSeries(series) {
+    const region = series.region === 'japan' ? 'japan' : 'global';
+    const movies = Array.isArray(series.movies) ? series.movies : [];
+    siteData = {
+        global: region === 'global' ? movies : [],
+        japan: region === 'japan' ? movies : [],
+        usdJpy: series.usdJpy,
+    };
+    state.region = region;
+    state.view = 'ranking';
+    if (series.usdJpy) setUsdJpy(series.usdJpy);
+
+    const isJapan = region === 'japan';
+    const topHost = document.querySelector('#series-top-rankings');
+    const listHost = document.querySelector('#series-ranking-list');
+    if (topHost && listHost && movies.length) {
+        const top = movies.filter(isSeriesPodium);
+        const rest = movies.filter((movie) => !isSeriesPodium(movie));
+        topHost.innerHTML = top.map(movieCard).join('');
+        listHost.innerHTML = rest.map((movie) => movieRow(movie, isJapan)).join('');
+    }
+
+    bindMovieInteractions(siteData);
+    bindAiOverlays();
+    fitRankingTitles();
+}
+
+function readEmbeddedSeries() {
+    const embedded = document.getElementById('series-data');
+    if (!embedded?.textContent?.trim()) return null;
+    try {
+        return JSON.parse(embedded.textContent);
+    } catch {
+        return null;
+    }
+}
+
+function bootSeriesPage(root) {
+    const embedded = readEmbeddedSeries();
+    if (embedded) {
+        initSeries(embedded);
+        return;
+    }
+    fetch(root.dataset.seriesSrc)
+        .then((response) => (response.ok ? response.json() : Promise.reject(new Error('シリーズデータを読み込めませんでした。'))))
+        .then(initSeries)
+        .catch((error) => {
+            root.insertAdjacentHTML('afterbegin', `<p class="static-error">${escapeHtml(error.message)}</p>`);
+        });
+}
+
+const seriesApp = document.querySelector('#app[data-series-src]');
+if (seriesApp) {
+    bootSeriesPage(seriesApp);
+} else if (app) {
+    fetch('/data/movies.json')
+        .then((response) => response.ok ? response.json() : Promise.reject(new Error('ランキングデータを読み込めませんでした。')))
+        .then(init)
+        .catch((error) => { app.innerHTML = `<p class="static-error">${escapeHtml(error.message)}</p>`; });
+}

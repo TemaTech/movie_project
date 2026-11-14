@@ -329,6 +329,7 @@ trait FetchesTmdbMovieDetails
             'vote_average' => $detail['vote_average'] ?? null,
             'budget' => $detail['budget'] ?? 0,
             'revenue' => $detail['revenue'] ?? 0,
+            'belongs_to_collection' => $detail['belongs_to_collection'] ?? null,
             'production_countries' => $detail['production_countries'] ?? [],
             'production_companies' => array_slice($detail['production_companies'] ?? [], 0, 3),
             'genres' => $detail['genres'] ?? [],

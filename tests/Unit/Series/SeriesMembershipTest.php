@@ -61,4 +61,21 @@ class SeriesMembershipTest extends TestCase
         ]]);
         $this->assertSame('jp-1', $matched['id']);
     }
+
+    public function test_identity_compact_collapses_wikipedia_and_ranking_harry_potter_titles(): void
+    {
+        $this->assertSame(
+            SeriesFilmMatcher::identityCompact('ハリー・ポッター 賢者の石'),
+            SeriesFilmMatcher::identityCompact('ハリー・ポッターと賢者の石 (映画)')
+        );
+        $this->assertSame(
+            ['tmdb:671', 'title:ハリーポッター賢者石|2001'],
+            SeriesFilmMatcher::dedupeKeys([
+                'id' => 'tmdb-671',
+                'tmdbId' => 671,
+                'title' => 'ハリー・ポッターと賢者の石 (映画)',
+                'releaseYear' => 2001,
+            ])
+        );
+    }
 }

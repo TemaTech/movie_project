@@ -3,6 +3,7 @@
 namespace Tests\Feature\Series;
 
 use App\Console\Commands\ExportStaticSite;
+use App\Services\Series\JapanSeriesSnapshot;
 use App\Services\Series\SeriesCatalog;
 use App\Services\Series\SeriesFilmMatcher;
 use App\Services\Series\SeriesSlug;
@@ -92,8 +93,9 @@ class SeriesExportTest extends TestCase
         $this->assertStringContainsString('name":"日本のシリーズ"', $detail);
         $this->assertStringContainsString('id="app"', $detail);
         $this->assertStringContainsString('data-series-src=', $detail);
-        $this->assertStringContainsString('top-card', $detail);
+        $this->assertStringContainsString('list-item', $detail);
         $this->assertStringContainsString('data-movie-id="jp-tmdb-1"', $detail);
+        $this->assertStringNotContainsString('top-card', $detail);
         $this->assertStringNotContainsString('series-table', $detail);
     }
 
@@ -200,12 +202,12 @@ class SeriesExportTest extends TestCase
         $html = $this->invoke('seriesDetailHtml', $conan, $catalog);
         $this->assertStringContainsString('href="/movies/jp-tmdb-1545621/"', $html);
         $this->assertStringContainsString('data-movie-id="jp-tmdb-1545621"', $html);
-        $this->assertStringContainsString('series-ranking-chip', $html);
-        $this->assertStringContainsString('>28</a>', $html);
+        $this->assertStringContainsString('news-trigger-btn series-ranking-chip', $html);
+        $this->assertStringContainsString('>28</span>', $html);
         $this->assertStringContainsString('list-item', $html);
-        $this->assertStringContainsString('top-card', $html);
-        $this->assertStringContainsString('<article class="top-card rank-1" data-movie-id="jp-tmdb-1209217"', $html);
-        $this->assertStringContainsString('2024年', $html);
+        $this->assertStringNotContainsString('top-card', $html);
+        $this->assertStringNotContainsString('series-release-year', $html);
+        $this->assertStringContainsString('<article class="list-item rank-1 is-japan" data-movie-id="jp-tmdb-1209217"', $html);
         $this->assertStringNotContainsString('<table class="series-table">', $html);
     }
 
@@ -246,9 +248,8 @@ class SeriesExportTest extends TestCase
         $this->assertStringContainsString('配給収入と興行収入は別の指標', $html);
         $this->assertStringContainsString('list-item', $html);
         $this->assertStringContainsString('list-rank-unranked', $html);
-        $this->assertStringNotContainsString('top-card rank-1', $html);
-        $this->assertStringContainsString('1980年', $html);
-        $this->assertStringContainsString('2024年', $html);
+        $this->assertStringNotContainsString('top-card', $html);
+        $this->assertStringNotContainsString('series-release-year', $html);
     }
 
     public function test_series_detail_ranks_by_box_office_and_parks_rentals(): void
@@ -297,11 +298,11 @@ class SeriesExportTest extends TestCase
             'indexPath' => '/series/',
         ]);
 
-        $this->assertStringContainsString('<article class="top-card rank-1" data-movie-id="top-bo"', $html);
-        $this->assertStringContainsString('<article class="top-card rank-2" data-movie-id="old-bo"', $html);
-        $this->assertStringNotContainsString('<article class="top-card', explode('id="series-ranking-list"', $html)[1]);
+        $this->assertStringContainsString('<article class="list-item rank-1 is-japan" data-movie-id="top-bo"', $html);
+        $this->assertStringContainsString('<article class="list-item rank-2 is-japan" data-movie-id="old-bo"', $html);
+        $this->assertStringNotContainsString('top-card', $html);
+        $this->assertStringNotContainsString('series-release-year', $html);
         $this->assertStringContainsString('data-movie-id="rental"', explode('id="series-ranking-list"', $html)[1]);
-        $this->assertStringContainsString('2020年', $html);
         $this->assertStringContainsString('（配給収入）', $html);
         $this->assertStringContainsString('不明', $html);
         $podiumPos = strpos($html, '最高興収作');
@@ -359,6 +360,85 @@ class SeriesExportTest extends TestCase
         $this->assertSame(30, $hp['films'][2]['rank']);
         $this->assertSame(974_755_371 + 879_000_000 + 896_000_000, $hp['totalUsd']);
         $this->assertSame('/series/global/'.$slug.'/', $catalog['movieLinks']['tmdb-671']['href']);
+    }
+
+    public function test_world_catalog_dedupes_ranking_and_collection_duplicates(): void
+    {
+        $catalog = SeriesCatalog::world([
+            [
+                'id' => 'tmdb-671',
+                'tmdbId' => 671,
+                'title' => 'ハリー・ポッターと賢者の石',
+                'rank' => 12,
+                'inRanking' => true,
+                'boxOffice' => 974_755_371,
+                'posterUrl' => '/posters/hp.jpg',
+                'releaseYear' => 2001,
+                'collectionId' => 1241,
+                'collectionName' => 'ハリー・ポッター コレクション',
+            ],
+        ], [
+            [
+                'id' => 'tmdb-671-rerelease',
+                'tmdbId' => 671,
+                'title' => 'ハリー・ポッターと賢者の石',
+                'rank' => null,
+                'inRanking' => false,
+                'boxOffice' => 0,
+                'releaseYear' => 2001,
+                'collectionId' => 1241,
+                'collectionName' => 'ハリー・ポッター コレクション',
+            ],
+            [
+                'id' => 'tmdb-999001',
+                'tmdbId' => 999001,
+                'title' => 'ハリー・ポッターと賢者の石 (映画)',
+                'rank' => null,
+                'inRanking' => false,
+                'boxOffice' => 10,
+                'releaseYear' => 2001,
+                'collectionId' => 1241,
+                'collectionName' => 'ハリー・ポッター コレクション',
+            ],
+        ]);
+
+        $hp = $catalog['series'][0];
+        $this->assertCount(1, $hp['films']);
+        $this->assertSame(1, $hp['filmCount']);
+        $this->assertSame(1, $hp['knownCount']);
+        $this->assertSame('tmdb-671', $hp['films'][0]['id']);
+        $this->assertSame(12, $hp['films'][0]['rank']);
+        $this->assertSame(974_755_371, $hp['films'][0]['boxOffice']);
+        $this->assertSame(974_755_371, $hp['totalUsd']);
+        $this->assertArrayHasKey('tmdb-671', $catalog['movieLinks']);
+        $this->assertArrayNotHasKey('tmdb-671-rerelease', $catalog['movieLinks']);
+    }
+
+    public function test_japan_harry_potter_snapshot_is_deduped_and_no_series_has_duplicate_films(): void
+    {
+        $raw = collect(JapanSeriesSnapshot::series())->firstWhere('name', 'ハリー・ポッター');
+        $this->assertIsArray($raw);
+        $rawStone = array_values(array_filter(
+            $raw['films'],
+            fn (array $film) => str_contains((string) $film['title'], '賢者の石')
+        ));
+        $this->assertGreaterThan(1, count($rawStone));
+
+        $catalog = SeriesCatalog::japan([]);
+        $hp = collect($catalog['series'])->firstWhere('name', 'ハリー・ポッター');
+        $this->assertIsArray($hp);
+        $stone = array_values(array_filter(
+            $hp['films'],
+            fn (array $film) => str_contains((string) ($film['title'] ?? ''), '賢者の石')
+        ));
+        $this->assertCount(1, $stone);
+        $this->assertSame(count($hp['films']), $hp['filmCount']);
+
+        foreach (array_merge($catalog['series'], SeriesCatalog::world([])['series']) as $series) {
+            $this->assertSeriesFilmsAreUnique($series);
+        }
+        $extraIds = array_map(fn (array $movie) => (string) ($movie['id'] ?? ''), $catalog['extraMovies']);
+        $this->assertSame($extraIds, array_values(array_unique($extraIds)));
     }
 
     public function test_film_matcher_links_conan_titles_to_ranking_rows(): void
@@ -437,9 +517,10 @@ class SeriesExportTest extends TestCase
         $html = $this->invoke('seriesDetailHtml', $series, $catalog);
         $this->assertStringContainsString('upcoming-badge-card', $html);
         $this->assertStringContainsString('公開予定', $html);
-        $this->assertStringContainsString('<article class="top-card rank-1" data-movie-id="tmdb-1"', $html);
-        $this->assertStringNotContainsString('<article class="top-card', explode('id="series-ranking-list"', $html)[1]);
+        $this->assertStringContainsString('<article class="list-item rank-1" data-movie-id="tmdb-1"', $html);
+        $this->assertStringNotContainsString('top-card', $html);
         $this->assertStringContainsString('data-movie-id="tmdb-2"', explode('id="series-ranking-list"', $html)[1]);
+        $this->assertStringContainsString('is-upcoming', $html);
         $this->assertStringContainsString('list-rank-unranked', $html);
     }
 
@@ -681,6 +762,38 @@ class SeriesExportTest extends TestCase
         $this->assertStringContainsString('"dateModified":"2026-10-01T03:00:00+09:00"', $worldDetail);
         $this->assertStringContainsString('"dateModified":"2026-11-14T00:00:00+09:00"', $extraPage);
         $this->assertStringContainsString('"dateModified":"2026-11-14T03:00:00+09:00"', $worldExtraPage);
+    }
+
+    /**
+     * @param  array<string, mixed>  $series
+     */
+    private function assertSeriesFilmsAreUnique(array $series): void
+    {
+        $tmdbIds = [];
+        $titles = [];
+        foreach ($series['films'] ?? [] as $film) {
+            $tmdbId = SeriesFilmMatcher::tmdbId($film);
+            if ($tmdbId !== null) {
+                $this->assertArrayNotHasKey(
+                    $tmdbId,
+                    $tmdbIds,
+                    ($series['name'] ?? '').' has duplicate TMDB id '.$tmdbId
+                );
+                $tmdbIds[$tmdbId] = true;
+            }
+            $title = SeriesFilmMatcher::identityCompact((string) ($film['title'] ?? ''));
+            $year = SeriesFilmMatcher::year($film);
+            if ($title === '' || $year === null) {
+                continue;
+            }
+            $key = $title.'|'.$year;
+            $this->assertArrayNotHasKey(
+                $key,
+                $titles,
+                ($series['name'] ?? '').' has duplicate title '.$key
+            );
+            $titles[$key] = true;
+        }
     }
 
     private function invoke(string $method, mixed ...$arguments): mixed

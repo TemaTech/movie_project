@@ -394,6 +394,29 @@ header {
     background: linear-gradient(90deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.13) 100%) !important;
 }
 
+/* シリーズ一覧の 1–3 位は、モバイル歴代と同じ金銀銅（list-item のまま） */
+.list-item.rank-1,
+.list-item.is-japan.rank-1,
+.list-item.is-japan.rank-1.active-movie {
+    background: linear-gradient(90deg, rgba(255, 215, 0, 0.1) 0%, rgba(10, 10, 10, 1) 100%) !important;
+    border-color: rgba(255, 215, 0, 0.4);
+}
+.list-item.rank-2,
+.list-item.is-japan.rank-2,
+.list-item.is-japan.rank-2.active-movie {
+    background: linear-gradient(90deg, rgba(192, 192, 192, 0.1) 0%, rgba(10, 10, 10, 1) 100%) !important;
+    border-color: rgba(192, 192, 192, 0.4);
+}
+.list-item.rank-3,
+.list-item.is-japan.rank-3,
+.list-item.is-japan.rank-3.active-movie {
+    background: linear-gradient(90deg, rgba(205, 127, 50, 0.1) 0%, rgba(10, 10, 10, 1) 100%) !important;
+    border-color: rgba(205, 127, 50, 0.4);
+}
+.list-item.rank-1 .list-rank { color: var(--accent-gold); }
+.list-item.rank-2 .list-rank { color: #C0C0C0; }
+.list-item.rank-3 .list-rank { color: #CD7F32; }
+
 /* リストアイテム グラデーション背景画像（興行収入の左側に配置） */
 .list-bg-image {
     position: absolute;

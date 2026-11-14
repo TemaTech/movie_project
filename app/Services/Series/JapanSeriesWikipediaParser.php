@@ -74,8 +74,8 @@ class JapanSeriesWikipediaParser
                     continue;
                 }
 
-                $key = mb_strtolower($film['title']).'|'.mb_strtolower((string) ($film['shortTitle'] ?? '')).'|'.($film['releaseYear'] ?? '');
-                if (isset($seen[$key])) {
+                $key = SeriesFilmMatcher::identityCompact((string) $film['title']).'|'.($film['releaseYear'] ?? '');
+                if ($key === '|' || isset($seen[$key])) {
                     continue;
                 }
                 $seen[$key] = true;
@@ -114,7 +114,7 @@ class JapanSeriesWikipediaParser
                 if ($film === null || ($film['title'] ?? '') === '') {
                     continue;
                 }
-                $key = SeriesFilmMatcher::compact($film['title']).'|'.($film['releaseYear'] ?? '');
+                $key = SeriesFilmMatcher::identityCompact($film['title']).'|'.($film['releaseYear'] ?? '');
                 if (isset($seen[$key])) {
                     if (($films[$seen[$key]]['boxOfficeYen'] ?? null) === null && ($film['boxOfficeYen'] ?? null) !== null) {
                         $films[$seen[$key]] = $film;

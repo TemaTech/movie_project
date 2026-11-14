@@ -158,5 +158,65 @@ HTML;
         $this->assertTrue(\App\Services\Series\SeriesFilmMatcher::isNonFilmRowTitle('計'));
         $this->assertFalse(\App\Services\Series\SeriesFilmMatcher::isNonFilmRowTitle('スパイダーマン'));
         $this->assertFalse(\App\Services\Series\SeriesFilmMatcher::isNonFilmRowTitle('名探偵コナン 時計じかけの摩天楼'));
+        $this->assertTrue(\App\Services\Series\SeriesFilmMatcher::isNonFilmRowTitle('マン・オブ・スティール オリジナル・サウンドトラック'));
+        $this->assertTrue(\App\Services\Series\SeriesFilmMatcher::isNonFilmRowTitle('2 Fast 2 Furious (soundtrack)'));
+        $this->assertTrue(\App\Services\Series\SeriesFilmMatcher::isNonFilmRowTitle('Sway With Me (GALXARA Version)'));
+        $this->assertTrue(\App\Services\Series\SeriesFilmMatcher::isNonFilmRowTitle('Furious 7 (score)'));
+        $this->assertTrue(\App\Services\Series\SeriesFilmMatcher::isNonFilmRowTitle('ワイルド・スピード "How We Roll (Fast Five Remix)"'));
+    }
+
+    public function test_skips_soundtrack_and_short_tables_but_keeps_filmography(): void
+    {
+        $html = <<<'HTML'
+<div class="mw-heading mw-heading2"><h2 id="映画">映画</h2></div>
+<table class="wikitable">
+<tr><th>作品名</th><th>公開日</th><th>監督</th></tr>
+<tr><td>マン・オブ・スティール</td><td>2013年6月14日</td><td>ザック・スナイダー</td></tr>
+<tr><td>ワンダーウーマン</td><td>2017年6月2日</td><td>パティ・ジェンキンス</td></tr>
+</table>
+<div class="mw-heading mw-heading2"><h2 id="サウンドトラック">サウンドトラック</h2></div>
+<table class="wikitable">
+<tr><th>タイトル</th><th>米国リリース日</th><th>アーティスト</th></tr>
+<tr><td>マン・オブ・スティール オリジナル・サウンドトラック</td><td>2013年6月11日</td><td>ハンス・ジマー</td></tr>
+<tr><td>Heathens</td><td>2016年6月16日</td><td>Twenty One Pilots</td></tr>
+</table>
+<div class="mw-heading mw-heading2"><h2 id="ショートフィルム">ショートフィルム</h2></div>
+<table class="wikitable">
+<tr><th>タイトル</th><th>米国公開日</th><th>監督</th></tr>
+<tr><td>The Turbo Charged Prelude for 2 Fast 2 Furious</td><td>2003年6月3日</td><td>Philip G. Atwell</td></tr>
+</table>
+HTML;
+
+        $parsed = (new JapanSeriesWikipediaParser)->parseSeriesPageHtml($html, [
+            'name' => 'DCエクステンデッド・ユニバース',
+        ]);
+        $titles = array_column($parsed['films'], 'title');
+        $this->assertNotSame([], array_filter($titles, fn (string $title) => str_contains($title, 'マン・オブ・スティール')));
+        $this->assertNotSame([], array_filter($titles, fn (string $title) => str_contains($title, 'ワンダーウーマン')));
+        $this->assertNotContains('Heathens', $titles);
+        $this->assertNotContains('DCエクステンデッド・ユニバース Heathens', $titles);
+        $this->assertFalse((bool) array_filter($titles, fn (string $title) => str_contains($title, 'サウンドトラック')));
+        $this->assertFalse((bool) array_filter($titles, fn (string $title) => str_contains($title, 'Prelude')));
+    }
+
+    public function test_fast_and_furious_film_list_keeps_later_entries(): void
+    {
+        $html = <<<'HTML'
+<div class="mw-heading mw-heading2"><h2 id="作品一覧">作品一覧</h2></div>
+<table class="wikitable">
+<tr><th>タイトル</th><th>公開日</th><th>監督</th></tr>
+<tr><td>ワイルド・スピード</td><td>2001年6月22日</td><td>ロブ・コーエン</td></tr>
+<tr><td>ワイルド・スピード/ジェットブレイク</td><td>2021年6月25日</td><td>ジャスティン・リン</td></tr>
+<tr><td>ワイルド・スピード/ファイヤーブースト</td><td>2023年5月19日</td><td>ルイ・レテリエ</td></tr>
+</table>
+HTML;
+
+        $parsed = (new JapanSeriesWikipediaParser)->parseSeriesPageHtml($html, [
+            'name' => 'ワイルド・スピード',
+        ]);
+        $titles = array_column($parsed['films'], 'title');
+        $this->assertContains('ワイルド・スピード', $titles);
+        $this->assertContains('ワイルド・スピード/ジェットブレイク', $titles);
+        $this->assertContains('ワイルド・スピード/ファイヤーブースト', $titles);
     }
 }

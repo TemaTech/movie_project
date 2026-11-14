@@ -220,6 +220,9 @@ class ImportJapanSeries extends Command
                 if (($entry['name'] ?? '') !== $name) {
                     continue;
                 }
+                if ($this->rankingFilmConflictsWithSeries($entry, $film)) {
+                    continue;
+                }
                 if ($this->mergeFilm($entry, $film, 'ranking_table')) {
                     $added++;
                 }
@@ -339,21 +342,14 @@ class ImportJapanSeries extends Command
     {
         $entry['films'] ??= [];
         $incomingTmdb = SeriesFilmMatcher::tmdbId($film);
-        $incoming = SeriesFilmMatcher::identityCompact((string) ($film['title'] ?? ''));
         $incomingYear = SeriesFilmMatcher::year($film);
         foreach ($entry['films'] as &$existing) {
             if (! is_array($existing)) {
                 continue;
             }
             $existingTmdb = SeriesFilmMatcher::tmdbId($existing);
-            $have = SeriesFilmMatcher::identityCompact((string) ($existing['title'] ?? ''));
             $tmdbHit = $incomingTmdb !== null && $existingTmdb !== null && $incomingTmdb === $existingTmdb;
-            $titleHit = $have !== '' && $incoming !== '' && $have === $incoming;
-            if (! $tmdbHit && ! $titleHit) {
-                continue;
-            }
-            $existingYear = SeriesFilmMatcher::year($existing);
-            if (! $tmdbHit && $incomingYear && $existingYear && abs($incomingYear - $existingYear) > 1) {
+            if (! $tmdbHit && ! SeriesFilmMatcher::isSameFilm($existing, $film)) {
                 continue;
             }
             if (empty($existing['boxOfficeYen']) && ! empty($film['boxOfficeYen'])) {
@@ -386,6 +382,18 @@ class ImportJapanSeries extends Command
         });
 
         return true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $series
+     * @param  array<string, mixed>  $film
+     */
+    private function rankingFilmConflictsWithSeries(array $series, array $film): bool
+    {
+        $seriesYear = SeriesFilmMatcher::wikipediaDisambiguationYear((string) ($series['wikipediaTitle'] ?? $series['name'] ?? ''));
+        $filmYear = SeriesFilmMatcher::wikipediaDisambiguationYear((string) ($film['wikipediaTitle'] ?? $film['title'] ?? ''));
+
+        return $seriesYear !== null && $filmYear !== null && $filmYear < $seriesYear;
     }
 
     /**

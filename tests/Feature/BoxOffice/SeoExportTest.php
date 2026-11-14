@@ -3,6 +3,7 @@
 namespace Tests\Feature\BoxOffice;
 
 use App\Console\Commands\ExportStaticSite;
+use Carbon\Carbon;
 use ReflectionMethod;
 use Tests\TestCase;
 
@@ -259,30 +260,198 @@ class SeoExportTest extends TestCase
         );
     }
 
-    public function test_sitemap_includes_japan_and_movie_lastmod(): void
+    public function test_sitemap_uses_data_dates_and_keeps_the_url_set(): void
     {
         config(['app.url' => 'https://mubiran.com']);
+        Carbon::setTestNow('2026-11-14T12:00:00+09:00');
         $dir = sys_get_temp_dir().'/mubiran-sitemap-'.bin2hex(random_bytes(4));
         mkdir($dir);
 
+        $global = [[
+            'id' => 'tmdb-299534',
+            'updatedAt' => '2026-10-29T03:00:00+09:00',
+            'pageHistory' => [
+                'grossIncreasedAt' => '2026-10-28T03:00:00+09:00',
+            ],
+        ]];
+        $japan = [[
+            'id' => 'jp-tmdb-280',
+            'updatedAt' => '2026-08-31T21:00:00+09:00',
+        ], [
+            'id' => 'jp-tmdb-1545621',
+        ]];
+        $boardOnly = [[
+            'id' => 'jp-board-only',
+            'pageHistory' => [
+                'grossIncreasedAt' => '2026-09-15T12:00:00+09:00',
+            ],
+        ]];
+        $japanInsights = [
+            'board' => [
+                ['key' => 'jp-tmdb-280'],
+                ['key' => 'jp-board-only'],
+            ],
+            'today' => [[
+                'key' => 'jp-tmdb-280',
+                'lastChangeAt' => '2026-08-31T21:00:00+09:00',
+            ]],
+            'milestones' => [],
+        ];
+        $globalInsights = [
+            'board' => [['key' => 'tmdb-299534']],
+            'today' => [],
+            'milestones' => [[
+                'key' => 'tmdb-299534',
+                'reachedAt' => '2026-10-20T03:00:00+09:00',
+            ]],
+        ];
+
         try {
-            $this->invoke('exportSitemap', $dir, [
-                ['id' => 'g1', 'updatedAt' => '2026-08-01T00:00:00+09:00'],
-            ], [
-                ['id' => 'jp-1'],
-            ], []);
+            $this->invoke(
+                'exportSitemap',
+                $dir,
+                $global,
+                $japan,
+                $boardOnly,
+                '2026-10-29 03:00:00',
+                '2026-08-31 21:00:00',
+                $globalInsights,
+                $japanInsights,
+            );
             $xml = file_get_contents($dir.'/sitemap.xml');
+            $this->invoke(
+                'exportSitemap',
+                $dir,
+                $global,
+                $japan,
+                $boardOnly,
+                '2026-10-29 03:00:00',
+                '2026-08-31 21:00:00',
+                $globalInsights,
+                $japanInsights,
+            );
+            $xmlAgain = file_get_contents($dir.'/sitemap.xml');
         } finally {
+            Carbon::setTestNow();
             @unlink($dir.'/sitemap.xml');
             @rmdir($dir);
         }
 
         $this->assertIsString($xml);
-        $this->assertStringContainsString('https://mubiran.com/japan/', $xml);
-        $this->assertStringContainsString('https://mubiran.com/movies/g1/', $xml);
-        $this->assertStringContainsString('https://mubiran.com/movies/jp-1/', $xml);
-        $this->assertStringContainsString('<lastmod>2026-08-01T00:00:00+09:00</lastmod>', $xml);
-        $this->assertSame('fallback', $this->invoke('movieLastmod', [], 'fallback'));
+        $this->assertSame($xml, $xmlAgain);
+        $this->assertStringNotContainsString('2026-11-14', $xml);
+
+        $entries = $this->sitemapEntries($xml);
+        $this->assertSame([
+            'https://mubiran.com/',
+            'https://mubiran.com/japan/',
+            'https://mubiran.com/now/',
+            'https://mubiran.com/now/global/',
+            'https://mubiran.com/feed.xml',
+            'https://mubiran.com/about/',
+            'https://mubiran.com/privacy/',
+            'https://mubiran.com/movies/tmdb-299534/',
+            'https://mubiran.com/movies/jp-tmdb-280/',
+            'https://mubiran.com/movies/jp-tmdb-1545621/',
+            'https://mubiran.com/movies/jp-board-only/',
+        ], array_keys($entries));
+
+        $this->assertSame('2026-10-28T03:00:00+09:00', $entries['https://mubiran.com/']);
+        $this->assertSame('2026-08-31T21:00:00+09:00', $entries['https://mubiran.com/japan/']);
+        $this->assertSame('2026-09-15T12:00:00+09:00', $entries['https://mubiran.com/now/']);
+        $this->assertSame('2026-10-28T03:00:00+09:00', $entries['https://mubiran.com/now/global/']);
+        $this->assertSame('2026-10-20T03:00:00+09:00', $entries['https://mubiran.com/feed.xml']);
+        $this->assertNull($entries['https://mubiran.com/about/']);
+        $this->assertNull($entries['https://mubiran.com/privacy/']);
+        $this->assertSame('2026-10-28T03:00:00+09:00', $entries['https://mubiran.com/movies/tmdb-299534/']);
+        $this->assertSame('2026-08-31T21:00:00+09:00', $entries['https://mubiran.com/movies/jp-tmdb-280/']);
+        $this->assertNull($entries['https://mubiran.com/movies/jp-tmdb-1545621/']);
+        $this->assertSame('2026-09-15T12:00:00+09:00', $entries['https://mubiran.com/movies/jp-board-only/']);
+        $this->assertNull($this->invoke('movieAsOfTimestamp', []));
+    }
+
+    public function test_sitemap_movie_lastmod_matches_json_ld_date_modified(): void
+    {
+        config(['app.url' => 'https://mubiran.com']);
+        $cases = [
+            [
+                'id' => 'tmdb-299534',
+                'isJapan' => false,
+                'movie' => [
+                    'id' => 'tmdb-299534',
+                    'title' => 'アベンジャーズ／エンドゲーム',
+                    'revenue' => '29.42億ドル',
+                    'revenueYen' => '4,413.3億円',
+                    'rank' => 1,
+                    'updatedAt' => '2026-10-29T03:00:00+09:00',
+                    'pageHistory' => [
+                        'grossIncreasedAt' => '2026-10-28T03:00:00+09:00',
+                    ],
+                    'posterUrl' => '',
+                    'genres' => [],
+                ],
+            ],
+            [
+                'id' => 'jp-tmdb-280',
+                'isJapan' => true,
+                'movie' => [
+                    'id' => 'jp-tmdb-280',
+                    'title' => 'ターミネーター2',
+                    'revenue' => '87.9億円',
+                    'revenueYen' => null,
+                    'rank' => 81,
+                    'posterUrl' => '',
+                    'genres' => [],
+                ],
+            ],
+            [
+                'id' => 'jp-tmdb-1545621',
+                'isJapan' => true,
+                'movie' => [
+                    'id' => 'jp-tmdb-1545621',
+                    'title' => '名探偵コナン ハイウェイの堕天使',
+                    'revenue' => '137.0億円',
+                    'revenueYen' => null,
+                    'rank' => 28,
+                    'updatedAt' => '2026-08-31T21:00:00+09:00',
+                    'posterUrl' => '',
+                    'genres' => [],
+                ],
+            ],
+        ];
+
+        $dir = sys_get_temp_dir().'/mubiran-sitemap-ld-'.bin2hex(random_bytes(4));
+        mkdir($dir);
+
+        try {
+            $this->invoke('exportSitemap', $dir, [
+                $cases[0]['movie'],
+            ], [
+                $cases[1]['movie'],
+                $cases[2]['movie'],
+            ]);
+            $entries = $this->sitemapEntries((string) file_get_contents($dir.'/sitemap.xml'));
+
+            foreach ($cases as $case) {
+                $html = $this->invoke(
+                    'moviePageHtml',
+                    $case['movie'],
+                    $case['isJapan'],
+                    sys_get_temp_dir(),
+                );
+                $movieLd = $this->movieJsonLd($html);
+                $loc = 'https://mubiran.com/movies/'.$case['id'].'/';
+                if (isset($movieLd['dateModified'])) {
+                    $this->assertSame($movieLd['dateModified'], $entries[$loc]);
+                    $this->assertSame($movieLd['dateModified'], $this->invoke('movieAsOfTimestamp', $case['movie']));
+                } else {
+                    $this->assertNull($entries[$loc]);
+                }
+            }
+        } finally {
+            @unlink($dir.'/sitemap.xml');
+            @rmdir($dir);
+        }
     }
 
     public function test_world_movie_meta_leads_with_world_gross_not_yen_conversion(): void
@@ -506,6 +675,28 @@ class SeoExportTest extends TestCase
         $reflection->setAccessible(true);
 
         return $reflection->invoke($this->app->make(ExportStaticSite::class), ...$arguments);
+    }
+
+    /**
+     * @return array<string, string|null>
+     */
+    private function sitemapEntries(string $xml): array
+    {
+        preg_match_all(
+            '#<url>\s*<loc>(.*?)</loc>(?:\s*<lastmod>(.*?)</lastmod>)?\s*<changefreq>.*?</changefreq>\s*<priority>.*?</priority>\s*</url>#s',
+            $xml,
+            $matches,
+            PREG_SET_ORDER,
+        );
+        $this->assertNotSame([], $matches);
+
+        $entries = [];
+        foreach ($matches as $match) {
+            $lastmod = $match[2] ?? '';
+            $entries[html_entity_decode($match[1], ENT_QUOTES | ENT_XML1, 'UTF-8')] = $lastmod === '' ? null : $lastmod;
+        }
+
+        return $entries;
     }
 
     /**

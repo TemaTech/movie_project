@@ -124,7 +124,16 @@ class ExportStaticSite extends Command
         $this->exportTrustPages($output);
         $this->exportNowPage($output, $globalInsights, $japanInsights);
         $this->exportJapanRankingPage($output, $japan, $japanLastUpdated);
-        $this->exportSitemap($output, $global, $japan, $boardOnly);
+        $this->exportSitemap(
+            $output,
+            $global,
+            $japan,
+            $boardOnly,
+            $globalLastUpdated,
+            $japanLastUpdated,
+            $globalInsights,
+            $japanInsights,
+        );
         File::put($output.'/index.html', $this->indexHtml('/', $global, $globalLastUpdated));
 
         $moviePageCount = count($global) + count($japan) + count($boardOnly);
@@ -2141,44 +2150,65 @@ XML);
         return '/build/'.e($this->viteEntry()['file']);
     }
 
-    private function exportSitemap(string $output, array $global, array $japan, array $boardOnly = []): void
-    {
+    /**
+     * @param  list<array<string, mixed>>  $global
+     * @param  list<array<string, mixed>>  $japan
+     * @param  list<array<string, mixed>>  $boardOnly
+     * @param  array<string, mixed>  $globalInsights
+     * @param  array<string, mixed>  $japanInsights
+     */
+    private function exportSitemap(
+        string $output,
+        array $global,
+        array $japan,
+        array $boardOnly = [],
+        ?string $globalLastUpdated = null,
+        ?string $japanLastUpdated = null,
+        array $globalInsights = [],
+        array $japanInsights = [],
+    ): void {
         $baseUrl = rtrim(config('app.url'), '/');
-        $defaultLastmod = now('Asia/Tokyo')->toAtomString();
+        $moviesById = $this->moviesById($global, $japan, $boardOnly);
 
         $urls = [[
             'loc' => "{$baseUrl}/",
-            'lastmod' => $defaultLastmod,
+            'lastmod' => $this->latestMovieAsOfTimestamp($global, $globalLastUpdated),
             'changefreq' => 'daily',
             'priority' => '1.0',
         ], [
             'loc' => "{$baseUrl}/japan/",
-            'lastmod' => $defaultLastmod,
+            'lastmod' => $this->latestMovieAsOfTimestamp($japan, $japanLastUpdated),
             'changefreq' => 'daily',
             'priority' => '0.9',
         ], [
             'loc' => "{$baseUrl}/now/",
-            'lastmod' => $defaultLastmod,
+            'lastmod' => $this->latestMovieAsOfTimestamp(
+                $this->moviesForInsightItems($this->insightItems($japanInsights), $moviesById),
+                $japanLastUpdated,
+            ),
             'changefreq' => 'daily',
             'priority' => '0.8',
         ], [
             'loc' => "{$baseUrl}/now/global/",
-            'lastmod' => $defaultLastmod,
+            'lastmod' => $this->latestMovieAsOfTimestamp(
+                $this->moviesForInsightItems($this->insightItems($globalInsights), $moviesById),
+                $globalLastUpdated,
+            ),
             'changefreq' => 'daily',
             'priority' => '0.8',
         ], [
             'loc' => "{$baseUrl}/feed.xml",
-            'lastmod' => $defaultLastmod,
+            'lastmod' => $this->feedLastmod($globalInsights, $japanInsights),
             'changefreq' => 'daily',
             'priority' => '0.4',
         ], [
             'loc' => "{$baseUrl}/about/",
-            'lastmod' => $defaultLastmod,
+            'lastmod' => null,
             'changefreq' => 'monthly',
             'priority' => '0.3',
         ], [
             'loc' => "{$baseUrl}/privacy/",
-            'lastmod' => $defaultLastmod,
+            'lastmod' => null,
             'changefreq' => 'monthly',
             'priority' => '0.3',
         ]];
@@ -2186,7 +2216,7 @@ XML);
         foreach (array_merge($global, $japan, $boardOnly) as $movie) {
             $urls[] = [
                 'loc' => "{$baseUrl}/movies/".$this->movieSlug($movie['id']).'/',
-                'lastmod' => $this->movieLastmod($movie, $defaultLastmod),
+                'lastmod' => $this->movieAsOfTimestamp($movie),
                 'changefreq' => 'weekly',
                 'priority' => '0.6',
             ];
@@ -2196,7 +2226,9 @@ XML);
         foreach ($urls as $url) {
             $body .= "    <url>\n";
             $body .= '        <loc>'.$this->h($url['loc'])."</loc>\n";
-            $body .= '        <lastmod>'.$this->h($url['lastmod'])."</lastmod>\n";
+            if (is_string($url['lastmod']) && $url['lastmod'] !== '') {
+                $body .= '        <lastmod>'.$this->h($url['lastmod'])."</lastmod>\n";
+            }
             $body .= '        <changefreq>'.$url['changefreq']."</changefreq>\n";
             $body .= '        <priority>'.$url['priority']."</priority>\n";
             $body .= "    </url>\n";
@@ -2214,7 +2246,24 @@ XML);
     }
 
     /**
+     * sitemap / JSON-LD 共通の W3C 日時。解釈できない値は使わない。
+     */
+    private function atomTimestamp(mixed $raw): ?string
+    {
+        if (! is_string($raw) || $raw === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($raw)->timezone('Asia/Tokyo')->toAtomString();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
      * 興収が増えた日を優先し、無ければ最終取得日時を「時点」として使う。
+     * JSON-LD dateModified と sitemap lastmod の単一のソース。
      *
      * @param  array<string, mixed>  $movie
      */
@@ -2225,18 +2274,124 @@ XML);
             $history['grossIncreasedAt'] ?? null,
             $movie['updatedAt'] ?? null,
         ] as $raw) {
-            if (! is_string($raw) || $raw === '') {
-                continue;
-            }
-
-            try {
-                return Carbon::parse($raw)->timezone('Asia/Tokyo')->toAtomString();
-            } catch (\Throwable) {
-                continue;
+            $at = $this->atomTimestamp($raw);
+            if ($at !== null) {
+                return $at;
             }
         }
 
         return null;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  ...$groups
+     * @return array<string, array<string, mixed>>
+     */
+    private function moviesById(array ...$groups): array
+    {
+        $byId = [];
+        foreach ($groups as $movies) {
+            foreach ($movies as $movie) {
+                $id = $movie['id'] ?? null;
+                if (is_string($id) && $id !== '') {
+                    $byId[$id] = $movie;
+                }
+            }
+        }
+
+        return $byId;
+    }
+
+    /**
+     * @param  array<string, mixed>  $insights
+     * @return list<array<string, mixed>>
+     */
+    private function insightItems(array $insights): array
+    {
+        $items = [];
+        foreach (['board', 'today', 'milestones'] as $bucket) {
+            foreach ($insights[$bucket] ?? [] as $item) {
+                if (is_array($item)) {
+                    $items[] = $item;
+                }
+            }
+        }
+
+        return $items;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $items
+     * @param  array<string, array<string, mixed>>  $moviesById
+     * @return list<array<string, mixed>>
+     */
+    private function moviesForInsightItems(array $items, array $moviesById): array
+    {
+        $movies = [];
+        foreach ($items as $item) {
+            $key = $item['key'] ?? $item['slug'] ?? $item['id'] ?? null;
+            if (is_string($key) && isset($moviesById[$key])) {
+                $movies[] = $moviesById[$key];
+
+                continue;
+            }
+
+            $movies[] = [
+                'updatedAt' => is_string($item['lastChangeAt'] ?? null) ? $item['lastChangeAt'] : null,
+                'pageHistory' => [
+                    'grossIncreasedAt' => $item['lastIncreaseAt'] ?? $item['reachedAt'] ?? null,
+                ],
+            ];
+        }
+
+        return $movies;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $movies
+     */
+    private function latestMovieAsOfTimestamp(array $movies, ?string $datasetUpdated = null): ?string
+    {
+        $latest = null;
+        foreach ($movies as $movie) {
+            $at = $this->movieAsOfTimestamp($movie);
+            if ($at !== null && ($latest === null || strcmp($at, $latest) > 0)) {
+                $latest = $at;
+            }
+        }
+
+        return $latest ?? $this->atomTimestamp($datasetUpdated);
+    }
+
+    /**
+     * @param  array<string, mixed>  $globalInsights
+     * @param  array<string, mixed>  $japanInsights
+     */
+    private function feedLastmod(array $globalInsights, array $japanInsights): ?string
+    {
+        $dates = [];
+        foreach (array_merge($japanInsights['today'] ?? [], $globalInsights['today'] ?? []) as $movie) {
+            if (! is_array($movie)) {
+                continue;
+            }
+            $dates[] = $movie['lastChangeAt'] ?? $movie['lastObservedAt'] ?? null;
+        }
+        foreach (array_merge($japanInsights['milestones'] ?? [], $globalInsights['milestones'] ?? []) as $milestone) {
+            if (! is_array($milestone)) {
+                continue;
+            }
+            $dates[] = $milestone['reachedAt'] ?? null;
+        }
+
+        $latest = null;
+        foreach ($dates as $raw) {
+            $at = $this->atomTimestamp($raw);
+            if ($at !== null && ($latest === null || strcmp($at, $latest) > 0)) {
+                $latest = $at;
+            }
+        }
+
+        return $latest;
     }
 
     /**
@@ -2821,23 +2976,6 @@ HTML;
             $body,
             'noindex, follow',
         );
-    }
-
-    /**
-     * @param  array<string, mixed>  $movie
-     */
-    private function movieLastmod(array $movie, string $fallback): string
-    {
-        $raw = $movie['updatedAt'] ?? null;
-        if (! is_string($raw) || $raw === '') {
-            return $fallback;
-        }
-
-        try {
-            return Carbon::parse($raw)->timezone('Asia/Tokyo')->toAtomString();
-        } catch (\Throwable) {
-            return $fallback;
-        }
     }
 
     private function formatRankingDate(?string $value): ?string

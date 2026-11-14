@@ -31,7 +31,9 @@ class SeriesExportTest extends TestCase
         $this->assertCount(29, $theatrical);
         $this->assertSame('/series/名探偵コナン/', $conan['path']);
         $this->assertNotNull($conan['totalYen']);
-        $this->assertStringContainsString('時計じかけの摩天楼', $theatrical[0]['title']);
+        $this->assertTrue(collect($theatrical)->contains(
+            fn (array $film) => str_contains((string) $film['title'], '時計じかけの摩天楼')
+        ));
     }
 
     public function test_series_index_and_detail_follow_seo_conventions(): void
@@ -201,6 +203,8 @@ class SeriesExportTest extends TestCase
         $this->assertStringContainsString('>28</a>', $html);
         $this->assertStringContainsString('list-item', $html);
         $this->assertStringContainsString('top-card', $html);
+        $this->assertStringContainsString('<article class="top-card rank-1" data-movie-id="jp-tmdb-1209217"', $html);
+        $this->assertStringContainsString('2024年', $html);
         $this->assertStringNotContainsString('<table class="series-table">', $html);
     }
 
@@ -239,7 +243,74 @@ class SeriesExportTest extends TestCase
         $this->assertStringContainsString('（配給収入）', $html);
         $this->assertStringContainsString('不明', $html);
         $this->assertStringContainsString('配給収入と興行収入は別の指標', $html);
-        $this->assertStringContainsString('top-card', $html);
+        $this->assertStringContainsString('list-item', $html);
+        $this->assertStringContainsString('list-rank-unranked', $html);
+        $this->assertStringNotContainsString('top-card rank-1', $html);
+        $this->assertStringContainsString('1980年', $html);
+        $this->assertStringContainsString('2024年', $html);
+    }
+
+    public function test_series_detail_ranks_by_box_office_and_parks_rentals(): void
+    {
+        $html = $this->invoke('seriesDetailHtml', [
+            'slug' => 'mix',
+            'name' => '混合',
+            'path' => '/series/mix/',
+            'filmCount' => 4,
+            'knownCount' => 3,
+            'totalYen' => 11_100_000_000,
+            'hasRentals' => true,
+            'sumRentalsYen' => 20_000_000_000,
+            'indexable' => true,
+            'films' => [[
+                'id' => 'old-bo',
+                'title' => '古い興収作',
+                'releaseYear' => 1990,
+                'boxOffice' => 1_100_000_000,
+                'metric' => 'box_office',
+                'href' => '/movies/old-bo/',
+            ], [
+                'id' => 'top-bo',
+                'title' => '最高興収作',
+                'releaseYear' => 2020,
+                'boxOffice' => 10_000_000_000,
+                'metric' => 'box_office',
+                'href' => '/movies/top-bo/',
+            ], [
+                'id' => 'rental',
+                'title' => '配収のみ',
+                'releaseYear' => 1980,
+                'boxOffice' => 20_000_000_000,
+                'metric' => 'distributor_rentals',
+                'href' => '/movies/rental/',
+            ], [
+                'id' => 'unknown',
+                'title' => '数字なし',
+                'releaseYear' => 2024,
+                'boxOffice' => null,
+                'metric' => 'box_office',
+                'href' => '/movies/unknown/',
+            ]],
+        ], [
+            'region' => 'japan',
+            'indexPath' => '/series/',
+        ]);
+
+        $this->assertStringContainsString('<article class="top-card rank-1" data-movie-id="top-bo"', $html);
+        $this->assertStringContainsString('<article class="top-card rank-2" data-movie-id="old-bo"', $html);
+        $this->assertStringNotContainsString('<article class="top-card', explode('id="series-ranking-list"', $html)[1]);
+        $this->assertStringContainsString('data-movie-id="rental"', explode('id="series-ranking-list"', $html)[1]);
+        $this->assertStringContainsString('2020年', $html);
+        $this->assertStringContainsString('（配給収入）', $html);
+        $this->assertStringContainsString('不明', $html);
+        $podiumPos = strpos($html, '最高興収作');
+        $rentalPos = strpos($html, '配収のみ');
+        $unknownPos = strpos($html, '数字なし');
+        $this->assertNotFalse($podiumPos);
+        $this->assertGreaterThan($podiumPos, $rentalPos);
+        $this->assertGreaterThan($rentalPos, $unknownPos);
+        $this->assertStringContainsString('"position":1', $html);
+        $this->assertStringContainsString('"name":"最高興収作"', $html);
     }
 
     public function test_world_catalog_groups_collection_films_without_changing_rankings(): void
@@ -281,8 +352,10 @@ class SeriesExportTest extends TestCase
         $slug = SeriesSlug::fromName('ハリー・ポッター コレクション');
         $this->assertSame('/series/global/'.$slug.'/', $hp['path']);
         $this->assertCount(3, $hp['films']);
+        $this->assertSame(['tmdb-671', 'tmdb-675', 'tmdb-672'], array_column($hp['films'], 'id'));
         $this->assertSame(12, $hp['films'][0]['rank']);
-        $this->assertNull($hp['films'][2]['rank']);
+        $this->assertNull($hp['films'][1]['rank']);
+        $this->assertSame(30, $hp['films'][2]['rank']);
         $this->assertSame(974_755_371 + 879_000_000 + 896_000_000, $hp['totalUsd']);
         $this->assertSame('/series/global/'.$slug.'/', $catalog['movieLinks']['tmdb-671']['href']);
     }

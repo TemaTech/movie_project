@@ -73,16 +73,7 @@ class SeriesCatalog
         $movieLinks = [];
 
         foreach ($byCollection as $collection) {
-            $films = $collection['films'] ?? [];
-            usort($films, function (array $a, array $b): int {
-                $yearA = $a['releaseYear'] ?? 9999;
-                $yearB = $b['releaseYear'] ?? 9999;
-                if ($yearA !== $yearB) {
-                    return $yearA <=> $yearB;
-                }
-
-                return ((int) ($b['boxOffice'] ?? 0)) <=> ((int) ($a['boxOffice'] ?? 0));
-            });
+            $films = self::sortFilmsByBoxOffice($collection['films'] ?? []);
 
             $slug = SeriesSlug::unique((string) $collection['name'], $usedSlugs);
             $usedSlugs[] = $slug;
@@ -203,7 +194,7 @@ class SeriesCatalog
 
         $reported = is_numeric($row['reportedTotalYen'] ?? null) ? (int) $row['reportedTotalYen'] : null;
         $totalYen = $reported ?? ($sumBoxOffice > 0 ? $sumBoxOffice : null);
-        $films = self::sortFilmsByRelease($films);
+        $films = self::sortFilmsByBoxOffice($films);
 
         return [
             'slug' => $row['slug'],
@@ -318,6 +309,52 @@ class SeriesCatalog
             'isActive' => $isActive,
             'productionCountry' => $productionCountry,
         ];
+    }
+
+    /**
+     * 興収がある作品を高い順、配給収入のみ・不明は末尾。興収と配収は比べない。
+     *
+     * @param  list<array<string, mixed>>  $films
+     * @return list<array<string, mixed>>
+     */
+    public static function sortFilmsByBoxOffice(array $films): array
+    {
+        usort($films, function (array $a, array $b): int {
+            $groupA = self::displayGroup($a);
+            $groupB = self::displayGroup($b);
+            if ($groupA !== $groupB) {
+                return $groupA <=> $groupB;
+            }
+            if ($groupA === 0 || $groupA === 1) {
+                $cmp = ((int) ($b['boxOffice'] ?? 0)) <=> ((int) ($a['boxOffice'] ?? 0));
+                if ($cmp !== 0) {
+                    return $cmp;
+                }
+            }
+
+            return self::filmReleaseKey($a) <=> self::filmReleaseKey($b);
+        });
+
+        return array_values($films);
+    }
+
+    /**
+     * 0 = 興収、1 = 配給収入のみ、2 = 不明。
+     *
+     * @param  array<string, mixed>  $film
+     */
+    public static function displayGroup(array $film): int
+    {
+        $boxOffice = $film['boxOffice'] ?? null;
+        $hasFigure = is_numeric($boxOffice) && (int) $boxOffice > 0 && (int) $boxOffice !== 1_000_000_000;
+        if (! $hasFigure) {
+            return 2;
+        }
+        if (($film['metric'] ?? '') === JapanBoxOfficeAmount::METRIC_DISTRIBUTOR_RENTALS) {
+            return 1;
+        }
+
+        return 0;
     }
 
     /**

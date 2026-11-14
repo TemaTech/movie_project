@@ -223,8 +223,7 @@ trait ExportsSeriesPages
             $metricNote = '<p class="series-metric-note">古い作品は配給収入で記録されていることがあります。配給収入と興行収入は別の指標なので、合計には混ぜていません。</p>';
         }
 
-        $top = array_values(array_filter($movies, fn (array $movie) => (int) ($movie['rank'] ?? 0) <= 3));
-        $rest = array_values(array_filter($movies, fn (array $movie) => (int) ($movie['rank'] ?? 0) > 3));
+        [$top, $rest] = $this->seriesSplitPodium($movies);
         $cards = '';
         foreach ($top as $movie) {
             $cards .= $this->seriesMovieCardHtml($movie);
@@ -239,7 +238,7 @@ trait ExportsSeriesPages
                 .'<section class="ranking-list" id="series-ranking-list">'.$rows.'</section>';
 
         $attribution = $isJapan ? $this->japanSeriesAttribution($catalog) : $this->worldSeriesAttribution();
-        $jsonLd = $this->seriesDetailJsonLd($series, $catalog);
+        $jsonLd = $this->seriesDetailJsonLd($series, $catalog, $movies);
         $embedded = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP);
         $footer = $this->siteFooterInnerHtml();
         $styles = $this->viteStyles();
@@ -397,9 +396,10 @@ HTML;
                 $films[] = $film;
             }
         }
-        $films = SeriesCatalog::sortFilmsByRelease($films);
+        $films = SeriesCatalog::sortFilmsByBoxOffice($films);
         $movies = [];
-        foreach ($films as $index => $film) {
+        $seriesRank = 0;
+        foreach ($films as $film) {
             $id = $this->seriesFilmId($film);
             $title = (string) ($film['title'] ?? '');
             if ($id === '' || $title === '') {
@@ -407,6 +407,12 @@ HTML;
             }
             $boxOffice = is_numeric($film['boxOffice'] ?? null) ? (int) $film['boxOffice'] : 0;
             $known = $boxOffice > 0 && $boxOffice !== 1_000_000_000;
+            $ranked = SeriesCatalog::displayGroup($film) === 0;
+            $displayRank = null;
+            if ($ranked) {
+                $seriesRank++;
+                $displayRank = $seriesRank;
+            }
             $rankingPosition = ! empty($film['inRanking']) && is_numeric($film['rank'] ?? null)
                 ? (int) $film['rank']
                 : null;
@@ -415,7 +421,7 @@ HTML;
                 'id' => $id,
                 'slug' => (string) ($film['slug'] ?? $id),
                 'tmdbId' => is_numeric($film['tmdbId'] ?? null) ? (int) $film['tmdbId'] : null,
-                'rank' => $index + 1,
+                'rank' => $displayRank,
                 'rankingPosition' => $rankingPosition,
                 'inRanking' => $rankingPosition !== null,
                 'title' => $title,
@@ -438,6 +444,26 @@ HTML;
         }
 
         return $movies;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $movies
+     * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>}
+     */
+    private function seriesSplitPodium(array $movies): array
+    {
+        $top = [];
+        $rest = [];
+        foreach ($movies as $movie) {
+            $rank = $movie['rank'] ?? null;
+            if (is_numeric($rank) && (int) $rank >= 1 && (int) $rank <= 3) {
+                $top[] = $movie;
+            } else {
+                $rest[] = $movie;
+            }
+        }
+
+        return [$top, $rest];
     }
 
     /**
@@ -488,7 +514,6 @@ HTML;
         $posterClass = $url !== '' ? 'card-poster' : 'card-poster poster-placeholder';
         $posterStyle = $url !== '' ? ' style="background-image:url(\''.$this->h($url).'\')"' : '';
         $bg = $url !== '' ? '<div class="card-bg-image" style="background-image:url(\''.$this->h($url).'\')"></div>' : '';
-        $rank = (int) ($movie['rank'] ?? 0);
         $id = $this->h((string) ($movie['id'] ?? ''));
         $title = (string) ($movie['title'] ?? '');
         $href = $this->h((string) ($movie['href'] ?? '/movies/'.$movie['id'].'/'));
@@ -497,16 +522,21 @@ HTML;
         $active = ! empty($movie['isActive']) ? ' active-movie' : '';
         $badge = ! empty($movie['isActive']) ? '<div class="active-badge-card">公開中</div>' : '';
         $subtitle = $this->seriesOriginalTitleHtml($movie, 'div');
+        $year = $this->seriesReleaseYearHtml($movie, 'div');
         $yen = ! empty($movie['revenueYen'])
             ? '<div class="revenue-sub">'.$this->h((string) $movie['revenueYen']).'</div>'
             : '';
+        $rankClass = is_numeric($movie['rank'] ?? null) && (int) $movie['rank'] > 0
+            ? 'rank-'.(int) $movie['rank']
+            : 'rank-none';
 
-        return '<article class="top-card rank-'.$rank.$active.'" data-movie-id="'.$id.'" role="button" tabindex="0" aria-label="'.$this->h($title).'の詳細を見る">'
+        return '<article class="top-card '.$rankClass.$active.'" data-movie-id="'.$id.'" role="button" tabindex="0" aria-label="'.$this->h($title).'の詳細を見る">'
             .$badge
-            .'<div class="rank-badge">'.$rank.'</div>'
+            .'<div class="rank-badge">'.$this->h($this->seriesRankLabel($movie)).'</div>'
             .'<div class="'.$posterClass.'"'.$posterStyle.'></div>'
             .$bg
             .'<div class="title-line"><a class="movie-title '.$titleClass.'" href="'.$href.'">'.$this->h($title).'</a>'.$chip.'</div>'
+            .$year
             .$subtitle
             .'<div class="revenue-container"><div class="revenue-main" style="color: var(--accent-gold);">'.$this->h((string) ($movie['revenue'] ?? '不明')).'</div>'.$yen.'</div>'
             .'</article>';
@@ -519,7 +549,6 @@ HTML;
     {
         $url = (string) ($movie['posterUrl'] ?? '');
         $bg = $url !== '' ? '<div class="list-bg-image" style="background-image:url(\''.$this->h($url).'\')"></div>' : '';
-        $rank = (int) ($movie['rank'] ?? 0);
         $id = $this->h((string) ($movie['id'] ?? ''));
         $title = (string) ($movie['title'] ?? '');
         $href = $this->h((string) ($movie['href'] ?? '/movies/'.$movie['id'].'/'));
@@ -527,21 +556,27 @@ HTML;
         $chip = $this->seriesRankingChipHtml($movie);
         $active = ! empty($movie['isActive']) ? ' active-movie' : '';
         $japan = $isJapan ? ' is-japan' : '';
+        $rental = (($movie['metric'] ?? '') === JapanBoxOfficeAmount::METRIC_DISTRIBUTOR_RENTALS) ? ' is-rental' : '';
         $badge = ! empty($movie['isActive']) ? '<div class="active-badge-card">公開中</div>' : '';
         $subtitle = $this->seriesOriginalTitleHtml($movie, 'span');
+        $year = $this->seriesReleaseYearHtml($movie, 'span');
         $yen = ! empty($movie['revenueYen'])
             ? '<span class="revenue-sub">'.$this->h((string) $movie['revenueYen']).'</span>'
             : '';
-        $boxOffice = (int) ($movie['boxOffice'] ?? 0);
+        $boxOffice = (($movie['metric'] ?? '') === JapanBoxOfficeAmount::METRIC_DISTRIBUTOR_RENTALS)
+            ? 0
+            : (int) ($movie['boxOffice'] ?? 0);
         $max = $isJapan ? 150 : 3;
-        $width = min(($boxOffice / 100000000) / $max * 100, 100);
+        $width = $boxOffice > 0 ? min(($boxOffice / 100000000) / $max * 100, 100) : 0;
+        $rankLabel = $this->seriesRankLabel($movie);
+        $rankClass = is_numeric($movie['rank'] ?? null) && (int) $movie['rank'] > 0 ? '' : ' list-rank-unranked';
 
-        return '<article class="list-item'.$active.$japan.'" data-movie-id="'.$id.'" role="button" tabindex="0" aria-label="'.$this->h($title).'の詳細を見る">'
+        return '<article class="list-item'.$active.$japan.$rental.'" data-movie-id="'.$id.'" role="button" tabindex="0" aria-label="'.$this->h($title).'の詳細を見る">'
             .$badge
             .'<div class="revenue-bar-bg" style="width: '.$width.'%;"></div>'
             .$bg
-            .'<div class="list-rank">'.$rank.'</div>'
-            .'<div class="list-info"><div class="title-line"><a class="movie-title '.$titleClass.'" href="'.$href.'">'.$this->h($title).'</a>'.$chip.'</div>'.$subtitle.'</div>'
+            .'<div class="list-rank'.$rankClass.'">'.$this->h($rankLabel).'</div>'
+            .'<div class="list-info"><div class="title-line"><a class="movie-title '.$titleClass.'" href="'.$href.'">'.$this->h($title).'</a>'.$chip.'</div>'.$year.$subtitle.'</div>'
             .'<div class="list-revenue"><span class="revenue-main">'.$this->h((string) ($movie['revenue'] ?? '不明')).'</span>'.$yen.'</div>'
             .'</article>';
     }
@@ -558,6 +593,37 @@ HTML;
         $rank = (string) (int) $movie['rankingPosition'];
 
         return '<a class="series-ranking-chip" href="'.$href.'" title="歴代ランキング">'.$this->h($rank).'</a>';
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function seriesRankLabel(array $movie): string
+    {
+        if (is_numeric($movie['rank'] ?? null) && (int) $movie['rank'] > 0) {
+            return (string) (int) $movie['rank'];
+        }
+
+        return '—';
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function seriesReleaseYearHtml(array $movie, string $tag): string
+    {
+        $year = $movie['releaseYear'] ?? null;
+        if (! is_numeric($year) || (int) $year <= 0) {
+            $date = $movie['releaseDate'] ?? null;
+            if (is_string($date) && preg_match('/^((?:19|20)\d{2})/', $date, $matches)) {
+                $year = (int) $matches[1];
+            }
+        }
+        if (! is_numeric($year) || (int) $year <= 0) {
+            return '';
+        }
+
+        return '<'.$tag.' class="series-release-year">'.$this->h((string) (int) $year).'年</'.$tag.'>';
     }
 
     /**
@@ -724,15 +790,17 @@ HTML;
     /**
      * @param  array<string, mixed>  $series
      * @param  array<string, mixed>  $catalog
+     * @param  list<array<string, mixed>>  $movies
      */
-    private function seriesDetailJsonLd(array $series, array $catalog): string
+    private function seriesDetailJsonLd(array $series, array $catalog, array $movies = []): string
     {
         $baseUrl = rtrim(config('app.url'), '/');
         $indexPath = $catalog['indexPath'] ?? '/series/';
         $path = (string) ($series['path'] ?? $indexPath);
         $name = (string) ($series['name'] ?? '');
+        $items = $movies !== [] ? $movies : ($series['films'] ?? []);
         $elements = [];
-        foreach ($series['films'] ?? [] as $offset => $film) {
+        foreach ($items as $offset => $film) {
             if (! is_array($film) || ($film['title'] ?? '') === '') {
                 continue;
             }
@@ -741,8 +809,12 @@ HTML;
                 'position' => $offset + 1,
                 'name' => $film['title'],
             ];
-            if (! empty($film['href'])) {
-                $item['url'] = $baseUrl.$film['href'];
+            $href = $film['href'] ?? '';
+            if ($href === '' && ! empty($film['id'])) {
+                $href = '/movies/'.$film['id'].'/';
+            }
+            if ($href !== '') {
+                $item['url'] = $baseUrl.$href;
             }
             $elements[] = $item;
         }

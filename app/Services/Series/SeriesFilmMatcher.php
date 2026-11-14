@@ -116,6 +116,61 @@ class SeriesFilmMatcher
     }
 
     /**
+     * 重複判定用。括弧付き「(映画)」や末尾の「映画」を落としてから compact する。
+     */
+    public static function identityCompact(string $title): string
+    {
+        $compact = self::compact($title);
+        $compact = preg_replace('/(?:映画|劇場版)+$/u', '', $compact) ?? $compact;
+
+        return $compact;
+    }
+
+    /**
+     * @param  array<string, mixed>  $film
+     */
+    public static function tmdbId(array $film): ?int
+    {
+        if (is_numeric($film['tmdbId'] ?? null) && (int) $film['tmdbId'] > 0) {
+            return (int) $film['tmdbId'];
+        }
+        $fromKey = MovieIdentity::tmdbIdFromKey((string) ($film['id'] ?? ''));
+
+        return $fromKey !== null && $fromKey > 0 ? $fromKey : null;
+    }
+
+    /**
+     * TMDB id、なければ正規化タイトル+公開年。
+     *
+     * @param  array<string, mixed>  $film
+     * @return list<string>
+     */
+    public static function dedupeKeys(array $film): array
+    {
+        $keys = [];
+        $tmdbId = self::tmdbId($film);
+        if ($tmdbId !== null) {
+            $keys[] = 'tmdb:'.$tmdbId;
+        }
+
+        $year = self::year($film);
+        $titles = [];
+        foreach (['title', 'wikipediaTitle', 'originalTitle'] as $field) {
+            $value = self::identityCompact((string) ($film[$field] ?? ''));
+            if ($value !== '' && mb_strlen($value) >= 4) {
+                $titles[$value] = $value;
+            }
+        }
+        if ($titles !== [] && $year !== null) {
+            foreach ($titles as $title) {
+                $keys[] = 'title:'.$title.'|'.$year;
+            }
+        }
+
+        return array_values($keys);
+    }
+
+    /**
      * @param  array<string, mixed>  $item
      */
     public static function year(array $item): ?int

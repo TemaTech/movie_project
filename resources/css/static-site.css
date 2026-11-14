@@ -446,46 +446,16 @@ body.content-page { padding-bottom: 40px; }
     margin-left: auto;
     margin-right: auto;
 }
-.series-detail-page .top-rankings { margin-bottom: 24px; }
-.series-ranking-chip {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 1.8em;
-    padding: 1px 7px;
-    border-radius: 999px;
-    border: 1px solid rgba(255, 215, 0, 0.45);
-    color: var(--accent-gold);
+.news-trigger-btn.series-ranking-chip {
     font-family: var(--font-num), sans-serif;
-    font-size: .85rem;
-    font-weight: 700;
-    line-height: 1.4;
-    flex-shrink: 0;
+    letter-spacing: 0;
+    color: var(--accent-gold);
+    border-color: rgba(255, 215, 0, 0.55);
+    cursor: default;
 }
-.series-ranking-chip:hover { background: rgba(255, 215, 0, 0.12); }
-.series-release-year {
-    color: var(--text-secondary);
-    font-size: .85rem;
-    font-variant-numeric: tabular-nums;
-}
-.top-card .series-release-year { margin-bottom: 6px; }
-@media (max-width: 768px) {
-    body[data-page="series"] .top-card .series-release-year {
-        grid-column: 2;
-        grid-row: 2;
-        margin: 0;
-        text-align: left;
-        font-size: .75rem;
-        z-index: 2;
-    }
-    body[data-page="series"] .top-card.rank-1,
-    body[data-page="series"] .top-card.rank-2,
-    body[data-page="series"] .top-card.rank-3 {
-        height: auto !important;
-        min-height: 60px !important;
-        grid-template-rows: auto auto;
-        overflow: visible;
-    }
+.news-trigger-btn.series-ranking-chip:hover {
+    background: rgba(255, 215, 0, 0.16);
+    color: var(--accent-gold);
 }
 .list-rank-unranked {
     font-size: 1.2rem;

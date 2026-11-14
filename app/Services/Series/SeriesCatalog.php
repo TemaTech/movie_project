@@ -36,6 +36,24 @@ class SeriesCatalog
 
         usort($built, fn (array $a, array $b) => ($b['totalYen'] ?? 0) <=> ($a['totalYen'] ?? 0));
 
+        $keptIds = [];
+        foreach ($built as $page) {
+            foreach ($page['films'] as $film) {
+                $id = (string) ($film['id'] ?? '');
+                if ($id !== '') {
+                    $keptIds[$id] = true;
+                }
+            }
+        }
+        $uniqueExtras = [];
+        foreach ($extraMovies as $movie) {
+            $id = (string) ($movie['id'] ?? '');
+            if ($id !== '' && isset($keptIds[$id]) && ! isset($uniqueExtras[$id])) {
+                $uniqueExtras[$id] = $movie;
+            }
+        }
+        $extraMovies = array_values($uniqueExtras);
+
         return [
             'region' => 'japan',
             'indexPath' => '/series/',
@@ -73,7 +91,7 @@ class SeriesCatalog
         $movieLinks = [];
 
         foreach ($byCollection as $collection) {
-            $films = self::sortFilmsByBoxOffice($collection['films'] ?? []);
+            $films = self::sortFilmsByBoxOffice(self::dedupeFilms($collection['films'] ?? []));
 
             $slug = SeriesSlug::unique((string) $collection['name'], $usedSlugs, (int) $collection['id']);
             $usedSlugs[] = $slug;
@@ -180,6 +198,8 @@ class SeriesCatalog
             }
         }
 
+        $films = self::sortFilmsByBoxOffice(self::dedupeFilms($films));
+
         $sumBoxOffice = 0;
         $sumRentals = 0;
         $known = 0;
@@ -199,7 +219,6 @@ class SeriesCatalog
 
         $reported = is_numeric($row['reportedTotalYen'] ?? null) ? (int) $row['reportedTotalYen'] : null;
         $totalYen = $reported ?? ($sumBoxOffice > 0 ? $sumBoxOffice : null);
-        $films = self::sortFilmsByBoxOffice($films);
 
         return [
             'slug' => $row['slug'],
@@ -337,6 +356,115 @@ class SeriesCatalog
             'updatedAt' => $updatedAt,
             'pageHistory' => $pageHistory,
         ];
+    }
+
+    /**
+     * 同一シリーズ内の重複を TMDB id、なければ正規化タイトル+公開年でまとめる。
+     * 歴代ランキングの行を優先し、興収・ポスターがある方を残す。
+     *
+     * @param  list<array<string, mixed>>  $films
+     * @return list<array<string, mixed>>
+     */
+    public static function dedupeFilms(array $films): array
+    {
+        $kept = [];
+        $indexByKey = [];
+        foreach ($films as $film) {
+            if (! is_array($film)) {
+                continue;
+            }
+            $keys = SeriesFilmMatcher::dedupeKeys($film);
+            $existingIndex = null;
+            foreach ($keys as $key) {
+                if (isset($indexByKey[$key])) {
+                    $existingIndex = $indexByKey[$key];
+                    break;
+                }
+            }
+            if ($existingIndex === null) {
+                $kept[] = $film;
+                $index = count($kept) - 1;
+                foreach ($keys as $key) {
+                    $indexByKey[$key] = $index;
+                }
+
+                continue;
+            }
+
+            $existing = $kept[$existingIndex];
+            $preferred = self::filmQualityScore($film) > self::filmQualityScore($existing) ? $film : $existing;
+            $other = $preferred === $film ? $existing : $film;
+            $kept[$existingIndex] = self::mergeFilmFields($preferred, $other);
+            foreach (SeriesFilmMatcher::dedupeKeys($kept[$existingIndex]) as $key) {
+                $indexByKey[$key] = $existingIndex;
+            }
+        }
+
+        return array_values($kept);
+    }
+
+    /**
+     * @param  array<string, mixed>  $film
+     */
+    private static function filmQualityScore(array $film): int
+    {
+        $score = 0;
+        $rank = $film['rank'] ?? null;
+        $inRanking = ! empty($film['inRanking'])
+            || (is_numeric($rank) && (int) $rank > 0 && (int) $rank <= 200);
+        if ($inRanking) {
+            $score += 1000;
+            if (is_numeric($rank)) {
+                $score += max(0, 200 - (int) $rank);
+            }
+        }
+        $boxOffice = (int) ($film['boxOffice'] ?? $film['boxOfficeYen'] ?? 0);
+        if ($boxOffice > 0 && $boxOffice !== 1_000_000_000) {
+            $score += 200;
+        }
+        if (trim((string) ($film['posterUrl'] ?? '')) !== '') {
+            $score += 50;
+        }
+        if (SeriesFilmMatcher::tmdbId($film) !== null) {
+            $score += 20;
+        }
+        $id = (string) ($film['id'] ?? '');
+        if ($id !== '' && ! str_starts_with($id, 'jp-series-')) {
+            $score += 10;
+        }
+
+        return $score;
+    }
+
+    /**
+     * @param  array<string, mixed>  $preferred
+     * @param  array<string, mixed>  $other
+     * @return array<string, mixed>
+     */
+    private static function mergeFilmFields(array $preferred, array $other): array
+    {
+        foreach ($other as $key => $value) {
+            if (! array_key_exists($key, $preferred) || self::isBlankFilmValue($preferred[$key] ?? null)) {
+                if (! self::isBlankFilmValue($value)) {
+                    $preferred[$key] = $value;
+                }
+            }
+        }
+        $preferredBox = (int) ($preferred['boxOffice'] ?? 0);
+        $otherBox = (int) ($other['boxOffice'] ?? 0);
+        if ($preferredBox <= 0 && $otherBox > 0 && $otherBox !== 1_000_000_000) {
+            $preferred['boxOffice'] = $other['boxOffice'];
+            if (isset($other['metric'])) {
+                $preferred['metric'] = $other['metric'];
+            }
+        }
+
+        return $preferred;
+    }
+
+    private static function isBlankFilmValue(mixed $value): bool
+    {
+        return $value === null || $value === '' || $value === [] || $value === false;
     }
 
     /**

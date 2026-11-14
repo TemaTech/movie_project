@@ -334,18 +334,22 @@ class ImportJapanSeries extends Command
     private function mergeFilm(array &$entry, array $film, string $source): bool
     {
         $entry['films'] ??= [];
-        $incoming = SeriesFilmMatcher::compact((string) ($film['title'] ?? ''));
+        $incomingTmdb = SeriesFilmMatcher::tmdbId($film);
+        $incoming = SeriesFilmMatcher::identityCompact((string) ($film['title'] ?? ''));
         $incomingYear = SeriesFilmMatcher::year($film);
         foreach ($entry['films'] as &$existing) {
             if (! is_array($existing)) {
                 continue;
             }
-            $have = SeriesFilmMatcher::compact((string) ($existing['title'] ?? ''));
-            if ($have === '' || $incoming === '' || $have !== $incoming) {
+            $existingTmdb = SeriesFilmMatcher::tmdbId($existing);
+            $have = SeriesFilmMatcher::identityCompact((string) ($existing['title'] ?? ''));
+            $tmdbHit = $incomingTmdb !== null && $existingTmdb !== null && $incomingTmdb === $existingTmdb;
+            $titleHit = $have !== '' && $incoming !== '' && $have === $incoming;
+            if (! $tmdbHit && ! $titleHit) {
                 continue;
             }
             $existingYear = SeriesFilmMatcher::year($existing);
-            if ($incomingYear && $existingYear && abs($incomingYear - $existingYear) > 1) {
+            if (! $tmdbHit && $incomingYear && $existingYear && abs($incomingYear - $existingYear) > 1) {
                 continue;
             }
             if (empty($existing['boxOfficeYen']) && ! empty($film['boxOfficeYen'])) {

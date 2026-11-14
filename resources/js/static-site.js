@@ -266,7 +266,7 @@ function getPageMovies(rankedMovies) {
 
 function rankingChip(movie) {
     if (!movie.rankingPosition) return '';
-    return `<a class="series-ranking-chip" href="${escapeHtml(moviePageHref(movie))}" title="歴代ランキング">${escapeHtml(String(movie.rankingPosition))}</a>`;
+    return `<span class="news-trigger-btn series-ranking-chip" title="歴代ランキング">${escapeHtml(String(movie.rankingPosition))}</span>`;
 }
 
 function isSeriesPage() {
@@ -288,20 +288,9 @@ function seriesStatusBadge(movie) {
     return '';
 }
 
-function seriesYearLine(movie, tag = 'span') {
-    if (!isSeriesPage()) return '';
-    let year = movie.releaseYear;
-    if (!year && typeof movie.releaseDate === 'string') {
-        const match = movie.releaseDate.match(/^((?:19|20)\d{2})/);
-        if (match) year = match[1];
-    }
-    if (!year) return '';
-    return `<${tag} class="series-release-year">${escapeHtml(String(year))}年</${tag}>`;
-}
-
-function isSeriesPodium(movie) {
+function medalClass(movie) {
     const rank = Number(movie.rank);
-    return Number.isInteger(rank) && rank >= 1 && rank <= 3;
+    return Number.isInteger(rank) && rank >= 1 && rank <= 3 ? ` rank-${rank}` : '';
 }
 
 function movieCard(movie) {
@@ -316,7 +305,6 @@ function movieCard(movie) {
         <div class="card-poster ${url ? '' : 'poster-placeholder'}" ${posterStyle(movie.posterUrl)}></div>
         ${bgImage}
         ${titleLine(movie)}
-        ${seriesYearLine(movie, 'div')}
         ${subtitle}
         <div class="revenue-container">
             <div class="revenue-main" style="color: var(--accent-gold);">${escapeHtml(movie.revenue)}</div>
@@ -337,14 +325,13 @@ function movieRow(movie, isJapan) {
     const upcoming = movie.unreleased ? ' is-upcoming' : '';
     const rankLabel = isSeriesPage() ? seriesRankLabel(movie) : movie.rank;
     const rankClass = isSeriesPage() && seriesRankLabel(movie) === '—' ? ' list-rank-unranked' : '';
-    return `<article class="list-item ${movie.isActive ? 'active-movie' : ''} ${isJapan ? 'is-japan' : ''}${movie.news?.length ? ' has-news' : ''}${rental}${upcoming}" data-movie-id="${escapeHtml(movie.id)}" role="button" tabindex="0" aria-label="${escapeHtml(movie.title)}の詳細を見る">
+    return `<article class="list-item${medalClass(movie)} ${movie.isActive ? 'active-movie' : ''} ${isJapan ? 'is-japan' : ''}${movie.news?.length ? ' has-news' : ''}${rental}${upcoming}" data-movie-id="${escapeHtml(movie.id)}" role="button" tabindex="0" aria-label="${escapeHtml(movie.title)}の詳細を見る">
         ${isSeriesPage() ? seriesStatusBadge(movie) : (movie.isActive ? '<div class="active-badge-card">公開中</div>' : '')}
         <div class="revenue-bar-bg" style="width: ${barWidth}%;"></div>
         ${bgImage}
         <div class="list-rank${rankClass}">${rankLabel}</div>
         <div class="list-info">
             ${titleLine(movie)}
-            ${seriesYearLine(movie, 'span')}
             ${subtitle}
         </div>
         <div class="list-revenue">
@@ -719,13 +706,9 @@ function initSeries(series) {
     if (series.usdJpy) setUsdJpy(series.usdJpy);
 
     const isJapan = region === 'japan';
-    const topHost = document.querySelector('#series-top-rankings');
     const listHost = document.querySelector('#series-ranking-list');
-    if (topHost && listHost && movies.length) {
-        const top = movies.filter(isSeriesPodium);
-        const rest = movies.filter((movie) => !isSeriesPodium(movie));
-        topHost.innerHTML = top.map(movieCard).join('');
-        listHost.innerHTML = rest.map((movie) => movieRow(movie, isJapan)).join('');
+    if (listHost && movies.length) {
+        listHost.innerHTML = movies.map((movie) => movieRow(movie, isJapan)).join('');
     }
 
     bindMovieInteractions(siteData);

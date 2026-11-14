@@ -226,19 +226,13 @@ trait ExportsSeriesPages
             $metricNote = '<p class="series-metric-note">古い作品は配給収入で記録されていることがあります。配給収入と興行収入は別の指標なので、合計には混ぜていません。</p>';
         }
 
-        [$top, $rest] = $this->seriesSplitPodium($movies);
-        $cards = '';
-        foreach ($top as $movie) {
-            $cards .= $this->seriesMovieCardHtml($movie);
-        }
         $rows = '';
-        foreach ($rest as $movie) {
+        foreach ($movies as $movie) {
             $rows .= $this->seriesMovieRowHtml($movie, $isJapan);
         }
         $listHtml = $movies === []
             ? '<p class="static-empty text-center text-white">データがありません。</p>'
-            : '<section class="top-rankings" id="series-top-rankings">'.$cards.'</section>'
-                .'<section class="ranking-list" id="series-ranking-list">'.$rows.'</section>';
+            : '<section class="ranking-list" id="series-ranking-list">'.$rows.'</section>';
 
         $attribution = $isJapan ? $this->japanSeriesAttribution($catalog) : $this->worldSeriesAttribution();
         $dateModified = $this->seriesLastmod($series, $this->seriesCatalogLastmod($catalog));
@@ -453,26 +447,6 @@ HTML;
     }
 
     /**
-     * @param  list<array<string, mixed>>  $movies
-     * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>}
-     */
-    private function seriesSplitPodium(array $movies): array
-    {
-        $top = [];
-        $rest = [];
-        foreach ($movies as $movie) {
-            $rank = $movie['rank'] ?? null;
-            if (is_numeric($rank) && (int) $rank >= 1 && (int) $rank <= 3) {
-                $top[] = $movie;
-            } else {
-                $rest[] = $movie;
-            }
-        }
-
-        return [$top, $rest];
-    }
-
-    /**
      * @param  array<string, mixed>  $film
      */
     private function seriesFilmId(array $film): string
@@ -512,43 +486,8 @@ HTML;
     }
 
     /**
-     * @param  array<string, mixed>  $movie
-     */
-    private function seriesMovieCardHtml(array $movie): string
-    {
-        $url = (string) ($movie['posterUrl'] ?? '');
-        $posterClass = $url !== '' ? 'card-poster' : 'card-poster poster-placeholder';
-        $posterStyle = $url !== '' ? ' style="background-image:url(\''.$this->h($url).'\')"' : '';
-        $bg = $url !== '' ? '<div class="card-bg-image" style="background-image:url(\''.$this->h($url).'\')"></div>' : '';
-        $id = $this->h((string) ($movie['id'] ?? ''));
-        $title = (string) ($movie['title'] ?? '');
-        $href = $this->h((string) ($movie['href'] ?? '/movies/'.$movie['id'].'/'));
-        $titleClass = $this->seriesTitleClass($title);
-        $chip = $this->seriesRankingChipHtml($movie);
-        $active = ! empty($movie['isActive']) ? ' active-movie' : '';
-        $badge = $this->seriesStatusBadgeHtml($movie);
-        $subtitle = $this->seriesOriginalTitleHtml($movie, 'div');
-        $year = $this->seriesReleaseYearHtml($movie, 'div');
-        $yen = ! empty($movie['revenueYen'])
-            ? '<div class="revenue-sub">'.$this->h((string) $movie['revenueYen']).'</div>'
-            : '';
-        $rankClass = is_numeric($movie['rank'] ?? null) && (int) $movie['rank'] > 0
-            ? 'rank-'.(int) $movie['rank']
-            : 'rank-none';
-
-        return '<article class="top-card '.$rankClass.$active.'" data-movie-id="'.$id.'" role="button" tabindex="0" aria-label="'.$this->h($title).'の詳細を見る">'
-            .$badge
-            .'<div class="rank-badge">'.$this->h($this->seriesRankLabel($movie)).'</div>'
-            .'<div class="'.$posterClass.'"'.$posterStyle.'></div>'
-            .$bg
-            .'<div class="title-line"><a class="movie-title '.$titleClass.'" href="'.$href.'">'.$this->h($title).'</a>'.$chip.'</div>'
-            .$year
-            .$subtitle
-            .'<div class="revenue-container"><div class="revenue-main" style="color: var(--accent-gold);">'.$this->h((string) ($movie['revenue'] ?? '不明')).'</div>'.$yen.'</div>'
-            .'</article>';
-    }
-
-    /**
+     * 歴代ランキングと同じ list-item。1–3 位は同じ金銀銅クラスを付ける。
+     *
      * @param  array<string, mixed>  $movie
      */
     private function seriesMovieRowHtml(array $movie, bool $isJapan): string
@@ -566,7 +505,6 @@ HTML;
         $upcoming = ! empty($movie['unreleased']) ? ' is-upcoming' : '';
         $badge = $this->seriesStatusBadgeHtml($movie);
         $subtitle = $this->seriesOriginalTitleHtml($movie, 'span');
-        $year = $this->seriesReleaseYearHtml($movie, 'span');
         $yen = ! empty($movie['revenueYen'])
             ? '<span class="revenue-sub">'.$this->h((string) $movie['revenueYen']).'</span>'
             : '';
@@ -576,14 +514,18 @@ HTML;
         $max = $isJapan ? 150 : 3;
         $width = $boxOffice > 0 ? min(($boxOffice / 100000000) / $max * 100, 100) : 0;
         $rankLabel = $this->seriesRankLabel($movie);
-        $rankClass = is_numeric($movie['rank'] ?? null) && (int) $movie['rank'] > 0 ? '' : ' list-rank-unranked';
+        $unranked = is_numeric($movie['rank'] ?? null) && (int) $movie['rank'] > 0 ? '' : ' list-rank-unranked';
+        $medal = '';
+        if (is_numeric($movie['rank'] ?? null) && (int) $movie['rank'] >= 1 && (int) $movie['rank'] <= 3) {
+            $medal = ' rank-'.(int) $movie['rank'];
+        }
 
-        return '<article class="list-item'.$active.$japan.$rental.$upcoming.'" data-movie-id="'.$id.'" role="button" tabindex="0" aria-label="'.$this->h($title).'の詳細を見る">'
+        return '<article class="list-item'.$medal.$active.$japan.$rental.$upcoming.'" data-movie-id="'.$id.'" role="button" tabindex="0" aria-label="'.$this->h($title).'の詳細を見る">'
             .$badge
             .'<div class="revenue-bar-bg" style="width: '.$width.'%;"></div>'
             .$bg
-            .'<div class="list-rank'.$rankClass.'">'.$this->h($rankLabel).'</div>'
-            .'<div class="list-info"><div class="title-line"><a class="movie-title '.$titleClass.'" href="'.$href.'">'.$this->h($title).'</a>'.$chip.'</div>'.$year.$subtitle.'</div>'
+            .'<div class="list-rank'.$unranked.'">'.$this->h($rankLabel).'</div>'
+            .'<div class="list-info"><div class="title-line"><a class="movie-title '.$titleClass.'" href="'.$href.'">'.$this->h($title).'</a>'.$chip.'</div>'.$subtitle.'</div>'
             .'<div class="list-revenue"><span class="revenue-main">'.$this->h((string) ($movie['revenue'] ?? '不明')).'</span>'.$yen.'</div>'
             .'</article>';
     }
@@ -611,10 +553,9 @@ HTML;
         if (! is_numeric($movie['rankingPosition'] ?? null)) {
             return '';
         }
-        $href = $this->h((string) ($movie['href'] ?? '/movies/'.$movie['id'].'/'));
         $rank = (string) (int) $movie['rankingPosition'];
 
-        return '<a class="series-ranking-chip" href="'.$href.'" title="歴代ランキング">'.$this->h($rank).'</a>';
+        return '<span class="news-trigger-btn series-ranking-chip" title="歴代ランキング">'.$this->h($rank).'</span>';
     }
 
     /**
@@ -627,25 +568,6 @@ HTML;
         }
 
         return '—';
-    }
-
-    /**
-     * @param  array<string, mixed>  $movie
-     */
-    private function seriesReleaseYearHtml(array $movie, string $tag): string
-    {
-        $year = $movie['releaseYear'] ?? null;
-        if (! is_numeric($year) || (int) $year <= 0) {
-            $date = $movie['releaseDate'] ?? null;
-            if (is_string($date) && preg_match('/^((?:19|20)\d{2})/', $date, $matches)) {
-                $year = (int) $matches[1];
-            }
-        }
-        if (! is_numeric($year) || (int) $year <= 0) {
-            return '';
-        }
-
-        return '<'.$tag.' class="series-release-year">'.$this->h((string) (int) $year).'年</'.$tag.'>';
     }
 
     /**

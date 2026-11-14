@@ -11,7 +11,7 @@ class JapanBoxOfficeAmount
     /**
      * @return array{yen: int, metric: string}|null
      */
-    public static function parse(string $text, ?string $preferredMetric = null): ?array
+    public static function parse(string $text, ?string $preferredMetric = null, ?string $unit = null): ?array
     {
         $normalized = self::normalize($text);
         if ($normalized === '' || self::isMissing($normalized)) {
@@ -31,12 +31,25 @@ class JapanBoxOfficeAmount
             }
         }
 
-        $yen = self::parseYen($normalized);
+        $yen = self::parseYen($normalized, $unit);
 
         return $yen === null ? null : [
             'yen' => $yen,
             'metric' => $metric,
         ];
+    }
+
+    public static function unitFromHeader(string $header): ?string
+    {
+        $header = self::normalize($header);
+        if (preg_match('/万円/u', $header)) {
+            return 'man';
+        }
+        if (preg_match('/億/u', $header)) {
+            return 'oku';
+        }
+
+        return null;
     }
 
     public static function looksWorldwide(string $text): bool
@@ -74,7 +87,7 @@ class JapanBoxOfficeAmount
         return trim($text);
     }
 
-    public static function parseYen(string $text): ?int
+    public static function parseYen(string $text, ?string $unit = null): ?int
     {
         $text = self::normalize($text);
         $text = str_replace(',', '', $text);
@@ -92,6 +105,14 @@ class JapanBoxOfficeAmount
         }
 
         if (preg_match('/(\d+(?:\.\d+)?)\s*万円/u', $text, $matches)) {
+            return (int) round((float) $matches[1] * 10000);
+        }
+
+        if ($unit === 'oku' && preg_match('/^(\d+(?:\.\d+)?)/', $text, $matches) && ! str_contains($text, 'ドル')) {
+            return (int) round((float) $matches[1] * 100000000);
+        }
+
+        if ($unit === 'man' && preg_match('/^(\d+(?:\.\d+)?)/', $text, $matches) && ! str_contains($text, 'ドル')) {
             return (int) round((float) $matches[1] * 10000);
         }
 

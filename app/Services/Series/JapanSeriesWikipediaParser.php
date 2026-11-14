@@ -59,7 +59,6 @@ class JapanSeriesWikipediaParser
     {
         $warnings = [];
         $films = [];
-        $seen = [];
         $section = is_string($series['wikipediaSection'] ?? null) ? $series['wikipediaSection'] : null;
         $html = $this->clipToSection($html, $section);
 
@@ -74,11 +73,24 @@ class JapanSeriesWikipediaParser
                     continue;
                 }
 
-                $key = SeriesFilmMatcher::identityCompact((string) $film['title']).'|'.($film['releaseYear'] ?? '');
-                if ($key === '|' || isset($seen[$key])) {
+                $compact = SeriesFilmMatcher::identityCompact((string) $film['title']);
+                if ($compact === '') {
                     continue;
                 }
-                $seen[$key] = true;
+
+                $merged = false;
+                foreach ($films as $index => $existing) {
+                    if (! SeriesFilmMatcher::isSameFilm($existing, $film)) {
+                        continue;
+                    }
+                    $films[$index] = $this->mergeParsedFilm($existing, $film);
+                    $merged = true;
+                    break;
+                }
+                if ($merged) {
+                    continue;
+                }
+
                 $films[] = $film;
             }
         }
@@ -149,8 +161,10 @@ class JapanSeriesWikipediaParser
             return null;
         }
 
-        if ($this->looksLikeNonFilmTitle($title)) {
-            return null;
+        foreach ([$title, (string) $shortTitle, (string) $wikiTitle, $titleCell['text']] as $candidate) {
+            if ($this->looksLikeNonFilmTitle($candidate)) {
+                return null;
+            }
         }
 
         $yearCell = $this->cellByRole($row, $roles, 'date') ?? $this->cellByRole($row, $roles, 'year');
@@ -165,7 +179,11 @@ class JapanSeriesWikipediaParser
             $boCell = $this->cellByRole($row, $roles, 'box_office');
             $rentCell = $this->cellByRole($row, $roles, 'rentals');
             if ($boCell !== null) {
-                $parsed = JapanBoxOfficeAmount::parse($boCell['text'], JapanBoxOfficeAmount::METRIC_BOX_OFFICE);
+                $parsed = JapanBoxOfficeAmount::parse(
+                    $boCell['text'],
+                    JapanBoxOfficeAmount::METRIC_BOX_OFFICE,
+                    $this->unitForRole($roles, 'box_office'),
+                );
                 if ($parsed !== null) {
                     $boxOfficeYen = $parsed['yen'];
                 } elseif (! JapanBoxOfficeAmount::isMissing($boCell['text'])) {
@@ -173,7 +191,11 @@ class JapanSeriesWikipediaParser
                 }
             }
             if ($rentCell !== null) {
-                $parsed = JapanBoxOfficeAmount::parse($rentCell['text'], JapanBoxOfficeAmount::METRIC_DISTRIBUTOR_RENTALS);
+                $parsed = JapanBoxOfficeAmount::parse(
+                    $rentCell['text'],
+                    JapanBoxOfficeAmount::METRIC_DISTRIBUTOR_RENTALS,
+                    $this->unitForRole($roles, 'rentals'),
+                );
                 if ($parsed !== null) {
                     $rentalsYen = $parsed['yen'];
                 }
@@ -217,6 +239,28 @@ class JapanSeriesWikipediaParser
     }
 
     /**
+     * @param  array<string, mixed>  $existing
+     * @param  array<string, mixed>  $incoming
+     * @return array<string, mixed>
+     */
+    private function mergeParsedFilm(array $existing, array $incoming): array
+    {
+        foreach (['boxOfficeYen', 'distributorRentalsYen', 'releaseYear', 'releaseDate', 'wikipediaTitle', 'shortTitle'] as $field) {
+            if (($existing[$field] ?? null) === null && ($incoming[$field] ?? null) !== null) {
+                $existing[$field] = $incoming[$field];
+            }
+        }
+        if (! empty($incoming['boxOfficeYen']) && empty($existing['boxOfficeYen'])) {
+            $existing['metric'] = $incoming['metric'] ?? $existing['metric'];
+            $existing['unclear'] = false;
+        } elseif (! empty($existing['boxOfficeYen'])) {
+            $existing['unclear'] = false;
+        }
+
+        return $existing;
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
     private function filmTables(string $html): array
@@ -246,16 +290,18 @@ class JapanSeriesWikipediaParser
 
             $headerTexts = array_map(fn (array $cell) => $cell['text'], $headerRow);
             $joined = implode(' ', $headerTexts);
-            if (str_contains($joined, 'シリーズ名') || preg_match('/シリーズの興行/u', $this->captionText($table))) {
+            $caption = $this->captionText($table);
+            if (str_contains($joined, 'シリーズ名') || preg_match('/シリーズの興行/u', $caption)) {
                 continue;
             }
-            if ($this->isTvTable($joined) || $this->isAttendanceOnlyTable($joined, $headerTexts)) {
+            if ($this->isTvTable($joined) || $this->isAttendanceOnlyTable($joined, $headerTexts) || $this->isPartialGrossTable($joined, $caption)) {
                 continue;
             }
 
             $roles = $this->headerRoles($headerTexts);
             $roles['_headerIndex'] = $headerIndex;
-            $kind = $this->isWorldTable($joined) ? 'world' : 'japan';
+            $roles['_headers'] = $headerTexts;
+            $kind = $this->isWorldTable($this->tableWorldContext($grid, $joined, $caption, $headerIndex)) ? 'world' : 'japan';
             if ($roles['title'] === null) {
                 continue;
             }
@@ -263,7 +309,6 @@ class JapanSeriesWikipediaParser
                 continue;
             }
 
-            $caption = $this->captionText($table);
             $filmKind = $this->filmKindFromCaption($caption.$joined);
 
             $rows = [];
@@ -338,18 +383,18 @@ class JapanSeriesWikipediaParser
         $short = $link['text'] ?? ($visible !== '' ? $visible : null);
 
         $title = $wikiTitle ?: $short ?: $visible;
-        $title = str_replace('_', ' ', $title);
+        $title = str_replace('_', ' ', (string) $title);
+        $title = SeriesFilmMatcher::displayTitle($title);
+        $short = $short !== null ? SeriesFilmMatcher::displayTitle($short) : null;
         $title = preg_replace('/\s+/u', ' ', $title) ?? $title;
         $title = trim($title);
 
         if ($seriesName !== '' && $title !== '' && ! str_contains($title, $seriesName) && mb_strlen($title) < 40) {
-            $prefixed = $seriesName.' '.$title;
-            if ($wikiTitle && str_contains($wikiTitle, $seriesName)) {
-                $title = $wikiTitle;
-            } elseif ($wikiTitle) {
-                $title = $wikiTitle;
+            $wikiDisplay = $wikiTitle ? SeriesFilmMatcher::displayTitle(str_replace('_', ' ', $wikiTitle)) : '';
+            if ($wikiDisplay !== '') {
+                $title = $wikiDisplay;
             } else {
-                $title = $prefixed;
+                $title = $seriesName.' '.$title;
             }
         }
 
@@ -400,14 +445,7 @@ class JapanSeriesWikipediaParser
 
     private function looksLikeNonFilmTitle(string $title): bool
     {
-        if (preg_match('/^(監督|脚本|音楽|主題歌|歌手|公開日|興行収入|配給収入|通番|シリーズ|備考|記録|内容)$/u', $title)) {
-            return true;
-        }
-        if (preg_match('/連続TOP|連続1位|歴代最高|観客動員数$/u', $title)) {
-            return true;
-        }
-
-        return strlen($title) < 2;
+        return SeriesFilmMatcher::isNonFilmRowTitle($title);
     }
 
     /**
@@ -523,7 +561,51 @@ class JapanSeriesWikipediaParser
 
     private function isWorldTable(string $joined): bool
     {
-        return (bool) preg_match('/北米|全世界|北アメリカ|イギリス|米国|インフレ|他地域|ドル/u', $joined);
+        if (preg_match('/億円|万円|\d(?:\.\d+)?億(?!ドル)/u', $joined)) {
+            return false;
+        }
+
+        return (bool) preg_match('/北米|全世界|北アメリカ|イギリス|米国|インフレ|他地域|ドル|USD|Box Office Mojo|The Numbers/u', $joined)
+            || (bool) preg_match('/\$\d/', $joined);
+    }
+
+    private function isPartialGrossTable(string $joined, string $caption): bool
+    {
+        $text = $caption.' '.$joined;
+
+        return (bool) preg_match('/オープニング(?:週末|興行|成績)|初日興行|先行上映|初週末/u', $text);
+    }
+
+    /**
+     * @param  list<list<array{text: string, html: string, header: bool}>>  $grid
+     */
+    private function tableWorldContext(array $grid, string $joined, string $caption, int $headerIndex): string
+    {
+        $chunks = [$joined, $caption];
+        foreach ($grid as $index => $row) {
+            if ($index > $headerIndex + 2) {
+                break;
+            }
+            foreach ($row as $cell) {
+                $chunks[] = $cell['text'];
+            }
+        }
+
+        return implode(' ', $chunks);
+    }
+
+    /**
+     * @param  array<string, mixed>  $roles
+     */
+    private function unitForRole(array $roles, string $role): ?string
+    {
+        $index = $roles[$role] ?? null;
+        $headers = $roles['_headers'] ?? [];
+        if (! is_int($index) || ! isset($headers[$index])) {
+            return null;
+        }
+
+        return JapanBoxOfficeAmount::unitFromHeader((string) $headers[$index]);
     }
 
     private function isTvTable(string $joined): bool

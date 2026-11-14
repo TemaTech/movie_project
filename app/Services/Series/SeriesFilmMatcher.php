@@ -108,11 +108,49 @@ class SeriesFilmMatcher
 
     public static function compact(string $title): string
     {
+        $title = self::displayTitle($title);
         $title = self::norm($title);
         $title = preg_replace('/[とのをはがへで]/u', '', $title) ?? $title;
         $title = preg_replace('/\s+/u', '', $title) ?? $title;
 
         return $title;
+    }
+
+    /**
+     * Wikipediaの曖昧さ回避「(2002年の映画)」などを表示用タイトルから外す。
+     */
+    public static function displayTitle(string $title): string
+    {
+        $title = preg_replace('/\s*[（(][^（）()]{0,40}の映画[）)]/u', '', $title) ?? $title;
+        $title = preg_replace('/\s*[（(]映画[）)]/u', '', $title) ?? $title;
+        $title = preg_replace('/\s+/u', ' ', $title) ?? $title;
+
+        return trim($title);
+    }
+
+    public static function isNonFilmRowTitle(string $title): bool
+    {
+        $title = JapanBoxOfficeAmount::normalize($title);
+        if ($title === '') {
+            return false;
+        }
+        if (preg_match('/Box Office Mojo|The Numbers|Deadline|Variety|Rotten Tomatoes|Metacritic|\bIMDb\b/iu', $title)) {
+            return true;
+        }
+        if (preg_match('/(?:^|[\s　])(合計|総計|小計|計)$/u', $title) || preg_match('/^(合計|総計|小計|計|total)$/iu', $title)) {
+            return true;
+        }
+        if (preg_match('/^(監督|脚本|音楽|主題歌|歌手|公開日|興行収入|配給収入|通番|シリーズ|備考|記録|内容|出典)$/u', $title)) {
+            return true;
+        }
+        if (preg_match('/^備考\b/u', $title) || preg_match('/インフレーション調整/u', $title)) {
+            return true;
+        }
+        if (preg_match('/連続TOP|連続1位|歴代最高|観客動員数$/u', $title)) {
+            return true;
+        }
+
+        return strlen($title) < 2;
     }
 
     /**
@@ -173,6 +211,35 @@ class SeriesFilmMatcher
     /**
      * @param  array<string, mixed>  $item
      */
+    /**
+     * 同一作品か。TMDB id、または正規化タイトルが一致し公開年が空か1年以内。
+     *
+     * @param  array<string, mixed>  $a
+     * @param  array<string, mixed>  $b
+     */
+    public static function isSameFilm(array $a, array $b): bool
+    {
+        $tmdbA = self::tmdbId($a);
+        $tmdbB = self::tmdbId($b);
+        if ($tmdbA !== null && $tmdbB !== null) {
+            return $tmdbA === $tmdbB;
+        }
+
+        $titleA = self::identityCompact((string) ($a['title'] ?? ''));
+        $titleB = self::identityCompact((string) ($b['title'] ?? ''));
+        if ($titleA === '' || $titleB === '' || $titleA !== $titleB) {
+            return false;
+        }
+
+        $yearA = self::year($a);
+        $yearB = self::year($b);
+        if ($yearA !== null && $yearB !== null && abs($yearA - $yearB) > 1) {
+            return false;
+        }
+
+        return true;
+    }
+
     public static function year(array $item): ?int
     {
         if (is_numeric($item['releaseYear'] ?? null)) {

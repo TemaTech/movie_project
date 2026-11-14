@@ -78,4 +78,35 @@ class SeriesMembershipTest extends TestCase
             ])
         );
     }
+
+    public function test_display_title_strips_wikipedia_disambiguation_suffix(): void
+    {
+        $this->assertSame('スパイダーマン', SeriesFilmMatcher::displayTitle('スパイダーマン (2002年の映画)'));
+        $this->assertSame(
+            SeriesFilmMatcher::identityCompact('スパイダーマン'),
+            SeriesFilmMatcher::identityCompact('スパイダーマン (2002年の映画)')
+        );
+        $matched = SeriesFilmMatcher::match([
+            'title' => 'スパイダーマン',
+            'releaseYear' => 2002,
+        ], [[
+            'id' => 'jp-557',
+            'title' => 'スパイダーマン (2002年の映画)',
+            'releaseYear' => 2002,
+            'rank' => 107,
+        ]]);
+        $this->assertSame('jp-557', $matched['id']);
+    }
+
+    public function test_same_film_treats_yearless_duplicate_as_one_title(): void
+    {
+        $this->assertTrue(SeriesFilmMatcher::isSameFilm(
+            ['title' => 'ハリー・ポッターと賢者の石', 'releaseYear' => 2001],
+            ['title' => 'ハリー・ポッター 賢者の石', 'releaseYear' => null],
+        ));
+        $this->assertFalse(SeriesFilmMatcher::isSameFilm(
+            ['title' => 'HERO', 'releaseYear' => 2002],
+            ['title' => 'HERO', 'releaseYear' => 2007],
+        ));
+    }
 }

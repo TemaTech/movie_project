@@ -29,6 +29,14 @@ class JapanBoxOfficeAmountTest extends TestCase
         $this->assertSame(149_460_000_000, $parsed['yen']);
     }
 
+    public function test_parses_bare_number_when_column_unit_is_oku(): void
+    {
+        $this->assertSame('oku', JapanBoxOfficeAmount::unitFromHeader('興行収入 (億円)'));
+        $parsed = JapanBoxOfficeAmount::parse('75.0', JapanBoxOfficeAmount::METRIC_BOX_OFFICE, 'oku');
+        $this->assertSame(7_500_000_000, $parsed['yen']);
+        $this->assertNull(JapanBoxOfficeAmount::parse('$403,706,375', JapanBoxOfficeAmount::METRIC_BOX_OFFICE, 'oku'));
+    }
+
     public function test_labels_distributor_rentals(): void
     {
         $parsed = JapanBoxOfficeAmount::parse('配給収入 6.1億円');

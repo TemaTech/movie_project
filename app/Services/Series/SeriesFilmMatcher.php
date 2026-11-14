@@ -149,8 +149,23 @@ class SeriesFilmMatcher
         if (preg_match('/連続TOP|連続1位|歴代最高|観客動員数$/u', $title)) {
             return true;
         }
+        if (preg_match('/サウンドトラック|soundtrack|original motion picture|\bscore\b|\bsong\b|\balbum\b|アルバム|\bremix\b|\bversion\b|バージョン|ミュージックビデオ|music video/iu', $title)) {
+            return true;
+        }
+        if (preg_match('/メインシリーズ|The Fast Saga|^スピンオフ|タイトル未定|題名未定|第\d+話|\bvideo game\b|ビデオゲーム/iu', $title)) {
+            return true;
+        }
 
         return strlen($title) < 2;
+    }
+
+    public static function wikipediaDisambiguationYear(string $title): ?int
+    {
+        if (preg_match('/[（(]((?:19|20)\d{2})年の映画[）)]/u', $title, $matches)) {
+            return (int) $matches[1];
+        }
+
+        return null;
     }
 
     /**
@@ -229,6 +244,18 @@ class SeriesFilmMatcher
         $titleB = self::identityCompact((string) ($b['title'] ?? ''));
         if ($titleA === '' || $titleB === '' || $titleA !== $titleB) {
             return false;
+        }
+
+        $wikiYearA = self::wikipediaDisambiguationYear((string) ($a['wikipediaTitle'] ?? $a['title'] ?? ''));
+        $wikiYearB = self::wikipediaDisambiguationYear((string) ($b['wikipediaTitle'] ?? $b['title'] ?? ''));
+        if ($wikiYearA !== null && $wikiYearB !== null && $wikiYearA !== $wikiYearB) {
+            return false;
+        }
+
+        $wikiA = self::identityCompact((string) ($a['wikipediaTitle'] ?? ''));
+        $wikiB = self::identityCompact((string) ($b['wikipediaTitle'] ?? ''));
+        if ($wikiA !== '' && $wikiA === $wikiB) {
+            return true;
         }
 
         $yearA = self::year($a);

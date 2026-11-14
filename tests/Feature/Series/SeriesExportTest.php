@@ -441,6 +441,52 @@ class SeriesExportTest extends TestCase
         $this->assertSame($extraIds, array_values(array_unique($extraIds)));
     }
 
+    public function test_snapshot_drops_music_shorts_and_duplicate_kraven(): void
+    {
+        $dceu = collect(JapanSeriesSnapshot::series())->firstWhere('name', 'DCエクステンデッド・ユニバース');
+        $this->assertIsArray($dceu);
+        $dceuTitles = array_column($dceu['films'], 'title');
+        $this->assertGreaterThanOrEqual(10, count($dceuTitles));
+        $this->assertLessThanOrEqual(20, count($dceuTitles));
+        foreach ($dceuTitles as $title) {
+            $this->assertFalse(SeriesFilmMatcher::isNonFilmRowTitle($title), $title);
+            $this->assertStringNotContainsString('Heathens', $title);
+            $this->assertStringNotContainsString('サウンドトラック', $title);
+            $this->assertStringNotContainsString('soundtrack', mb_strtolower($title));
+        }
+
+        $fast = collect(JapanSeriesSnapshot::series())->firstWhere('name', 'ワイルド・スピード');
+        $this->assertIsArray($fast);
+        $fastTitles = array_column($fast['films'], 'title');
+        $this->assertTrue((bool) array_filter($fastTitles, fn (string $title) => str_contains($title, 'ジェットブレイク')));
+        $this->assertTrue((bool) array_filter($fastTitles, fn (string $title) => str_contains($title, 'ファイヤーブースト')));
+        foreach ($fastTitles as $title) {
+            $this->assertFalse(SeriesFilmMatcher::isNonFilmRowTitle($title), $title);
+            $this->assertStringNotContainsString('Prelude', $title);
+            $this->assertStringNotContainsString('バンドレロス', $title);
+            $this->assertStringNotContainsString('soundtrack', mb_strtolower($title));
+        }
+
+        $ssu = collect(JapanSeriesSnapshot::series())->firstWhere('name', 'ソニーズ・スパイダーマン・ユニバース');
+        $this->assertIsArray($ssu);
+        $kraven = array_values(array_filter(
+            $ssu['films'],
+            fn (array $film) => str_contains((string) $film['title'], 'クレイヴン')
+        ));
+        $this->assertCount(1, $kraven);
+
+        $catalog = SeriesCatalog::japan([]);
+        $hero = collect($catalog['series'])->firstWhere('name', 'HERO');
+        $this->assertIsArray($hero);
+        $heroTitles = array_column($hero['films'], 'title');
+        $this->assertSame(count($heroTitles), count(array_unique($heroTitles)));
+        if (count($hero['films']) > 1) {
+            foreach ($hero['films'] as $film) {
+                $this->assertMatchesRegularExpression('/HERO \(\d{4}\)/', (string) $film['title']);
+            }
+        }
+    }
+
     public function test_film_matcher_links_conan_titles_to_ranking_rows(): void
     {
         $matched = SeriesFilmMatcher::match([

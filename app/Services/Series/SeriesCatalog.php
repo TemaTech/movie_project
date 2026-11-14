@@ -201,7 +201,24 @@ class SeriesCatalog
             }
         }
 
-        $films = self::sortFilmsByBoxOffice(self::dedupeFilms($films));
+        $films = self::sortFilmsByBoxOffice(self::disambiguateDuplicateTitles(self::dedupeFilms($films)));
+        $titlesById = [];
+        foreach ($films as $film) {
+            $id = (string) ($film['id'] ?? '');
+            if ($id !== '') {
+                $titlesById[$id] = (string) ($film['title'] ?? '');
+            }
+        }
+        foreach ($extraMovies as &$extra) {
+            if (($extra['seriesSlug'] ?? null) !== ($row['slug'] ?? null)) {
+                continue;
+            }
+            $extraId = (string) ($extra['id'] ?? '');
+            if ($extraId !== '' && isset($titlesById[$extraId])) {
+                $extra['title'] = $titlesById[$extraId];
+            }
+        }
+        unset($extra);
 
         $sumBoxOffice = 0;
         $sumRentals = 0;
@@ -412,6 +429,41 @@ class SeriesCatalog
         }
 
         return array_values($kept);
+    }
+
+    /**
+     * 同一シリーズ内で表示タイトルが衝突するときだけ公開年を付ける。
+     *
+     * @param  list<array<string, mixed>>  $films
+     * @return list<array<string, mixed>>
+     */
+    public static function disambiguateDuplicateTitles(array $films): array
+    {
+        $counts = [];
+        foreach ($films as $film) {
+            $key = SeriesFilmMatcher::identityCompact((string) ($film['title'] ?? ''));
+            if ($key !== '') {
+                $counts[$key] = ($counts[$key] ?? 0) + 1;
+            }
+        }
+
+        foreach ($films as &$film) {
+            $key = SeriesFilmMatcher::identityCompact((string) ($film['title'] ?? ''));
+            if ($key === '' || ($counts[$key] ?? 0) < 2) {
+                continue;
+            }
+            $year = SeriesFilmMatcher::year($film);
+            if ($year === null) {
+                continue;
+            }
+            $title = SeriesFilmMatcher::displayTitle((string) ($film['title'] ?? ''));
+            if (! str_contains($title, (string) $year)) {
+                $film['title'] = $title.' ('.$year.')';
+            }
+        }
+        unset($film);
+
+        return $films;
     }
 
     /**

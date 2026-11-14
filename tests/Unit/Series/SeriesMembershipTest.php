@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Series;
 
+use App\Services\Series\SeriesCatalog;
 use App\Services\Series\SeriesFilmMatcher;
 use App\Services\Series\SeriesMembership;
 use Tests\TestCase;
@@ -108,5 +109,61 @@ class SeriesMembershipTest extends TestCase
             ['title' => 'HERO', 'releaseYear' => 2002],
             ['title' => 'HERO', 'releaseYear' => 2007],
         ));
+        $this->assertTrue(SeriesFilmMatcher::isSameFilm(
+            [
+                'title' => 'クレイヴン・ザ・ハンター',
+                'wikipediaTitle' => 'クレイヴン・ザ・ハンター (映画)',
+                'releaseYear' => 2022,
+            ],
+            [
+                'title' => 'クレイヴン・ザ・ハンター',
+                'wikipediaTitle' => 'クレイヴン・ザ・ハンター (映画)',
+                'releaseYear' => 2024,
+            ],
+        ));
+        $this->assertFalse(SeriesFilmMatcher::isSameFilm(
+            [
+                'title' => 'HERO',
+                'wikipediaTitle' => 'HERO (2007年の映画)',
+                'releaseYear' => 2007,
+            ],
+            [
+                'title' => 'HERO',
+                'wikipediaTitle' => 'HERO (2015年の映画)',
+                'releaseYear' => 2015,
+            ],
+        ));
+    }
+
+    public function test_catalog_dedupes_same_wikipedia_title_across_years(): void
+    {
+        $deduped = SeriesCatalog::dedupeFilms([
+            [
+                'title' => 'クレイヴン・ザ・ハンター',
+                'wikipediaTitle' => 'クレイヴン・ザ・ハンター (映画)',
+                'releaseYear' => 2022,
+                'id' => 'jp-series-95df6fb18c8c',
+            ],
+            [
+                'title' => 'クレイヴン・ザ・ハンター',
+                'wikipediaTitle' => 'クレイヴン・ザ・ハンター (映画)',
+                'releaseYear' => 2024,
+                'id' => 'jp-series-08d5dd3a454b',
+            ],
+        ]);
+        $this->assertCount(1, $deduped);
+        $this->assertSame('クレイヴン・ザ・ハンター', $deduped[0]['title']);
+    }
+
+    public function test_catalog_adds_year_only_when_titles_collide(): void
+    {
+        $films = SeriesCatalog::disambiguateDuplicateTitles([
+            ['id' => 'a', 'title' => 'HERO', 'releaseYear' => 2007],
+            ['id' => 'b', 'title' => 'HERO', 'releaseYear' => 2015],
+            ['id' => 'c', 'title' => 'ワンダーウーマン', 'releaseYear' => 2017],
+        ]);
+        $this->assertSame('HERO (2007)', $films[0]['title']);
+        $this->assertSame('HERO (2015)', $films[1]['title']);
+        $this->assertSame('ワンダーウーマン', $films[2]['title']);
     }
 }

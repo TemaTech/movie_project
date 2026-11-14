@@ -245,9 +245,18 @@ class JapanSeriesWikipediaParser
      */
     private function mergeParsedFilm(array $existing, array $incoming): array
     {
-        foreach (['boxOfficeYen', 'distributorRentalsYen', 'releaseYear', 'releaseDate', 'wikipediaTitle', 'shortTitle'] as $field) {
+        foreach (['boxOfficeYen', 'distributorRentalsYen', 'releaseDate', 'wikipediaTitle', 'shortTitle'] as $field) {
             if (($existing[$field] ?? null) === null && ($incoming[$field] ?? null) !== null) {
                 $existing[$field] = $incoming[$field];
+            }
+        }
+        $incomingYear = is_numeric($incoming['releaseYear'] ?? null) ? (int) $incoming['releaseYear'] : null;
+        $existingYear = is_numeric($existing['releaseYear'] ?? null) ? (int) $existing['releaseYear'] : null;
+        $wikiYear = SeriesFilmMatcher::wikipediaDisambiguationYear((string) ($existing['wikipediaTitle'] ?? $incoming['wikipediaTitle'] ?? ''));
+        if ($incomingYear !== null && ($existingYear === null || ($wikiYear === null && $incomingYear > $existingYear))) {
+            $existing['releaseYear'] = $incomingYear;
+            if (($incoming['releaseDate'] ?? null) !== null) {
+                $existing['releaseDate'] = $incoming['releaseDate'];
             }
         }
         if (! empty($incoming['boxOfficeYen']) && empty($existing['boxOfficeYen'])) {
@@ -288,13 +297,22 @@ class JapanSeriesWikipediaParser
                 continue;
             }
 
+            $class = ' '.$table->getAttribute('class').' ';
+            if (str_contains($class, ' navbox ') || str_contains($class, ' infobox ')) {
+                continue;
+            }
+
             $headerTexts = array_map(fn (array $cell) => $cell['text'], $headerRow);
             $joined = implode(' ', $headerTexts);
             $caption = $this->captionText($table);
+            $heading = $this->precedingHeadingText($xpath, $table);
             if (str_contains($joined, 'シリーズ名') || preg_match('/シリーズの興行/u', $caption)) {
                 continue;
             }
-            if ($this->isTvTable($joined) || $this->isAttendanceOnlyTable($joined, $headerTexts) || $this->isPartialGrossTable($joined, $caption)) {
+            if ($this->isNonFilmSection($heading, $caption)
+                || $this->isTvTable($joined)
+                || $this->isAttendanceOnlyTable($joined, $headerTexts)
+                || $this->isPartialGrossTable($joined, $caption)) {
                 continue;
             }
 
@@ -305,7 +323,11 @@ class JapanSeriesWikipediaParser
             if ($roles['title'] === null) {
                 continue;
             }
-            if ($kind === 'japan' && $roles['box_office'] === null && $roles['rentals'] === null) {
+            $isFilmList = $this->isFilmListTable($joined, $roles, $heading, $caption);
+            if ($kind === 'world' && ! str_contains($joined, '興行収入') && ! str_contains($caption, '興行')) {
+                continue;
+            }
+            if ($kind === 'japan' && $roles['box_office'] === null && $roles['rentals'] === null && ! $isFilmList) {
                 continue;
             }
 
@@ -565,8 +587,57 @@ class JapanSeriesWikipediaParser
             return false;
         }
 
-        return (bool) preg_match('/北米|全世界|北アメリカ|イギリス|米国|インフレ|他地域|ドル|USD|Box Office Mojo|The Numbers/u', $joined)
+        return (bool) preg_match('/北米|全世界|北アメリカ|インフレ|他地域|ドル|USD|Box Office Mojo|The Numbers/u', $joined)
             || (bool) preg_match('/\$\d/', $joined);
+    }
+
+    private function isNonFilmSection(string $heading, string $caption): bool
+    {
+        $text = $heading.' '.$caption;
+        if (preg_match('/作品一覧|劇場版|映画作品|(?:^|[\s・])映画(?:$|[\s・])|興行/u', $text)
+            && ! preg_match('/サウンドトラック|soundtrack|シングル|ショートフィルム|短編|テレビシリーズ/iu', $text)) {
+            return false;
+        }
+
+        return (bool) preg_match('/サウンドトラック|soundtrack|シングル|楽曲|主題歌|挿入歌|スコア|\bScores?\b|アルバム|\bAlbums?\b|ミュージック|music video|ショートフィルム|短編|小説|ノベライズ|コミカライズ|ゲーム作品|テレビシリーズ|テレビドラマ|吹き替え|登場キャラクター|批評家|レビュー|公開されることのなかった|未製作|関連項目|外部リンク/iu', $text);
+    }
+
+    /**
+     * @param  array<string, mixed>  $roles
+     */
+    private function isFilmListTable(string $joined, array $roles, string $heading, string $caption): bool
+    {
+        if ($roles['title'] === null) {
+            return false;
+        }
+        if (preg_match('/アーティスト|レーベル|\bLabel\b|曲名/u', $joined)) {
+            return false;
+        }
+        $section = $heading.' '.$caption;
+        if ($section !== '' && ! preg_match('/作品一覧|劇場版|映画|興行/u', $section)) {
+            return false;
+        }
+        if (preg_match('/テレビシリーズ|エピソード|シーズン/u', $section)) {
+            return false;
+        }
+
+        return ($roles['date'] ?? null) !== null
+            || ($roles['year'] ?? null) !== null
+            || (bool) preg_match('/監督/u', $joined);
+    }
+
+    private function precedingHeadingText(DOMXPath $xpath, DOMElement $table): string
+    {
+        $nodes = $xpath->query('(preceding::h2 | preceding::h3 | preceding::h4)[last()]', $table);
+        if ($nodes === false || $nodes->length === 0) {
+            return '';
+        }
+        $node = $nodes->item(0);
+        if (! $node instanceof DOMElement) {
+            return '';
+        }
+
+        return JapanBoxOfficeAmount::normalize($node->textContent ?? '');
     }
 
     private function isPartialGrossTable(string $joined, string $caption): bool

@@ -4,6 +4,7 @@ namespace App\Console\Traits;
 
 use App\Services\Series\JapanBoxOfficeAmount;
 use App\Services\Series\JapanSeriesWikipediaParser;
+use App\Services\Series\SeriesCatalog;
 use Illuminate\Support\Facades\File;
 
 trait ExportsSeriesPages
@@ -19,13 +20,24 @@ trait ExportsSeriesPages
         File::ensureDirectoryExists($indexDir);
         File::put($indexDir.'/index.html', $this->seriesIndexHtml($catalog, $otherCatalog));
 
+        $jsonDir = $output.'/data/series/'.($isJapan ? 'japan' : 'global');
+        File::ensureDirectoryExists($jsonDir);
+
         foreach ($catalog['series'] ?? [] as $series) {
             if (! is_array($series) || empty($series['slug'])) {
                 continue;
             }
+            $movies = $this->seriesMoviesForUi($series, $isJapan);
+            File::put(
+                $jsonDir.'/'.$series['slug'].'.json',
+                json_encode(
+                    $this->seriesClientPayload($series, $catalog, $movies),
+                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                )
+            );
             $dir = $indexDir.'/'.$series['slug'];
             File::ensureDirectoryExists($dir);
-            File::put($dir.'/index.html', $this->seriesDetailHtml($series, $catalog));
+            File::put($dir.'/index.html', $this->seriesDetailHtml($series, $catalog, $movies));
         }
     }
 
@@ -45,7 +57,7 @@ trait ExportsSeriesPages
         ]];
 
         foreach ($catalog['series'] ?? [] as $series) {
-            if (! is_array($series) || empty($series['path'])) {
+            if (! is_array($series) || empty($series['path']) || empty($series['indexable'])) {
                 continue;
             }
             $entries[] = [
@@ -156,23 +168,27 @@ trait ExportsSeriesPages
 
         $jsonLd = $this->seriesIndexJsonLd($catalog, $heading);
 
+        $crumb = $isJapan ? '日本のシリーズ' : '世界のシリーズ';
+
         return $this->seriesPageShell(
             $catalog['indexPath'] ?? ($isJapan ? '/series/' : '/series/global/'),
             $pageTitle,
             $description,
-            $isJapan ? 'シリーズ' : '世界のシリーズ',
+            $crumb,
             $heading,
             $body,
             $jsonLd,
-            $isJapan ? [['href' => '/japan/', 'name' => '日本ランキング']] : [],
+            [],
+            'index, follow',
         );
     }
 
     /**
      * @param  array<string, mixed>  $series
      * @param  array<string, mixed>  $catalog
+     * @param  list<array<string, mixed>>|null  $movies
      */
-    private function seriesDetailHtml(array $series, array $catalog): string
+    private function seriesDetailHtml(array $series, array $catalog, ?array $movies = null): string
     {
         $isJapan = ($catalog['region'] ?? '') === 'japan';
         $name = (string) ($series['name'] ?? '');
@@ -181,29 +197,19 @@ trait ExportsSeriesPages
             ? $this->yenLabel($series['totalYen'] ?? null)
             : $this->usdLabel($series['totalUsd'] ?? null);
         $pageTitle = $heading.' '.$totalLabel.' | MUBIRAN';
-        $filmCount = (int) ($series['filmCount'] ?? 0);
+        $filmCount = (int) ($series['filmCount'] ?? count($series['films'] ?? []));
         $description = $name.'シリーズの'.($isJapan ? '日本' : '世界').'興行収入。'
             .$filmCount.'作品、合計'.$totalLabel.'。';
-
-        $rows = '';
-        foreach ($series['films'] ?? [] as $film) {
-            if (! is_array($film)) {
-                continue;
-            }
-            $title = $this->h((string) ($film['title'] ?? ''));
-            $href = is_string($film['href'] ?? null) ? (string) $film['href'] : '';
-            $titleHtml = $href !== '' ? '<a href="'.$this->h($href).'">'.$title.'</a>' : $title;
-            $year = $film['releaseYear'] ?? '';
-            $bo = $film['boxOffice'] ?? null;
-            $boLabel = $isJapan ? $this->yenLabel($bo) : $this->usdLabel($bo);
-            if (($film['metric'] ?? '') === JapanBoxOfficeAmount::METRIC_DISTRIBUTOR_RENTALS && $bo) {
-                $boLabel .= '（配給収入）';
-            }
-            $rank = is_numeric($film['rank'] ?? null) ? (string) (int) $film['rank'] : '—';
-            $rows .= '<tr><td>'.$this->h((string) $year).'</td><td>'.$titleHtml.'</td>'
-                .'<td class="series-num">'.$this->h($boLabel).'</td>'
-                .'<td class="series-num">'.$this->h($rank).'</td></tr>'."\n";
-        }
+        $movies ??= $this->seriesMoviesForUi($series, $isJapan);
+        $payload = $this->seriesClientPayload($series, $catalog, $movies);
+        $indexHref = $isJapan ? '/series/' : '/series/global/';
+        $otherHref = $isJapan ? '/series/global/' : '/series/';
+        $otherLabel = $isJapan ? '世界のシリーズ興行収入' : '日本のシリーズ興行収入';
+        $rankingHref = $isJapan ? '/japan/' : '/';
+        $nowHref = $isJapan ? '/now/' : '/now/global/';
+        $crumb = $isJapan ? '日本のシリーズ' : '世界のシリーズ';
+        $robots = ! empty($series['indexable']) ? 'index, follow' : 'noindex, follow';
+        $jsonSrc = '/data/series/'.($isJapan ? 'japan' : 'global').'/'.rawurlencode((string) ($series['slug'] ?? '')).'.json';
 
         $stats = '<dl class="series-stats">'
             .'<div><dt>作品数</dt><dd>'.$filmCount.'</dd></div>'
@@ -212,31 +218,375 @@ trait ExportsSeriesPages
             $stats .= '<div><dt>配給収入の作品</dt><dd>'.$this->h($this->yenLabel($series['sumRentalsYen'] ?? null)).'</dd></div>';
         }
         $stats .= '</dl>';
+        $metricNote = '';
         if ($isJapan && ! empty($series['hasRentals'])) {
-            $stats .= '<p class="series-metric-note">古い作品は配給収入で記録されていることがあります。配給収入と興行収入は別の指標なので、合計には混ぜていません。</p>';
+            $metricNote = '<p class="series-metric-note">古い作品は配給収入で記録されていることがあります。配給収入と興行収入は別の指標なので、合計には混ぜていません。</p>';
         }
 
-        $indexHref = $isJapan ? '/series/' : '/series/global/';
-        $body = $stats
-            .'<table class="series-table"><thead><tr><th>年</th><th>作品</th><th>興行収入</th><th>ランキング</th></tr></thead><tbody>'
-            .$rows.'</tbody></table>'
-            .($isJapan ? $this->japanSeriesAttribution($catalog) : $this->worldSeriesAttribution())
-            .'<p class="content-back-link"><a href="'.$this->h($indexHref).'">シリーズ一覧に戻る</a></p>';
+        $top = array_values(array_filter($movies, fn (array $movie) => (int) ($movie['rank'] ?? 0) <= 3));
+        $rest = array_values(array_filter($movies, fn (array $movie) => (int) ($movie['rank'] ?? 0) > 3));
+        $cards = '';
+        foreach ($top as $movie) {
+            $cards .= $this->seriesMovieCardHtml($movie);
+        }
+        $rows = '';
+        foreach ($rest as $movie) {
+            $rows .= $this->seriesMovieRowHtml($movie, $isJapan);
+        }
+        $listHtml = $movies === []
+            ? '<p class="static-empty text-center text-white">データがありません。</p>'
+            : '<section class="top-rankings" id="series-top-rankings">'.$cards.'</section>'
+                .'<section class="ranking-list" id="series-ranking-list">'.$rows.'</section>';
 
+        $attribution = $isJapan ? $this->japanSeriesAttribution($catalog) : $this->worldSeriesAttribution();
         $jsonLd = $this->seriesDetailJsonLd($series, $catalog);
+        $embedded = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP);
+        $footer = $this->siteFooterInnerHtml();
+        $styles = $this->viteStyles();
+        $script = $this->viteScript();
+        $boot = $this->rankingFallbackGuard();
 
-        return $this->seriesPageShell(
-            (string) ($series['path'] ?? $indexHref),
-            $pageTitle,
-            $description,
-            $name,
-            $heading,
-            $body,
-            $jsonLd,
-            [
-                ['href' => $indexHref, 'name' => $isJapan ? '日本のシリーズ' : '世界のシリーズ'],
-            ],
-        );
+        $baseUrl = rtrim(config('app.url'), '/');
+        $path = (string) ($series['path'] ?? $indexHref);
+        $canonical = $baseUrl.$path;
+        $ogImage = $baseUrl.'/images/android-chrome-512x512.png';
+
+        $ePageTitle = $this->h($pageTitle);
+        $eDescription = $this->h(mb_substr($description, 0, 120));
+        $eCanonical = $this->h($canonical);
+        $eOgImage = $this->h($ogImage);
+        $eHeading = $this->h($heading);
+        $eRobots = $this->h($robots);
+        $eName = $this->h($name);
+        $eCrumb = $this->h($crumb);
+        $eIndex = $this->h($indexHref);
+        $eOther = $this->h($otherHref);
+        $eOtherLabel = $this->h($otherLabel);
+        $eRanking = $this->h($rankingHref);
+        $eNow = $this->h($nowHref);
+        $eJsonSrc = $this->h($jsonSrc);
+        $eRegion = $isJapan ? 'japan' : 'global';
+
+        return <<<HTML
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    {$boot}
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="{$eDescription}">
+    <meta name="robots" content="{$eRobots}">
+    <meta name="author" content="ムビラン">
+    <meta name="language" content="ja">
+    <link rel="canonical" href="{$eCanonical}">
+    <title>{$ePageTitle}</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <meta name="theme-color" content="#2c3e50">
+    <meta property="og:title" content="{$ePageTitle}">
+    <meta property="og:description" content="{$eDescription}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{$eCanonical}">
+    <meta property="og:image" content="{$eOgImage}">
+    <meta property="og:locale" content="ja_JP">
+    <meta property="og:site_name" content="MUBIRAN - 映画興行収入ランキング">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{$ePageTitle}">
+    <meta name="twitter:description" content="{$eDescription}">
+    <meta name="twitter:image" content="{$eOgImage}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Oswald:wght@400;700&display=swap" rel="stylesheet">
+    {$styles}
+    {$jsonLd}
+  </head>
+  <body class="series-detail-page" data-page="series" data-region="{$eRegion}">
+    <div id="app" data-series-src="{$eJsonSrc}" data-region="{$eRegion}" aria-live="polite">
+      <header>
+        <a href="/" class="logo-link" aria-label="MUBIRAN トップ"><img src="/images/logo.png" alt="MUBIRAN" class="logo-img"></a>
+        <div class="header-controls">
+          <div class="toggle-container view-toggle" role="group" aria-label="表示切替">
+            <a href="{$eRanking}" class="toggle-btn">歴代</a>
+            <a href="{$eNow}" class="toggle-btn">公開中</a>
+          </div>
+          <div class="toggle-container region-toggle" role="group" aria-label="シリーズ切替">
+            <a href="/series/global/" class="toggle-btn {$this->h($isJapan ? '' : 'active')}">世界</a>
+            <a href="/series/" class="toggle-btn {$this->h($isJapan ? 'active' : '')}">日本</a>
+          </div>
+        </div>
+      </header>
+      <main class="container">
+        <nav class="content-breadcrumb" aria-label="パンくずリスト">
+          <a href="/">ホーム</a><span aria-hidden="true"> › </span>
+          <a href="{$eIndex}">{$eCrumb}</a><span aria-hidden="true"> › </span>
+          <span>{$eName}</span>
+        </nav>
+        <h1 class="page-title" id="page-title">{$eHeading}</h1>
+        {$stats}
+        {$metricNote}
+        {$listHtml}
+        {$attribution}
+        <p class="content-back-link"><a href="{$eIndex}">シリーズ一覧に戻る</a> · <a href="{$eOther}">{$eOtherLabel}</a></p>
+      </main>
+      <footer>
+        <div class="container">
+          {$footer}
+        </div>
+      </footer>
+    </div>
+    <script type="application/json" id="series-data">{$embedded}</script>
+    <script>
+      document.addEventListener('click', function (event) {
+        var node = event.target;
+        if (node && node.nodeType !== 1) node = node.parentElement;
+        if (!node || !node.closest) return;
+        var link = node.closest('#app a[href^="/movies/"]');
+        if (!link || event.button !== 0) return;
+        event.preventDefault();
+      }, true);
+    </script>
+    <script type="module" src="{$script}" onerror="document.documentElement.classList.remove('js')"></script>
+  </body>
+</html>
+HTML;
+    }
+
+    /**
+     * @param  array<string, mixed>  $series
+     * @param  array<string, mixed>  $catalog
+     * @param  list<array<string, mixed>>  $movies
+     * @return array<string, mixed>
+     */
+    private function seriesClientPayload(array $series, array $catalog, array $movies): array
+    {
+        $isJapan = ($catalog['region'] ?? '') === 'japan';
+
+        return [
+            'region' => $isJapan ? 'japan' : 'global',
+            'name' => $series['name'] ?? '',
+            'heading' => ($series['name'] ?? '').'のシリーズ興行収入',
+            'path' => $series['path'] ?? '',
+            'slug' => $series['slug'] ?? '',
+            'indexPath' => $isJapan ? '/series/' : '/series/global/',
+            'crumb' => $isJapan ? '日本のシリーズ' : '世界のシリーズ',
+            'usdJpy' => $this->usdJpy(),
+            'filmCount' => (int) ($series['filmCount'] ?? count($movies)),
+            'totalLabel' => $isJapan
+                ? $this->yenLabel($series['totalYen'] ?? null)
+                : $this->usdLabel($series['totalUsd'] ?? null),
+            'hasRentals' => ! empty($series['hasRentals']),
+            'sumRentalsLabel' => ! empty($series['hasRentals'])
+                ? $this->yenLabel($series['sumRentalsYen'] ?? null)
+                : null,
+            'movies' => $movies,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $series
+     * @return list<array<string, mixed>>
+     */
+    private function seriesMoviesForUi(array $series, bool $isJapan): array
+    {
+        $films = [];
+        foreach ($series['films'] ?? [] as $film) {
+            if (is_array($film)) {
+                $films[] = $film;
+            }
+        }
+        $films = SeriesCatalog::sortFilmsByRelease($films);
+        $movies = [];
+        foreach ($films as $index => $film) {
+            $id = $this->seriesFilmId($film);
+            $title = (string) ($film['title'] ?? '');
+            if ($id === '' || $title === '') {
+                continue;
+            }
+            $boxOffice = is_numeric($film['boxOffice'] ?? null) ? (int) $film['boxOffice'] : 0;
+            $known = $boxOffice > 0 && $boxOffice !== 1_000_000_000;
+            $rankingPosition = ! empty($film['inRanking']) && is_numeric($film['rank'] ?? null)
+                ? (int) $film['rank']
+                : null;
+            $revenue = $this->seriesFilmRevenue($film, $isJapan);
+            $movies[] = [
+                'id' => $id,
+                'slug' => (string) ($film['slug'] ?? $id),
+                'tmdbId' => is_numeric($film['tmdbId'] ?? null) ? (int) $film['tmdbId'] : null,
+                'rank' => $index + 1,
+                'rankingPosition' => $rankingPosition,
+                'inRanking' => $rankingPosition !== null,
+                'title' => $title,
+                'originalTitle' => (string) ($film['originalTitle'] ?? ''),
+                'releaseDate' => $film['releaseDate'] ?? null,
+                'releaseYear' => $film['releaseYear'] ?? null,
+                'genres' => is_array($film['genres'] ?? null) ? $film['genres'] : [],
+                'posterUrl' => (string) ($film['posterUrl'] ?? ''),
+                'isActive' => (bool) ($film['isActive'] ?? false),
+                'boxOffice' => $known ? $boxOffice : 0,
+                'revenueBillion' => $known && $isJapan
+                    ? number_format($boxOffice / 100000000, 1)
+                    : ($known ? ($film['revenueBillion'] ?? null) : null),
+                'productionCountry' => $isJapan ? (string) ($film['productionCountry'] ?? '日本') : ($film['productionCountry'] ?? null),
+                'revenue' => $revenue,
+                'revenueYen' => $known && ! $isJapan ? ($film['revenueYen'] ?? null) : null,
+                'href' => (string) ($film['href'] ?? '/movies/'.$id.'/'),
+                'metric' => (string) ($film['metric'] ?? 'box_office'),
+            ];
+        }
+
+        return $movies;
+    }
+
+    /**
+     * @param  array<string, mixed>  $film
+     */
+    private function seriesFilmId(array $film): string
+    {
+        $id = trim((string) ($film['id'] ?? ''));
+        if ($id !== '') {
+            return $id;
+        }
+        $href = (string) ($film['href'] ?? '');
+        if (preg_match('~/movies/([^/]+)/?$~', $href, $matches)) {
+            return rawurldecode($matches[1]);
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  array<string, mixed>  $film
+     */
+    private function seriesFilmRevenue(array $film, bool $isJapan): string
+    {
+        $boxOffice = $film['boxOffice'] ?? null;
+        if (! is_numeric($boxOffice) || (int) $boxOffice <= 0 || (int) $boxOffice === 1_000_000_000) {
+            return '不明';
+        }
+        $label = is_string($film['revenue'] ?? null) && $film['revenue'] !== '' && $film['revenue'] !== '不明'
+            ? (string) $film['revenue']
+            : ($isJapan ? $this->yenLabel($boxOffice) : $this->usdLabel($boxOffice));
+        if (
+            ($film['metric'] ?? '') === JapanBoxOfficeAmount::METRIC_DISTRIBUTOR_RENTALS
+            && ! str_contains($label, '配給収入')
+        ) {
+            $label .= '（配給収入）';
+        }
+
+        return $label;
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function seriesMovieCardHtml(array $movie): string
+    {
+        $url = (string) ($movie['posterUrl'] ?? '');
+        $posterClass = $url !== '' ? 'card-poster' : 'card-poster poster-placeholder';
+        $posterStyle = $url !== '' ? ' style="background-image:url(\''.$this->h($url).'\')"' : '';
+        $bg = $url !== '' ? '<div class="card-bg-image" style="background-image:url(\''.$this->h($url).'\')"></div>' : '';
+        $rank = (int) ($movie['rank'] ?? 0);
+        $id = $this->h((string) ($movie['id'] ?? ''));
+        $title = (string) ($movie['title'] ?? '');
+        $href = $this->h((string) ($movie['href'] ?? '/movies/'.$movie['id'].'/'));
+        $titleClass = $this->seriesTitleClass($title);
+        $chip = $this->seriesRankingChipHtml($movie);
+        $active = ! empty($movie['isActive']) ? ' active-movie' : '';
+        $badge = ! empty($movie['isActive']) ? '<div class="active-badge-card">公開中</div>' : '';
+        $subtitle = $this->seriesOriginalTitleHtml($movie, 'div');
+        $yen = ! empty($movie['revenueYen'])
+            ? '<div class="revenue-sub">'.$this->h((string) $movie['revenueYen']).'</div>'
+            : '';
+
+        return '<article class="top-card rank-'.$rank.$active.'" data-movie-id="'.$id.'" role="button" tabindex="0" aria-label="'.$this->h($title).'の詳細を見る">'
+            .$badge
+            .'<div class="rank-badge">'.$rank.'</div>'
+            .'<div class="'.$posterClass.'"'.$posterStyle.'></div>'
+            .$bg
+            .'<div class="title-line"><a class="movie-title '.$titleClass.'" href="'.$href.'">'.$this->h($title).'</a>'.$chip.'</div>'
+            .$subtitle
+            .'<div class="revenue-container"><div class="revenue-main" style="color: var(--accent-gold);">'.$this->h((string) ($movie['revenue'] ?? '不明')).'</div>'.$yen.'</div>'
+            .'</article>';
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function seriesMovieRowHtml(array $movie, bool $isJapan): string
+    {
+        $url = (string) ($movie['posterUrl'] ?? '');
+        $bg = $url !== '' ? '<div class="list-bg-image" style="background-image:url(\''.$this->h($url).'\')"></div>' : '';
+        $rank = (int) ($movie['rank'] ?? 0);
+        $id = $this->h((string) ($movie['id'] ?? ''));
+        $title = (string) ($movie['title'] ?? '');
+        $href = $this->h((string) ($movie['href'] ?? '/movies/'.$movie['id'].'/'));
+        $titleClass = $this->seriesTitleClass($title);
+        $chip = $this->seriesRankingChipHtml($movie);
+        $active = ! empty($movie['isActive']) ? ' active-movie' : '';
+        $japan = $isJapan ? ' is-japan' : '';
+        $badge = ! empty($movie['isActive']) ? '<div class="active-badge-card">公開中</div>' : '';
+        $subtitle = $this->seriesOriginalTitleHtml($movie, 'span');
+        $yen = ! empty($movie['revenueYen'])
+            ? '<span class="revenue-sub">'.$this->h((string) $movie['revenueYen']).'</span>'
+            : '';
+        $boxOffice = (int) ($movie['boxOffice'] ?? 0);
+        $max = $isJapan ? 150 : 3;
+        $width = min(($boxOffice / 100000000) / $max * 100, 100);
+
+        return '<article class="list-item'.$active.$japan.'" data-movie-id="'.$id.'" role="button" tabindex="0" aria-label="'.$this->h($title).'の詳細を見る">'
+            .$badge
+            .'<div class="revenue-bar-bg" style="width: '.$width.'%;"></div>'
+            .$bg
+            .'<div class="list-rank">'.$rank.'</div>'
+            .'<div class="list-info"><div class="title-line"><a class="movie-title '.$titleClass.'" href="'.$href.'">'.$this->h($title).'</a>'.$chip.'</div>'.$subtitle.'</div>'
+            .'<div class="list-revenue"><span class="revenue-main">'.$this->h((string) ($movie['revenue'] ?? '不明')).'</span>'.$yen.'</div>'
+            .'</article>';
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function seriesRankingChipHtml(array $movie): string
+    {
+        if (! is_numeric($movie['rankingPosition'] ?? null)) {
+            return '';
+        }
+        $href = $this->h((string) ($movie['href'] ?? '/movies/'.$movie['id'].'/'));
+        $rank = (string) (int) $movie['rankingPosition'];
+
+        return '<a class="series-ranking-chip" href="'.$href.'" title="歴代ランキング">'.$this->h($rank).'</a>';
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function seriesOriginalTitleHtml(array $movie, string $tag): string
+    {
+        $original = trim((string) ($movie['originalTitle'] ?? ''));
+        $title = (string) ($movie['title'] ?? '');
+        $country = (string) ($movie['productionCountry'] ?? '');
+        if ($original === '' || $original === $title || $country === 'JP' || $country === '日本') {
+            return '';
+        }
+        $class = $tag === 'div' ? 'movie-title-en' : 'movie-title-en';
+
+        return '<'.$tag.' class="'.$class.'">'.$this->h($original).'</'.$tag.'>';
+    }
+
+    private function seriesTitleClass(string $title): string
+    {
+        $length = mb_strlen($title);
+        if ($length > 35) {
+            return 'title-long';
+        }
+        if ($length > 20) {
+            return 'title-medium';
+        }
+
+        return 'title-short';
     }
 
     /**
@@ -251,6 +601,7 @@ trait ExportsSeriesPages
         string $bodyHtml,
         string $jsonLd,
         array $middleCrumbs = [],
+        string $robots = 'index, follow',
     ): string {
         $baseUrl = rtrim(config('app.url'), '/');
         $canonical = $baseUrl.$path;
@@ -268,6 +619,7 @@ trait ExportsSeriesPages
         $eCanonical = $this->h($canonical);
         $eOgImage = $this->h($ogImage);
         $eHeading = $this->h($heading);
+        $eRobots = $this->h($robots);
 
         return <<<HTML
 <!doctype html>
@@ -276,7 +628,7 @@ trait ExportsSeriesPages
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="{$eDescription}">
-    <meta name="robots" content="index, follow">
+    <meta name="robots" content="{$eRobots}">
     <meta name="author" content="ムビラン">
     <meta name="language" content="ja">
     <link rel="canonical" href="{$eCanonical}">
@@ -347,6 +699,7 @@ HTML;
             ];
         }
 
+        $crumb = ($catalog['region'] ?? '') === 'japan' ? '日本のシリーズ' : '世界のシリーズ';
         $graph = [
             '@context' => 'https://schema.org',
             '@graph' => [
@@ -354,7 +707,7 @@ HTML;
                     '@type' => 'BreadcrumbList',
                     'itemListElement' => [
                         ['@type' => 'ListItem', 'position' => 1, 'item' => ['@id' => $baseUrl.'/', 'name' => 'ホーム']],
-                        ['@type' => 'ListItem', 'position' => 2, 'item' => ['@id' => $baseUrl.$path, 'name' => $name]],
+                        ['@type' => 'ListItem', 'position' => 2, 'item' => ['@id' => $baseUrl.$path, 'name' => $crumb]],
                     ],
                 ],
                 [

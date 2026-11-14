@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Console\Traits\ExportsSeriesPages;
 use App\Console\Traits\FetchesTmdbMovieDetails;
+use App\Console\Traits\SavesMovieImages;
 use App\Models\GlobalMovie;
 use App\Models\JapaneseMovie;
 use App\Services\BoxOffice\Contracts\RegistryRepository;
@@ -25,6 +26,7 @@ class ExportStaticSite extends Command
 {
     use ExportsSeriesPages;
     use FetchesTmdbMovieDetails;
+    use SavesMovieImages;
 
     protected $signature = 'site:export-static
                             {--output=dist : Export directory}
@@ -137,6 +139,12 @@ class ExportStaticSite extends Command
         $this->exportRobotsTxt($output);
         $japanSeries = SeriesCatalog::japan($japan);
         $worldSeries = SeriesCatalog::world($global, $globalExtras);
+        $this->hydrateSeriesMedia($japanSeries, $output.'/data/details');
+        $this->hydrateSeriesMedia($worldSeries, $output.'/data/details');
+        $storage = storage_path('app/public');
+        if (File::isDirectory($storage)) {
+            File::copyDirectory($storage, $output.'/storage');
+        }
         $seriesMovieLinks = array_merge($worldSeries['movieLinks'], $japanSeries['movieLinks']);
         $this->seriesMovieLinks = $seriesMovieLinks;
 
@@ -430,11 +438,229 @@ class ExportStaticSite extends Command
             return '/storage/'.$poster;
         }
 
+        if (str_starts_with($poster, '/storage/') || str_starts_with($poster, 'storage/')) {
+            $public = str_starts_with($poster, '/') ? $poster : '/'.$poster;
+            $local = storage_path('app/public'.substr($public, strlen('/storage')));
+            if (! File::exists($local)) {
+                return null;
+            }
+
+            return $public;
+        }
+
         if (str_starts_with($poster, 'http')) {
             return $poster;
         }
 
         return 'https://image.tmdb.org/t/p/w342'.$poster;
+    }
+
+    /**
+     * @param  array<string, mixed>  $catalog
+     */
+    private function hydrateSeriesMedia(array &$catalog, string $detailsDir): void
+    {
+        $posters = [];
+        foreach ($catalog['extraMovies'] ?? [] as $index => $movie) {
+            if (! is_array($movie)) {
+                continue;
+            }
+            $catalog['extraMovies'][$index] = $this->hydrateSeriesMovie($movie, $detailsDir);
+            $id = (string) ($catalog['extraMovies'][$index]['id'] ?? '');
+            if ($id !== '') {
+                $posters[$id] = (string) ($catalog['extraMovies'][$index]['posterUrl'] ?? '');
+            }
+        }
+
+        foreach ($catalog['series'] ?? [] as $seriesIndex => $series) {
+            if (! is_array($series)) {
+                continue;
+            }
+            foreach ($series['films'] ?? [] as $filmIndex => $film) {
+                if (! is_array($film)) {
+                    continue;
+                }
+                $id = (string) ($film['id'] ?? '');
+                if ($id !== '' && ($posters[$id] ?? '') !== '') {
+                    $catalog['series'][$seriesIndex]['films'][$filmIndex]['posterUrl'] = $posters[$id];
+
+                    continue;
+                }
+                if (($film['posterUrl'] ?? '') !== '' && File::exists($detailsDir.'/'.$id.'.json')) {
+                    continue;
+                }
+                $hydrated = $this->hydrateSeriesMovie($this->seriesFilmAsMovie($film), $detailsDir);
+                if (($hydrated['posterUrl'] ?? '') !== '') {
+                    $catalog['series'][$seriesIndex]['films'][$filmIndex]['posterUrl'] = $hydrated['posterUrl'];
+                }
+                if (($hydrated['originalTitle'] ?? '') !== '' && ($film['originalTitle'] ?? '') === '') {
+                    $catalog['series'][$seriesIndex]['films'][$filmIndex]['originalTitle'] = $hydrated['originalTitle'];
+                }
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $film
+     * @return array<string, mixed>
+     */
+    private function seriesFilmAsMovie(array $film): array
+    {
+        return [
+            'id' => $film['id'] ?? '',
+            'slug' => $film['slug'] ?? ($film['id'] ?? ''),
+            'title' => $film['title'] ?? '',
+            'originalTitle' => $film['originalTitle'] ?? '',
+            'tmdbId' => $film['tmdbId'] ?? null,
+            'releaseDate' => $film['releaseDate'] ?? null,
+            'releaseYear' => $film['releaseYear'] ?? null,
+            'posterUrl' => $film['posterUrl'] ?? '',
+            'genres' => $film['genres'] ?? [],
+            'inRanking' => $film['inRanking'] ?? false,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     * @return array<string, mixed>
+     */
+    private function hydrateSeriesMovie(array $movie, string $detailsDir): array
+    {
+        $id = (string) ($movie['id'] ?? '');
+        if ($id === '') {
+            return $movie;
+        }
+
+        $isExtra = str_starts_with($id, 'jp-series-');
+        $detailsPath = $detailsDir.'/'.$id.'.json';
+        $cachePath = storage_path("app/static-details/{$id}.json");
+        $detail = $this->readReusableMovieDetail($cachePath) ?? $this->readReusableMovieDetail($detailsPath);
+
+        if ($detail === null && ($isExtra || empty($movie['posterUrl']))) {
+            $tmdbId = is_numeric($movie['tmdbId'] ?? null)
+                ? (int) $movie['tmdbId']
+                : MovieIdentity::tmdbIdFromKey($id);
+            if ($tmdbId === null && $isExtra && empty($movie['posterUrl'])) {
+                $year = is_numeric($movie['releaseYear'] ?? null) ? (int) $movie['releaseYear'] : null;
+                $date = is_string($movie['releaseDate'] ?? null) ? (string) $movie['releaseDate'] : ($year ? sprintf('%04d-01-01', $year) : null);
+                $tmdbId = $this->searchTmdbIdByTitle(
+                    (string) ($movie['title'] ?? ''),
+                    $date,
+                    is_string($movie['originalTitle'] ?? null) ? (string) $movie['originalTitle'] : null
+                );
+            }
+            if ($tmdbId) {
+                $fetched = $this->fetchTmdbMovieDetail($tmdbId);
+                if (is_array($fetched)) {
+                    $detail = $this->slimTmdbDetail($fetched);
+                }
+            }
+        }
+
+        if ($detail === null && $isExtra) {
+            $detail = $this->stubSeriesMovieDetail($movie);
+        }
+
+        if (is_array($detail)) {
+            $existing = File::exists($detailsPath) ? json_decode(File::get($detailsPath), true) : null;
+            $replacingRealWithStub = is_array($existing) && empty($existing['stub']) && ! empty($detail['stub']);
+            if (! $replacingRealWithStub) {
+                $json = json_encode($detail, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                File::ensureDirectoryExists($detailsDir);
+                File::put($detailsPath, $json);
+                if (empty($detail['stub'])) {
+                    File::ensureDirectoryExists(dirname($cachePath));
+                    File::put($cachePath, $json);
+                }
+            } elseif (is_array($existing)) {
+                $detail = $existing;
+            }
+        }
+
+        if (empty($movie['posterUrl']) && is_array($detail)) {
+            $poster = $detail['poster_path'] ?? null;
+            if (is_string($poster) && $poster !== '') {
+                $movie['posterUrl'] = $this->publicPosterUrl($poster, $id);
+            }
+        }
+
+        if (($movie['originalTitle'] ?? '') === '' && ! empty($detail['original_title'])) {
+            $movie['originalTitle'] = $detail['original_title'];
+        }
+
+        return $movie;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function readReusableMovieDetail(string $path): ?array
+    {
+        if (! File::exists($path)) {
+            return null;
+        }
+        $decoded = json_decode(File::get($path), true);
+        if (! is_array($decoded) || ! empty($decoded['stub'])) {
+            return null;
+        }
+        if (isset($decoded['names_language']) && ! $this->cachedDetailIsReusable($decoded)) {
+            return null;
+        }
+
+        return $decoded;
+    }
+
+    private function publicPosterUrl(string $poster, string $filenameBase): string
+    {
+        if (str_starts_with($poster, 'http') || str_starts_with($poster, '/storage/')) {
+            return $poster;
+        }
+        if (str_starts_with($poster, 'storage/')) {
+            return '/'.$poster;
+        }
+        if (str_starts_with($poster, 'posters/')) {
+            return '/storage/'.$poster;
+        }
+        $saved = $this->downloadAndSaveImage($poster, $filenameBase);
+
+        return $saved ? '/storage/'.$saved : '';
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     * @return array<string, mixed>
+     */
+    private function stubSeriesMovieDetail(array $movie): array
+    {
+        $genres = [];
+        foreach (is_array($movie['genres'] ?? null) ? $movie['genres'] : [] as $genre) {
+            if (is_string($genre) && $genre !== '') {
+                $genres[] = ['name' => $genre];
+            }
+        }
+
+        return [
+            'stub' => true,
+            'names_language' => 'ja-JP',
+            'title' => (string) ($movie['title'] ?? ''),
+            'original_title' => (string) ($movie['originalTitle'] ?? ''),
+            'tagline' => '',
+            'overview' => '',
+            'poster_path' => null,
+            'release_date' => $movie['releaseDate'] ?? null,
+            'runtime' => null,
+            'vote_average' => null,
+            'budget' => 0,
+            'revenue' => 0,
+            'belongs_to_collection' => null,
+            'production_countries' => [],
+            'production_companies' => [],
+            'genres' => $genres,
+            'credits' => [
+                'cast' => [],
+                'crew' => [],
+            ],
+        ];
     }
 
     private function copyPublicAssets(string $output): void
@@ -2280,6 +2506,9 @@ XML);
         }
 
         foreach (array_merge($global, $japan, $boardOnly) as $movie) {
+            if (! SeriesCatalog::movieIsIndexable($movie)) {
+                continue;
+            }
             $urls[] = [
                 'loc' => "{$baseUrl}/movies/".$this->movieSlug($movie['id']).'/',
                 'lastmod' => $this->movieAsOfTimestamp($movie),
@@ -2622,6 +2851,7 @@ XML);
         $rankLabel = $isJapan ? '日本ランキング' : '世界ランキング';
         $rankValue = $this->formatRankValue($movie['rank'] ?? null);
         $pageTitle = "{$title} の興行収入 {$movie['revenue']} | {$rankLabel}{$rankValue} - MUBIRAN";
+        $robots = SeriesCatalog::movieIsIndexable($movie) ? 'index, follow' : 'noindex, follow';
         $description = $this->movieMetaDescription($movie, $isJapan, $title, $releaseDate, $overview, $knownIds);
 
         $keywords = implode(',', array_filter([
@@ -2726,7 +2956,7 @@ XML);
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="{$eDescription}">
     <meta name="keywords" content="{$eKeywords}">
-    <meta name="robots" content="index, follow">
+    <meta name="robots" content="{$robots}">
     <meta name="author" content="ムビラン">
     <meta name="language" content="ja">
     <link rel="canonical" href="{$ePageUrl}">

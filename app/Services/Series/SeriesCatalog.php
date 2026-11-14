@@ -99,16 +99,25 @@ class SeriesCatalog
                 $inRanking = ($film['inRanking'] ?? true) && is_numeric($film['rank'] ?? null) && (int) $film['rank'] <= 200;
                 $rows[] = [
                     'id' => $film['id'] ?? null,
+                    'slug' => $film['slug'] ?? ($film['id'] ?? null),
+                    'tmdbId' => $film['tmdbId'] ?? null,
                     'title' => $film['title'] ?? '',
+                    'originalTitle' => $film['originalTitle'] ?? '',
                     'releaseYear' => $film['releaseYear'] ?? null,
                     'releaseDate' => $film['releaseDate'] ?? null,
                     'boxOffice' => $hasFigure ? $yenOrUsd : null,
-                    'revenue' => $hasFigure ? ($film['revenue'] ?? null) : null,
+                    'revenue' => $hasFigure ? ($film['revenue'] ?? null) : '不明',
+                    'revenueBillion' => $hasFigure ? ($film['revenueBillion'] ?? null) : null,
+                    'revenueYen' => $hasFigure ? ($film['revenueYen'] ?? null) : null,
                     'rank' => $inRanking ? ($film['rank'] ?? null) : null,
                     'metric' => 'box_office',
                     'kind' => 'theatrical',
                     'href' => isset($film['id']) ? '/movies/'.$film['id'].'/' : null,
                     'inRanking' => $inRanking,
+                    'posterUrl' => $film['posterUrl'] ?? '',
+                    'genres' => is_array($film['genres'] ?? null) ? $film['genres'] : [],
+                    'isActive' => (bool) ($film['isActive'] ?? false),
+                    'productionCountry' => $film['productionCountry'] ?? null,
                 ];
                 if (! empty($film['id'])) {
                     $movieLinks[(string) $film['id']] = [
@@ -118,6 +127,7 @@ class SeriesCatalog
                 }
             }
 
+            $totalUsd = $total > 0 ? $total : null;
             $built[] = [
                 'slug' => $slug,
                 'name' => $collection['name'],
@@ -127,9 +137,10 @@ class SeriesCatalog
                 'filmCount' => count($rows),
                 'knownCount' => $known,
                 'totalYen' => null,
-                'totalUsd' => $total > 0 ? $total : null,
+                'totalUsd' => $totalUsd,
                 'reportedTotalYen' => null,
                 'hasRentals' => false,
+                'indexable' => self::isIndexable(count($rows), $known, $totalUsd),
                 'films' => $rows,
             ];
         }
@@ -159,34 +170,17 @@ class SeriesCatalog
     {
         $wikiFilms = is_array($row['films'] ?? null) ? $row['films'] : [];
         $films = [];
-        $usedRanking = [];
 
         foreach ($wikiFilms as $wikiFilm) {
             if (($wikiFilm['kind'] ?? 'theatrical') === 'theatrical' || in_array($wikiFilm['kind'] ?? '', ['compilation', 'crossover'], true)) {
-                $matched = SeriesFilmMatcher::match($wikiFilm, $rankingMovies);
+                $matchResult = SeriesFilmMatcher::matchAll($wikiFilm, $rankingMovies);
+                $matched = $matchResult['matches'][0] ?? null;
+                if ($matched && isset($matched['id']) && isset($claimed[(string) $matched['id']])) {
+                    $matched = null;
+                }
                 $films[] = self::japanFilmRow($row, $wikiFilm, $matched, $extraMovies);
                 if ($matched && isset($matched['id'])) {
-                    $usedRanking[(string) $matched['id']] = true;
                     $claimed[(string) $matched['id']] = true;
-                }
-            }
-        }
-
-        if ($films === []) {
-            foreach (SeriesFilmMatcher::rankingMembers($row, $rankingMovies, $claimed) as $movie) {
-                $id = (string) ($movie['id'] ?? '');
-                $films[] = self::japanFilmRow($row, [
-                    'title' => $movie['title'] ?? '',
-                    'releaseYear' => $movie['releaseYear'] ?? null,
-                    'releaseDate' => $movie['releaseDate'] ?? null,
-                    'boxOfficeYen' => $movie['boxOffice'] ?? null,
-                    'metric' => JapanBoxOfficeAmount::METRIC_BOX_OFFICE,
-                    'kind' => 'theatrical',
-                    'unclear' => false,
-                ], $movie, $extraMovies);
-                if ($id !== '') {
-                    $claimed[$id] = true;
-                    $usedRanking[$id] = true;
                 }
             }
         }
@@ -208,6 +202,8 @@ class SeriesCatalog
         }
 
         $reported = is_numeric($row['reportedTotalYen'] ?? null) ? (int) $row['reportedTotalYen'] : null;
+        $totalYen = $reported ?? ($sumBoxOffice > 0 ? $sumBoxOffice : null);
+        $films = self::sortFilmsByRelease($films);
 
         return [
             'slug' => $row['slug'],
@@ -219,11 +215,12 @@ class SeriesCatalog
             'notes' => $row['notes'] ?? null,
             'filmCount' => count($films),
             'knownCount' => $known,
-            'totalYen' => $reported ?? ($sumBoxOffice > 0 ? $sumBoxOffice : null),
+            'totalYen' => $totalYen,
             'sumBoxOfficeYen' => $sumBoxOffice > 0 ? $sumBoxOffice : null,
             'sumRentalsYen' => $sumRentals > 0 ? $sumRentals : null,
             'reportedTotalYen' => $reported,
             'hasRentals' => $hasRentals,
+            'indexable' => self::isIndexable(count($films), $known, $totalYen),
             'films' => $films,
         ];
     }
@@ -248,6 +245,14 @@ class SeriesCatalog
         $releaseDate = $wikiFilm['releaseDate'] ?? null;
         $boxOffice = $wikiYen;
 
+        $posterUrl = '';
+        $originalTitle = (string) ($wikiFilm['wikipediaTitle'] ?? '');
+        $genres = [];
+        $isActive = false;
+        $tmdbId = null;
+        $revenueBillion = null;
+        $productionCountry = '日本';
+
         if ($matched) {
             $id = (string) ($matched['id'] ?? '');
             $href = $id !== '' ? '/movies/'.$id.'/' : null;
@@ -256,6 +261,13 @@ class SeriesCatalog
             $title = (string) ($matched['title'] ?? $title);
             $releaseDate = $matched['releaseDate'] ?? $releaseDate;
             $year = $matched['releaseYear'] ?? $year;
+            $posterUrl = (string) ($matched['posterUrl'] ?? '');
+            $originalTitle = (string) ($matched['originalTitle'] ?? $originalTitle);
+            $genres = is_array($matched['genres'] ?? null) ? $matched['genres'] : [];
+            $isActive = (bool) ($matched['isActive'] ?? false);
+            $tmdbId = is_numeric($matched['tmdbId'] ?? null) ? (int) $matched['tmdbId'] : null;
+            $revenueBillion = $matched['revenueBillion'] ?? null;
+            $productionCountry = (string) ($matched['productionCountry'] ?? $productionCountry);
             if (is_numeric($matched['boxOffice'] ?? null) && (int) $matched['boxOffice'] > 0) {
                 $boxOffice = (int) $matched['boxOffice'];
                 $metric = JapanBoxOfficeAmount::METRIC_BOX_OFFICE;
@@ -268,6 +280,7 @@ class SeriesCatalog
                 'slug' => $id,
                 'title' => $title,
                 'rank' => null,
+                'inRanking' => false,
                 'revenue' => $boxOffice ? number_format($boxOffice / 100000000, 1).'億円' : '不明',
                 'boxOffice' => $boxOffice ?? 0,
                 'releaseDate' => $releaseDate,
@@ -275,30 +288,108 @@ class SeriesCatalog
                 'releaseDatePrecision' => $releaseDate ? 'day' : ($year ? 'year' : null),
                 'posterUrl' => '',
                 'genres' => [],
-                'originalTitle' => $wikiFilm['wikipediaTitle'] ?? '',
+                'originalTitle' => $originalTitle,
+                'productionCountry' => $productionCountry,
                 'updatedAt' => is_string($series['retrievedAt'] ?? null) ? $series['retrievedAt'].'T00:00:00+09:00' : null,
                 'seriesSlug' => $series['slug'] ?? null,
+                'indexable' => is_numeric($boxOffice) && (int) $boxOffice > 0,
             ];
         }
 
         return [
             'id' => $id,
+            'slug' => $id,
+            'tmdbId' => $tmdbId,
             'title' => $title,
+            'originalTitle' => $originalTitle,
             'releaseYear' => $year,
             'releaseDate' => $releaseDate,
             'boxOffice' => $boxOffice,
-            'revenue' => $boxOffice ? number_format($boxOffice / 100000000, 1).'億円' : null,
+            'revenue' => $boxOffice ? number_format($boxOffice / 100000000, 1).'億円' : '不明',
+            'revenueBillion' => $revenueBillion,
             'rank' => $inRanking ? $rank : null,
             'metric' => $metric,
             'kind' => $wikiFilm['kind'] ?? 'theatrical',
             'unclear' => ! empty($wikiFilm['unclear']) && $boxOffice === null,
             'href' => $href,
             'inRanking' => $inRanking,
+            'posterUrl' => $posterUrl,
+            'genres' => $genres,
+            'isActive' => $isActive,
+            'productionCountry' => $productionCountry,
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $films
+     * @return list<array<string, mixed>>
+     */
+    public static function sortFilmsByRelease(array $films): array
+    {
+        usort($films, function (array $a, array $b): int {
+            $cmp = self::filmReleaseKey($a) <=> self::filmReleaseKey($b);
+            if ($cmp !== 0) {
+                return $cmp;
+            }
+
+            return ((int) ($b['boxOffice'] ?? 0)) <=> ((int) ($a['boxOffice'] ?? 0));
+        });
+
+        return array_values($films);
+    }
+
+    /**
+     * @param  array<string, mixed>  $film
+     */
+    public static function filmReleaseKey(array $film): string
+    {
+        $date = $film['releaseDate'] ?? null;
+        if (is_string($date) && preg_match('/^\d{4}-\d{2}-\d{2}/', $date)) {
+            return substr($date, 0, 10);
+        }
+        $year = $film['releaseYear'] ?? null;
+        if (is_numeric($year) && (int) $year > 0) {
+            return sprintf('%04d-12-31', (int) $year);
+        }
+
+        return '9999-12-31';
     }
 
     public static function extraJapanId(string $title, mixed $year): string
     {
         return 'jp-series-'.substr(hash('sha256', mb_strtolower(trim($title)).'|'.($year ?? '')), 0, 12);
+    }
+
+    public static function isIndexable(int $filmCount, int $knownCount, mixed $total): bool
+    {
+        if ($filmCount < 2) {
+            return false;
+        }
+
+        return $knownCount > 0 || (is_numeric($total) && (int) $total > 0);
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    public static function movieIsIndexable(array $movie): bool
+    {
+        if (array_key_exists('indexable', $movie)) {
+            return (bool) $movie['indexable'];
+        }
+        if (! empty($movie['inRanking']) && is_numeric($movie['rank'] ?? null) && (int) $movie['rank'] > 0) {
+            return true;
+        }
+
+        $id = (string) ($movie['id'] ?? '');
+        $isExtra = str_starts_with($id, 'jp-series-')
+            || (array_key_exists('inRanking', $movie) && empty($movie['inRanking']));
+        if (! $isExtra) {
+            return true;
+        }
+
+        $boxOffice = (int) ($movie['boxOffice'] ?? 0);
+
+        return $boxOffice > 0 && $boxOffice !== 1_000_000_000;
     }
 }

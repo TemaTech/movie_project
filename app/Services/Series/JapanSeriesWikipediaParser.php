@@ -97,6 +97,40 @@ class JapanSeriesWikipediaParser
     }
 
     /**
+     * 同一ページの歴代ランキング表（興収・配収）から作品を拾う。シリーズ合計表は除外する。
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function parseIndexRankingFilms(string $html): array
+    {
+        $films = [];
+        $seen = [];
+        foreach ($this->filmTables($html) as $tableInfo) {
+            if ($tableInfo['kind'] === 'world') {
+                continue;
+            }
+            foreach ($tableInfo['rows'] as $row) {
+                $film = $this->filmFromRow($row, ['name' => ''], $tableInfo);
+                if ($film === null || ($film['title'] ?? '') === '') {
+                    continue;
+                }
+                $key = SeriesFilmMatcher::compact($film['title']).'|'.($film['releaseYear'] ?? '');
+                if (isset($seen[$key])) {
+                    if (($films[$seen[$key]]['boxOfficeYen'] ?? null) === null && ($film['boxOfficeYen'] ?? null) !== null) {
+                        $films[$seen[$key]] = $film;
+                    }
+
+                    continue;
+                }
+                $seen[$key] = count($films);
+                $films[] = $film;
+            }
+        }
+
+        return array_values($films);
+    }
+
+    /**
      * @param  array<string, mixed>  $series
      * @param  array<string, mixed>  $tableInfo
      * @param  array<int, array{text: string, html: string, header: bool}>  $row
@@ -212,6 +246,9 @@ class JapanSeriesWikipediaParser
 
             $headerTexts = array_map(fn (array $cell) => $cell['text'], $headerRow);
             $joined = implode(' ', $headerTexts);
+            if (str_contains($joined, 'シリーズ名') || preg_match('/シリーズの興行/u', $this->captionText($table))) {
+                continue;
+            }
             if ($this->isTvTable($joined) || $this->isAttendanceOnlyTable($joined, $headerTexts)) {
                 continue;
             }
@@ -330,7 +367,8 @@ class JapanSeriesWikipediaParser
 
         foreach ($matches as $match) {
             $href = html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            $label = JapanBoxOfficeAmount::normalize(strip_tags($match[2]));
+            $inner = preg_replace('/<(style|script)\b[^>]*>.*?<\/\1>/isu', '', $match[2]) ?? $match[2];
+            $label = JapanBoxOfficeAmount::normalize(strip_tags($inner));
             if ($label === '' || preg_match('/^\d{4}年?$/', $label) || str_contains($href, 'redlink=1')) {
                 continue;
             }
@@ -559,7 +597,7 @@ class JapanSeriesWikipediaParser
                 $colspan = max(1, (int) $cell->getAttribute('colspan'));
                 $rowspan = max(1, (int) $cell->getAttribute('rowspan'));
                 $payload = [
-                    'text' => JapanBoxOfficeAmount::normalize($cell->textContent ?? ''),
+                    'text' => JapanBoxOfficeAmount::normalize($this->visibleText($cell)),
                     'html' => $this->innerHtml($cell),
                     'header' => $cell->tagName === 'th',
                 ];
@@ -614,6 +652,23 @@ class JapanSeriesWikipediaParser
         }
 
         return $rows;
+    }
+
+    private function visibleText(DOMElement $element): string
+    {
+        $clone = $element->cloneNode(true);
+        if (! $clone instanceof DOMElement) {
+            return $element->textContent ?? '';
+        }
+        $xpath = new DOMXPath($clone->ownerDocument);
+        $nodes = $xpath->query('.//style|.//script', $clone);
+        if ($nodes !== false) {
+            foreach ($nodes as $node) {
+                $node->parentNode?->removeChild($node);
+            }
+        }
+
+        return $clone->textContent ?? '';
     }
 
     private function innerHtml(DOMElement $element): string

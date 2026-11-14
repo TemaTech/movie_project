@@ -428,6 +428,42 @@ body.content-page { padding-bottom: 40px; }
 .movie-series-link { margin: 16px 0 0; font-size: .9rem; color: var(--text-secondary); }
 .movie-series-link a { color: var(--accent-blue); }
 
+.series-detail-page .page-title {
+    margin: 24px 0 20px;
+    font-size: clamp(1.5rem, 4vw, 2.2rem);
+}
+.series-detail-page .content-breadcrumb {
+    margin: 16px 0 0;
+}
+.series-detail-page .series-stats {
+    max-width: 520px;
+    margin: 0 auto 24px;
+}
+.series-detail-page .series-metric-note,
+.series-detail-page .series-attr,
+.series-detail-page .content-back-link {
+    max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.series-detail-page .top-rankings { margin-bottom: 24px; }
+.series-ranking-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.8em;
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 215, 0, 0.45);
+    color: var(--accent-gold);
+    font-family: var(--font-num), sans-serif;
+    font-size: .85rem;
+    font-weight: 700;
+    line-height: 1.4;
+    flex-shrink: 0;
+}
+.series-ranking-chip:hover { background: rgba(255, 215, 0, 0.12); }
+
 .series-lead { color: var(--text-secondary); line-height: 1.7; margin: 0 0 16px; }
 .series-stats {
     display: grid;

@@ -107,6 +107,19 @@ class TmdbClient
         return $data;
     }
 
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function searchCollections(string $query, string $language = 'ja'): array
+    {
+        $data = $this->request('get', '/search/collection', [
+            'query' => $query,
+            'language' => $language,
+        ]);
+
+        return is_array($data['results'] ?? null) ? $data['results'] : [];
+    }
+
     public function searchMovies(string $query, ?int $year = null, string $language = 'ja-JP'): array
     {
         $params = [

@@ -44,6 +44,8 @@ class JapanSeriesWikipediaParserTest extends TestCase
         ));
         $this->assertCount(29, $theatrical);
         $this->assertSame('名探偵コナン 時計じかけの摩天楼', $theatrical[0]['title']);
+        $this->assertStringContainsString('14番目の標的', $theatrical[1]['title']);
+        $this->assertStringNotContainsString('mw-parser-output', (string) ($theatrical[1]['shortTitle'] ?? ''));
         $this->assertSame(1997, $theatrical[0]['releaseYear']);
         $this->assertSame(1_100_000_000, $theatrical[0]['boxOfficeYen']);
         $this->assertSame(610_000_000, $theatrical[0]['distributorRentalsYen']);

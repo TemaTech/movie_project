@@ -264,6 +264,11 @@ function getPageMovies(rankedMovies) {
     return rankedMovies.slice(start, start + PER_PAGE);
 }
 
+function rankingChip(movie) {
+    if (!movie.rankingPosition) return '';
+    return `<a class="series-ranking-chip" href="${escapeHtml(moviePageHref(movie))}" title="歴代ランキング">${escapeHtml(String(movie.rankingPosition))}</a>`;
+}
+
 function movieCard(movie) {
     const url = posterUrl(movie.posterUrl);
     const subtitle = showOriginalTitle(movie)
@@ -404,7 +409,7 @@ document.addEventListener('click', (event) => {
 }, true);
 
 function titleLine(movie) {
-    return `<div class="title-line">${movieTitleHtml(movie)}${newsButton(movie)}</div>`;
+    return `<div class="title-line">${movieTitleHtml(movie)}${newsButton(movie)}${rankingChip(movie)}</div>`;
 }
 
 function documentTitle() {
@@ -659,7 +664,63 @@ function init(data) {
     watchRankingTitleFit(() => state.view === 'ranking');
 }
 
-fetch('/data/movies.json')
-    .then((response) => response.ok ? response.json() : Promise.reject(new Error('ランキングデータを読み込めませんでした。')))
-    .then(init)
-    .catch((error) => { app.innerHTML = `<p class="static-error">${escapeHtml(error.message)}</p>`; });
+function initSeries(series) {
+    const region = series.region === 'japan' ? 'japan' : 'global';
+    const movies = Array.isArray(series.movies) ? series.movies : [];
+    siteData = {
+        global: region === 'global' ? movies : [],
+        japan: region === 'japan' ? movies : [],
+        usdJpy: series.usdJpy,
+    };
+    state.region = region;
+    state.view = 'ranking';
+    if (series.usdJpy) setUsdJpy(series.usdJpy);
+
+    const isJapan = region === 'japan';
+    const topHost = document.querySelector('#series-top-rankings');
+    const listHost = document.querySelector('#series-ranking-list');
+    if (topHost && listHost && movies.length) {
+        const top = movies.filter((movie) => movie.rank <= 3);
+        const rest = movies.filter((movie) => movie.rank > 3);
+        topHost.innerHTML = top.map(movieCard).join('');
+        listHost.innerHTML = rest.map((movie) => movieRow(movie, isJapan)).join('');
+    }
+
+    bindMovieInteractions(siteData);
+    bindAiOverlays();
+    fitRankingTitles();
+}
+
+function readEmbeddedSeries() {
+    const embedded = document.getElementById('series-data');
+    if (!embedded?.textContent?.trim()) return null;
+    try {
+        return JSON.parse(embedded.textContent);
+    } catch {
+        return null;
+    }
+}
+
+function bootSeriesPage(root) {
+    const embedded = readEmbeddedSeries();
+    if (embedded) {
+        initSeries(embedded);
+        return;
+    }
+    fetch(root.dataset.seriesSrc)
+        .then((response) => (response.ok ? response.json() : Promise.reject(new Error('シリーズデータを読み込めませんでした。'))))
+        .then(initSeries)
+        .catch((error) => {
+            root.insertAdjacentHTML('afterbegin', `<p class="static-error">${escapeHtml(error.message)}</p>`);
+        });
+}
+
+const seriesApp = document.querySelector('#app[data-series-src]');
+if (seriesApp) {
+    bootSeriesPage(seriesApp);
+} else if (app) {
+    fetch('/data/movies.json')
+        .then((response) => response.ok ? response.json() : Promise.reject(new Error('ランキングデータを読み込めませんでした。')))
+        .then(init)
+        .catch((error) => { app.innerHTML = `<p class="static-error">${escapeHtml(error.message)}</p>`; });
+}

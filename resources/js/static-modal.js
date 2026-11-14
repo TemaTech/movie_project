@@ -187,8 +187,18 @@ function populateModal(detail, movie) {
 
     document.getElementById('modalTagline').textContent = detail.tagline || '';
     document.getElementById('modalOverview').textContent = detail.overview || 'あらすじ情報は現在ありません。';
-    document.getElementById('modalPoster').src = posterPath;
-    document.getElementById('modalPoster').alt = detail.title || movie.title;
+    const posterEl = document.getElementById('modalPoster');
+    const posterWrap = posterEl.closest('.modal-poster-wrapper');
+    posterEl.alt = detail.title || movie.title;
+    if (posterPath) {
+        posterEl.src = posterPath;
+        posterEl.style.display = '';
+        posterWrap?.classList.remove('poster-placeholder');
+    } else {
+        posterEl.removeAttribute('src');
+        posterEl.style.display = 'none';
+        posterWrap?.classList.add('poster-placeholder');
+    }
 
     const releaseDate = pickReleaseDate(detail, movie);
     document.getElementById('modalYear').textContent = releaseDate ? releaseDate.slice(0, 4) : '-';
@@ -196,11 +206,7 @@ function populateModal(detail, movie) {
     document.getElementById('modalRating').textContent = `★ ${detail.vote_average ? detail.vote_average.toFixed(1) : '-'}`;
 
     document.getElementById('modalBudget').textContent = toYen(detail.budget);
-    if (movie.revenueBillion) {
-        document.getElementById('modalRevenue').textContent = `${movie.revenueBillion}億円`;
-    } else {
-        document.getElementById('modalRevenue').textContent = toYen(detail.revenue);
-    }
+    document.getElementById('modalRevenue').textContent = modalRevenueText(detail, movie);
 
     const countryNames = (detail.production_countries || [])
         .map((country) => COUNTRY_MAP[country.name] || country.name)
@@ -266,6 +272,49 @@ async function fetchMovieDetail(movie) {
     return detail;
 }
 
+function detailFromMovie(movie) {
+    const year = movie.releaseYear || (movie.releaseDate ? String(movie.releaseDate).slice(0, 4) : '');
+    return {
+        title: movie.title,
+        original_title: movie.originalTitle,
+        overview: '',
+        poster_path: null,
+        release_date: movie.releaseDate || (year ? `${year}-01-01` : ''),
+        runtime: 0,
+        vote_average: 0,
+        budget: 0,
+        revenue: 0,
+        genres: (movie.genres || []).map((name) => (typeof name === 'string' ? { name } : name)),
+        production_countries: movie.productionCountry ? [{ name: movie.productionCountry }] : [],
+        production_companies: [],
+        credits: { cast: [], crew: [] },
+    };
+}
+
+function isJapanMovie(movie) {
+    return String(movie.id || movie.slug || '').startsWith('jp-')
+        || movie.productionCountry === '日本'
+        || movie.productionCountry === 'JP';
+}
+
+function modalRevenueText(detail, movie) {
+    if (movie.revenue && movie.revenue !== '不明') {
+        return movie.revenue;
+    }
+    const boxOffice = Number(movie.boxOffice);
+    const known = Number.isFinite(boxOffice) && boxOffice > 0 && boxOffice !== 1000000000;
+    if (known && movie.revenueBillion) {
+        return `${movie.revenueBillion}億円`;
+    }
+    if (movie.revenue === '不明' || !known) {
+        if (isJapanMovie(movie)) return '不明';
+        const converted = toYen(detail.revenue);
+        return converted === '-' ? '不明' : converted;
+    }
+    const converted = toYen(detail.revenue);
+    return converted === '-' ? '不明' : converted;
+}
+
 export async function openMovieModal(movie) {
     ensureModal();
     const modal = document.getElementById('movieModal');
@@ -282,8 +331,8 @@ export async function openMovieModal(movie) {
     try {
         const detail = await fetchMovieDetail(movie);
         populateModal(detail, movie);
-    } catch (error) {
-        showModalError(error.message);
+    } catch {
+        populateModal(detailFromMovie(movie), movie);
     }
 }
 

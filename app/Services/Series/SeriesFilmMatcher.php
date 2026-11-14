@@ -13,72 +13,70 @@ class SeriesFilmMatcher
      */
     public static function match(array $film, array $movies): ?array
     {
-        $candidates = self::filmKeys($film);
-        $best = null;
-        $bestScore = 0.0;
-
-        foreach ($movies as $movie) {
-            $score = 0.0;
-            foreach (self::movieKeys($movie) as $key) {
-                foreach ($candidates as $candidate) {
-                    if ($key === $candidate) {
-                        $score = 1.0;
-                        break 2;
-                    }
-                }
-            }
-
-            if ($score < 1.0) {
-                $title = self::norm((string) ($movie['title'] ?? ''));
-                foreach ($candidates as $candidate) {
-                    similar_text($title, $candidate, $percent);
-                    $score = max($score, $percent / 100);
-                }
-            }
-
-            $filmYear = $film['releaseYear'] ?? null;
-            $movieYear = $movie['releaseYear'] ?? (isset($movie['releaseDate']) ? (int) substr((string) $movie['releaseDate'], 0, 4) : null);
-            if ($filmYear && $movieYear && abs((int) $filmYear - (int) $movieYear) > 1) {
-                $score -= 0.25;
-            }
-
-            if ($score > $bestScore) {
-                $bestScore = $score;
-                $best = $movie;
-            }
+        $result = self::matchAll($film, $movies);
+        if ($result['ambiguous'] !== [] || count($result['matches']) !== 1) {
+            return null;
         }
 
-        return $bestScore >= 0.82 ? $best : null;
+        return $result['matches'][0];
     }
 
     /**
-     * Ranking-only fallback when Wikipedia had no per-film table.
+     * 厳密一致のみ。類似度フォールバックやタイトル接頭辞の曖昧マッチはしない。
      *
-     * @param  array<string, mixed>  $series
+     * @param  array<string, mixed>  $film
      * @param  list<array<string, mixed>>  $movies
-     * @param  array<string, true>  $claimedIds
-     * @return list<array<string, mixed>>
+     * @return array{matches: list<array<string, mixed>>, ambiguous: list<string>}
      */
-    public static function rankingMembers(array $series, array $movies, array $claimedIds): array
+    public static function matchAll(array $film, array $movies): array
     {
-        $name = self::norm((string) ($series['name'] ?? ''));
-        if ($name === '') {
-            return [];
+        $filmKeys = self::compactKeys($film);
+        if ($filmKeys === []) {
+            return ['matches' => [], 'ambiguous' => []];
         }
 
-        $members = [];
+        $filmYear = self::year($film);
+        $matches = [];
         foreach ($movies as $movie) {
-            $id = (string) ($movie['id'] ?? '');
-            if ($id === '' || isset($claimedIds[$id])) {
+            $movieKeys = self::compactKeys($movie);
+            if ($movieKeys === []) {
                 continue;
             }
-            $title = self::norm((string) ($movie['title'] ?? ''));
-            if ($title === $name || str_starts_with($title, $name)) {
-                $members[] = $movie;
+            if (array_intersect($filmKeys, $movieKeys) === []) {
+                continue;
+            }
+            $movieYear = self::year($movie);
+            if ($filmYear && $movieYear && abs($filmYear - $movieYear) > 1) {
+                continue;
+            }
+            $matches[] = $movie;
+        }
+
+        if (count($matches) > 1) {
+            return [
+                'matches' => [],
+                'ambiguous' => array_values(array_map(fn (array $movie) => (string) ($movie['title'] ?? $movie['id'] ?? ''), $matches)),
+            ];
+        }
+
+        return ['matches' => $matches, 'ambiguous' => []];
+    }
+
+    /**
+     * @param  array<string, mixed>  $film
+     * @return list<string>
+     */
+    public static function compactKeys(array $film): array
+    {
+        $keys = [];
+        foreach (['title', 'shortTitle', 'wikipediaTitle', 'originalTitle'] as $field) {
+            $value = self::compact((string) ($film[$field] ?? ''));
+            if ($value !== '' && mb_strlen($value) >= 2) {
+                $keys[] = $value;
             }
         }
 
-        return $members;
+        return array_values(array_unique($keys));
     }
 
     /**
@@ -87,15 +85,7 @@ class SeriesFilmMatcher
      */
     public static function filmKeys(array $film): array
     {
-        $keys = [];
-        foreach (['title', 'shortTitle', 'wikipediaTitle'] as $field) {
-            $value = self::norm((string) ($film[$field] ?? ''));
-            if ($value !== '') {
-                $keys[] = $value;
-            }
-        }
-
-        return array_values(array_unique($keys));
+        return self::compactKeys($film);
     }
 
     /**
@@ -104,15 +94,7 @@ class SeriesFilmMatcher
      */
     public static function movieKeys(array $movie): array
     {
-        $keys = [];
-        foreach (['title', 'originalTitle'] as $field) {
-            $value = self::norm((string) ($movie[$field] ?? ''));
-            if ($value !== '') {
-                $keys[] = $value;
-            }
-        }
-
-        return array_values(array_unique($keys));
+        return self::compactKeys($movie);
     }
 
     public static function norm(string $title): string
@@ -122,5 +104,30 @@ class SeriesFilmMatcher
         $title = str_replace(['シリーズ'], '', $title);
 
         return trim($title);
+    }
+
+    public static function compact(string $title): string
+    {
+        $title = self::norm($title);
+        $title = preg_replace('/[とのをはがへで]/u', '', $title) ?? $title;
+        $title = preg_replace('/\s+/u', '', $title) ?? $title;
+
+        return $title;
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     */
+    public static function year(array $item): ?int
+    {
+        if (is_numeric($item['releaseYear'] ?? null)) {
+            return (int) $item['releaseYear'];
+        }
+        $date = $item['releaseDate'] ?? null;
+        if (is_string($date) && preg_match('/^((?:19|20)\d{2})/', $date, $matches)) {
+            return (int) $matches[1];
+        }
+
+        return null;
     }
 }

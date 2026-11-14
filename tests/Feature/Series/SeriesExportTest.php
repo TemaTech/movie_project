@@ -72,7 +72,10 @@ class SeriesExportTest extends TestCase
         $this->assertStringContainsString('href="/series/名探偵コナン/"', $index);
         $this->assertStringContainsString('CC BY-SA', $index);
         $this->assertStringContainsString('href="/series/global/"', $index);
+        $this->assertStringContainsString('日本のシリーズ', $index);
+        $this->assertStringNotContainsString('日本ランキング', $index);
 
+        $catalog['series'][0]['indexable'] = true;
         $detail = $this->invoke('seriesDetailHtml', $catalog['series'][0], $catalog);
         $this->assertStringContainsString('名探偵コナンのシリーズ興行収入', $detail);
         $this->assertStringContainsString('rel="canonical" href="https://mubiran.com/series/名探偵コナン/"', $detail);
@@ -81,6 +84,14 @@ class SeriesExportTest extends TestCase
         $this->assertStringNotContainsString('配給収入と興行収入は別の指標', $detail);
         $this->assertStringContainsString('ItemList', $detail);
         $this->assertStringContainsString('Wikipedia', $detail);
+        $this->assertStringContainsString('href="/series/"', $detail);
+        $this->assertStringContainsString('日本のシリーズ', $detail);
+        $this->assertStringContainsString('name":"日本のシリーズ"', $detail);
+        $this->assertStringContainsString('id="app"', $detail);
+        $this->assertStringContainsString('data-series-src=', $detail);
+        $this->assertStringContainsString('top-card', $detail);
+        $this->assertStringContainsString('data-movie-id="jp-tmdb-1"', $detail);
+        $this->assertStringNotContainsString('series-table', $detail);
     }
 
     public function test_series_pages_are_listed_in_the_sitemap_with_data_dates(): void
@@ -105,7 +116,15 @@ class SeriesExportTest extends TestCase
                     'retrievedAt' => '2026-11-14',
                     'series' => [[
                         'path' => '/series/名探偵コナン/',
-                        'films' => [],
+                        'indexable' => true,
+                        'films' => [
+                            ['title' => 'a', 'boxOffice' => 1],
+                            ['title' => 'b', 'boxOffice' => 1],
+                        ],
+                    ], [
+                        'path' => '/series/thin/',
+                        'indexable' => false,
+                        'films' => [['title' => 'alone']],
                     ]],
                 ]),
             );
@@ -117,8 +136,110 @@ class SeriesExportTest extends TestCase
 
         $this->assertStringContainsString('<loc>https://mubiran.com/series/</loc>', $xml);
         $this->assertStringContainsString('<loc>https://mubiran.com/series/名探偵コナン/</loc>', $xml);
+        $this->assertStringNotContainsString('/series/thin/', $xml);
         $this->assertStringContainsString('<lastmod>2026-11-14T00:00:00+09:00</lastmod>', $xml);
         $this->assertStringContainsString('<loc>https://mubiran.com/</loc>', $xml);
+    }
+
+    public function test_thin_series_and_empty_film_pages_are_noindex(): void
+    {
+        config(['app.url' => 'https://mubiran.com']);
+        $thin = [
+            'slug' => 'thin',
+            'name' => 'Thin',
+            'path' => '/series/thin/',
+            'filmCount' => 1,
+            'knownCount' => 0,
+            'totalYen' => null,
+            'indexable' => false,
+            'films' => [['title' => 'Alone', 'boxOffice' => null, 'href' => '/movies/jp-series-abc/']],
+        ];
+        $html = $this->invoke('seriesDetailHtml', $thin, [
+            'region' => 'japan',
+            'indexPath' => '/series/',
+        ]);
+        $this->assertStringContainsString('noindex, follow', $html);
+
+        $page = $this->invoke('moviePageHtml', [
+            'id' => 'jp-series-abc',
+            'title' => 'Alone',
+            'revenue' => '不明',
+            'boxOffice' => 0,
+            'rank' => null,
+            'inRanking' => false,
+            'posterUrl' => '',
+            'genres' => [],
+        ], true, sys_get_temp_dir(), []);
+        $this->assertStringContainsString('noindex, follow', $page);
+    }
+
+    public function test_conan_ranking_column_links_top_200_films(): void
+    {
+        $catalog = SeriesCatalog::japan([[
+            'id' => 'jp-tmdb-1545621',
+            'title' => '名探偵コナン ハイウェイの堕天使',
+            'releaseYear' => 2026,
+            'rank' => 28,
+            'boxOffice' => 13_700_000_000,
+        ], [
+            'id' => 'jp-tmdb-1209217',
+            'title' => '名探偵コナン 100万ドルの五稜星',
+            'releaseYear' => 2024,
+            'rank' => 17,
+            'boxOffice' => 15_800_000_000,
+        ]]);
+        $conan = collect($catalog['series'])->firstWhere('name', '名探偵コナン');
+        $this->assertIsArray($conan);
+        $highway = collect($conan['films'])->first(fn (array $film) => str_contains((string) $film['title'], 'ハイウェイの堕天使'));
+        $this->assertSame(28, $highway['rank']);
+        $this->assertSame('/movies/jp-tmdb-1545621/', $highway['href']);
+
+        $html = $this->invoke('seriesDetailHtml', $conan, $catalog);
+        $this->assertStringContainsString('href="/movies/jp-tmdb-1545621/"', $html);
+        $this->assertStringContainsString('data-movie-id="jp-tmdb-1545621"', $html);
+        $this->assertStringContainsString('series-ranking-chip', $html);
+        $this->assertStringContainsString('>28</a>', $html);
+        $this->assertStringContainsString('list-item', $html);
+        $this->assertStringContainsString('top-card', $html);
+        $this->assertStringNotContainsString('<table class="series-table">', $html);
+    }
+
+    public function test_series_detail_labels_rentals_and_unknown_figures(): void
+    {
+        $html = $this->invoke('seriesDetailHtml', [
+            'slug' => 'doraemon',
+            'name' => 'ドラえもん',
+            'path' => '/series/doraemon/',
+            'filmCount' => 2,
+            'knownCount' => 1,
+            'totalYen' => 1_500_000_000,
+            'hasRentals' => true,
+            'sumRentalsYen' => 1_500_000_000,
+            'indexable' => true,
+            'films' => [[
+                'id' => 'jp-series-old',
+                'title' => 'ドラえもん 古い作品',
+                'releaseYear' => 1980,
+                'boxOffice' => 1_500_000_000,
+                'metric' => 'distributor_rentals',
+                'href' => '/movies/jp-series-old/',
+            ], [
+                'id' => 'jp-series-new',
+                'title' => 'ドラえもん 数字なし',
+                'releaseYear' => 2024,
+                'boxOffice' => null,
+                'metric' => 'box_office',
+                'href' => '/movies/jp-series-new/',
+            ]],
+        ], [
+            'region' => 'japan',
+            'indexPath' => '/series/',
+        ]);
+
+        $this->assertStringContainsString('（配給収入）', $html);
+        $this->assertStringContainsString('不明', $html);
+        $this->assertStringContainsString('配給収入と興行収入は別の指標', $html);
+        $this->assertStringContainsString('top-card', $html);
     }
 
     public function test_world_catalog_groups_collection_films_without_changing_rankings(): void

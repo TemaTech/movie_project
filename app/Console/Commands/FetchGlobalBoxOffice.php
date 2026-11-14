@@ -10,7 +10,9 @@ use App\Services\BoxOffice\TheatricalRun;
 use App\Services\Tmdb\TmdbClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class FetchGlobalBoxOffice extends Command
 {
@@ -108,7 +110,16 @@ class FetchGlobalBoxOffice extends Command
             }
 
             $this->persistMovies($movies);
-            $this->info(sprintf('処理完了: 合計%d件の映画データを更新しました', count($movies)));
+            $callsBeforeSeries = $this->tmdb->httpCalls();
+            $extras = $this->expandCollectionMovies($movies);
+            $this->persistSeriesExtras($extras);
+            $this->info(sprintf(
+                '処理完了: ランキング%d件 / シリーズ追加%d件 / TMDb HTTP %d回（うちシリーズ展開 +%d）',
+                count($movies),
+                count($extras),
+                $this->tmdb->httpCalls(),
+                $this->tmdb->httpCalls() - $callsBeforeSeries
+            ));
 
             return self::SUCCESS;
         } catch (\Exception $e) {
@@ -284,6 +295,10 @@ class FetchGlobalBoxOffice extends Command
                 }
             }
 
+            $collection = is_array($movieDetails['belongs_to_collection'] ?? null)
+                ? $movieDetails['belongs_to_collection']
+                : (is_array($englishDetails['belongs_to_collection'] ?? null) ? $englishDetails['belongs_to_collection'] : null);
+
             $isActive = $theatrical['active'];
             if ($theatrical['revivalDate']) {
                 $this->info(sprintf(
@@ -314,6 +329,9 @@ class FetchGlobalBoxOffice extends Command
                 'rank' => $rank,
                 'region' => 'global',
                 'is_active' => $isActive ? 1 : 0,
+                'in_ranking' => 1,
+                'tmdb_collection_id' => is_array($collection) ? ($collection['id'] ?? null) : null,
+                'tmdb_collection_name' => is_array($collection) ? ($collection['name'] ?? null) : null,
                 'genres' => $genres,
                 'production_country' => isset($movieDetails['production_countries'][0])
                     ? $movieDetails['production_countries'][0]['iso_3166_1']
@@ -359,14 +377,18 @@ class FetchGlobalBoxOffice extends Command
 
         $this->rollbackOpenTransaction();
 
-        GlobalMovie::where('region', 'global')->delete();
-        $this->info('既存のデータを削除しました');
+        if (Schema::hasColumn('global_movies', 'in_ranking')) {
+            GlobalMovie::where('region', 'global')->where('in_ranking', true)->delete();
+        } else {
+            GlobalMovie::where('region', 'global')->delete();
+        }
+        $this->info('既存のランキングデータを削除しました');
 
         DB::beginTransaction();
         $this->info('トランザクションを開始しました');
 
         try {
-            $chunks = array_chunk($movies, 50);
+            $chunks = array_chunk(array_map(fn (array $movie) => $this->globalMovieInsertRow($movie), $movies), 50);
             foreach ($chunks as $chunkIndex => $chunk) {
                 GlobalMovie::insert($chunk);
                 $this->info(sprintf('チャンク %d/%d を挿入しました', $chunkIndex + 1, count($chunks)));
@@ -383,6 +405,236 @@ class FetchGlobalBoxOffice extends Command
 
             throw $e;
         }
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rankingMovies
+     * @return list<array<string, mixed>>
+     */
+    private function expandCollectionMovies(array $rankingMovies): array
+    {
+        if (! Schema::hasColumn('global_movies', 'in_ranking')) {
+            $this->warn('in_ranking 列がないためシリーズ作品の追加取得をスキップします');
+
+            return [];
+        }
+
+        $rankingIds = [];
+        $collections = [];
+        foreach ($rankingMovies as $movie) {
+            $tmdbId = (int) ($movie['tmdb_id'] ?? 0);
+            if ($tmdbId > 0) {
+                $rankingIds[$tmdbId] = true;
+            }
+            $collectionId = (int) ($movie['tmdb_collection_id'] ?? 0);
+            if ($collectionId > 0) {
+                $collections[$collectionId] = (string) ($movie['tmdb_collection_name'] ?? '');
+            }
+        }
+
+        if ($collections === []) {
+            $this->info('ランキング作品にTMDbコレクションがありません');
+
+            return [];
+        }
+
+        $this->info(sprintf('シリーズ展開: %d コレクション', count($collections)));
+        $extras = [];
+        $seen = $rankingIds;
+
+        foreach ($collections as $collectionId => $fallbackName) {
+            $collection = $this->loadCollection((int) $collectionId);
+            if ($collection === null) {
+                $this->warn(sprintf('コレクション %d を取得できませんでした', $collectionId));
+
+                continue;
+            }
+
+            $name = (string) ($collection['name'] ?? $fallbackName);
+            foreach ($collection['parts'] ?? [] as $part) {
+                $partId = (int) ($part['id'] ?? 0);
+                if ($partId === 0 || isset($seen[$partId])) {
+                    continue;
+                }
+                $seen[$partId] = true;
+                $record = $this->buildSeriesExtraRecord($part, $name, (int) $collectionId);
+                if ($record !== null) {
+                    $extras[] = $record;
+                }
+            }
+        }
+
+        $this->info(sprintf('シリーズ追加作品: %d件', count($extras)));
+
+        return $extras;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function loadCollection(int $collectionId): ?array
+    {
+        $cache = storage_path('app/tmdb-series/collections/'.$collectionId.'.json');
+        if (File::exists($cache)) {
+            $cached = json_decode(File::get($cache), true);
+            if (is_array($cached) && isset($cached['parts'])) {
+                return $cached;
+            }
+        }
+
+        $collection = $this->tmdb->getCollection($collectionId, 'ja');
+        if ($collection === null) {
+            $collection = $this->tmdb->getCollection($collectionId, 'en-US');
+        }
+        if ($collection === null) {
+            return null;
+        }
+
+        File::ensureDirectoryExists(dirname($cache));
+        File::put($cache, json_encode($collection, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+        return $collection;
+    }
+
+    /**
+     * @param  array<string, mixed>  $part
+     * @return array<string, mixed>|null
+     */
+    private function buildSeriesExtraRecord(array $part, string $collectionName, int $collectionId): ?array
+    {
+        $tmdbId = (int) ($part['id'] ?? 0);
+        if ($tmdbId === 0) {
+            return null;
+        }
+
+        $partRelease = is_string($part['release_date'] ?? null) ? $part['release_date'] : null;
+        $unreleased = is_string($partRelease) && $partRelease > now('Asia/Tokyo')->toDateString();
+        $details = $unreleased ? [] : ($this->loadSeriesMovieDetails($tmdbId) ?? []);
+        if ($details === [] && ! $unreleased) {
+            $this->warn(sprintf('シリーズ作品 %d の詳細を取得できませんでした。コレクションの作品名のみ残します', $tmdbId));
+        }
+
+        $revenue = (int) ($details['revenue'] ?? 0);
+        if ($revenue === 1_000_000_000 || $revenue > 3_000_000_000) {
+            $revenue = 0;
+        }
+
+        $releaseDate = $details['release_date'] ?? $partRelease;
+        $title = (string) ($details['title'] ?? ($part['title'] ?? ''));
+        if ($title === '') {
+            return null;
+        }
+
+        $key = MovieIdentity::globalKey($tmdbId);
+        $genres = isset($details['genres'])
+            ? json_encode(collect($details['genres'])->pluck('name')->toArray())
+            : json_encode([]);
+
+        $localPosterPath = null;
+        if (! empty($details['poster_path'])) {
+            $localPosterPath = $this->downloadAndSaveImage($details['poster_path'], $key);
+        }
+
+        $collectionTitle = is_array($details['belongs_to_collection'] ?? null)
+            ? ($details['belongs_to_collection']['name'] ?? $collectionName)
+            : $collectionName;
+
+        return [
+            'movie_id' => $key,
+            'tmdb_id' => $tmdbId,
+            'title' => $title,
+            'original_title' => $details['original_title'] ?? ($part['original_title'] ?? null),
+            'poster_path' => $localPosterPath,
+            'box_office' => $revenue,
+            'budget' => (int) ($details['budget'] ?? 0),
+            'release_date' => $releaseDate ?: null,
+            'release_date_precision' => $releaseDate ? 'day' : null,
+            'rank' => null,
+            'region' => 'global',
+            'is_active' => 0,
+            'in_ranking' => 0,
+            'tmdb_collection_id' => $collectionId,
+            'tmdb_collection_name' => $collectionTitle,
+            'genres' => $genres,
+            'production_country' => isset($details['production_countries'][0])
+                ? $details['production_countries'][0]['iso_3166_1']
+                : null,
+            'data_source' => 'TMDb',
+            'data_source_url' => "https://www.themoviedb.org/movie/{$tmdbId}",
+            'last_updated' => now(),
+            'ai_analysis' => null,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     * @return array<string, mixed>
+     */
+    private function globalMovieInsertRow(array $movie): array
+    {
+        if (! Schema::hasColumn('global_movies', 'in_ranking')) {
+            unset($movie['in_ranking'], $movie['tmdb_collection_id'], $movie['tmdb_collection_name']);
+        }
+
+        return $movie;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function loadSeriesMovieDetails(int $tmdbId): ?array
+    {
+        $cache = storage_path('app/tmdb-series/movies/'.$tmdbId.'.json');
+        if (File::exists($cache)) {
+            $cached = json_decode(File::get($cache), true);
+            if (is_array($cached) && isset($cached['id'])) {
+                return $cached;
+            }
+        }
+
+        $details = $this->tmdb->getMovie($tmdbId, 'ja');
+        $revenue = (int) ($details['revenue'] ?? 0);
+        if ($details === null || $revenue === 0 || $revenue === 1_000_000_000) {
+            $english = $this->tmdb->getMovie($tmdbId, 'en-US');
+            if (is_array($english)) {
+                if ($details === null) {
+                    $details = $english;
+                } elseif ((int) ($english['revenue'] ?? 0) > 0) {
+                    $details['revenue'] = $english['revenue'];
+                    $details['belongs_to_collection'] = $details['belongs_to_collection']
+                        ?? ($english['belongs_to_collection'] ?? null);
+                }
+            }
+        }
+
+        if ($details === null) {
+            return null;
+        }
+
+        File::ensureDirectoryExists(dirname($cache));
+        File::put($cache, json_encode($details, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+        return $details;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $movies
+     */
+    private function persistSeriesExtras(array $movies): void
+    {
+        if (! Schema::hasColumn('global_movies', 'in_ranking')) {
+            return;
+        }
+
+        GlobalMovie::where('region', 'global')->where('in_ranking', false)->delete();
+        if ($movies === []) {
+            return;
+        }
+
+        foreach (array_chunk(array_map(fn (array $movie) => $this->globalMovieInsertRow($movie), $movies), 50) as $chunk) {
+            GlobalMovie::insert($chunk);
+        }
+        $this->info(sprintf('シリーズ追加作品を%d件保存しました', count($movies)));
     }
 
     private function rollbackOpenTransaction(): void

@@ -16,10 +16,17 @@ class TmdbClient
 
     private const DEFAULT_MAX_ATTEMPTS = 5;
 
+    private int $httpCalls = 0;
+
     public function __construct(
         private readonly ?string $apiKey = null,
         private readonly int $maxAttempts = self::DEFAULT_MAX_ATTEMPTS,
     ) {}
+
+    public function httpCalls(): int
+    {
+        return $this->httpCalls;
+    }
 
     public static function fromConfig(): self
     {
@@ -85,9 +92,21 @@ class TmdbClient
     }
 
     /**
-     * @param  array<string, mixed>  $query
-     * @return list<array<string, mixed>>
+     * @return array<string, mixed>|null
      */
+    public function getCollection(int $collectionId, string $language = 'ja'): ?array
+    {
+        $data = $this->request('get', "/collection/{$collectionId}", [
+            'language' => $language,
+        ]);
+
+        if ($data === null || ! isset($data['id'], $data['parts']) || ! is_array($data['parts'])) {
+            return null;
+        }
+
+        return $data;
+    }
+
     public function searchMovies(string $query, ?int $year = null, string $language = 'ja-JP'): array
     {
         $params = [
@@ -139,6 +158,7 @@ class TmdbClient
 
         for ($attempt = 1; $attempt <= $this->maxAttempts; $attempt++) {
             try {
+                $this->httpCalls++;
                 $response = Http::timeout(30)
                     ->withHeaders(['Accept' => 'application/json'])
                     ->{$method}($url, $query);

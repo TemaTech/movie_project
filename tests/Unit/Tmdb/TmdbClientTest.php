@@ -106,4 +106,25 @@ class TmdbClientTest extends TestCase
         $this->assertCount(1, $results);
         $this->assertSame(19995, $results[0]['id']);
     }
+
+    public function test_get_collection_returns_parts(): void
+    {
+        Http::fake([
+            'api.themoviedb.org/3/collection/1241*' => Http::response([
+                'id' => 1241,
+                'name' => 'ハリー・ポッター コレクション',
+                'parts' => [
+                    ['id' => 671, 'title' => 'ハリー・ポッターと賢者の石'],
+                    ['id' => 672, 'title' => 'ハリー・ポッターと秘密の部屋'],
+                ],
+            ], 200),
+        ]);
+
+        $client = new TmdbClient('test-api-key', 1);
+        $collection = $client->getCollection(1241);
+
+        $this->assertSame(1241, $collection['id']);
+        $this->assertCount(2, $collection['parts']);
+        $this->assertSame(1, $client->httpCalls());
+    }
 }

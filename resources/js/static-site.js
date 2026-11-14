@@ -499,7 +499,7 @@ function footerHtml() {
         ? String(Math.round(Number(siteData.usdJpy)))
         : '150';
     return `<footer><div class="container">
-        <p class="site-footer-links"><a href="/now/">公開中の動向</a> · <a href="/about/">このサイトについて</a> · <a href="/privacy/">プライバシーポリシー</a> · <a href="/feed.xml">RSS</a></p>
+        <p class="site-footer-links"><a href="/series/">シリーズ興行収入</a> · <a href="/now/">公開中の動向</a> · <a href="/about/">このサイトについて</a> · <a href="/privacy/">プライバシーポリシー</a> · <a href="/feed.xml">RSS</a></p>
         <p>&copy; ${year} MUBIRAN. All rights reserved.</p>
         <p class="site-footer-attr">
             <a class="tmdb-attr" href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">

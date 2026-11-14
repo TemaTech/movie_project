@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Traits\ExportsSeriesPages;
 use App\Console\Traits\FetchesTmdbMovieDetails;
 use App\Models\GlobalMovie;
 use App\Models\JapaneseMovie;
@@ -13,13 +14,16 @@ use App\Services\BoxOffice\RegionalReleaseDate;
 use App\Services\BoxOffice\TheatricalRun;
 use App\Services\News\BoxOfficeNewsMatcher;
 use App\Services\News\YahooBoxOfficeNews;
+use App\Services\Series\SeriesCatalog;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class ExportStaticSite extends Command
 {
+    use ExportsSeriesPages;
     use FetchesTmdbMovieDetails;
 
     protected $signature = 'site:export-static
@@ -31,6 +35,9 @@ class ExportStaticSite extends Command
 
     /** @var array<string, list<array{key: string, title: string, points: list<array{at: string, boxOffice: int}>}>> */
     private array $activeSeries = ['japan' => [], 'global' => []];
+
+    /** @var array<string, array{href: string, name: string}> */
+    private array $seriesMovieLinks = [];
 
     /** JS の PER_PAGE（resources/js/static-site.js）。画面のページ分割に使う。静的HTMLは全件を載せる。 */
     private const RANKING_PAGE_SIZE = 100;
@@ -65,17 +72,30 @@ class ExportStaticSite extends Command
         File::deleteDirectory($output);
         File::ensureDirectoryExists($output.'/data/details');
 
-        $globalModels = GlobalMovie::orderBy('box_office', 'desc')->get();
+        $globalRankingQuery = GlobalMovie::query()->orderBy('box_office', 'desc');
+        $globalExtraQuery = GlobalMovie::query()->orderBy('box_office', 'desc');
+        if (Schema::hasColumn('global_movies', 'in_ranking')) {
+            $globalRankingQuery->where('in_ranking', true);
+            $globalExtraQuery->where('in_ranking', false);
+        } else {
+            $globalExtraQuery->whereRaw('0 = 1');
+        }
+        $globalModels = $globalRankingQuery->get();
+        $globalExtraModels = $globalExtraQuery->get();
         $japanModels = JapaneseMovie::orderBy('box_office', 'desc')->get();
 
         $this->exportMovieDetails($globalModels, $output.'/data/details', $refreshDetails);
+        $this->exportMovieDetails($globalExtraModels, $output.'/data/details', $refreshDetails);
         $this->exportMovieDetails($japanModels, $output.'/data/details', $refreshDetails);
 
         $global = $globalModels->values()
-            ->map(fn (GlobalMovie $movie, int $index) => $this->movieData($movie, $index + 1, false))
+            ->map(fn (GlobalMovie $movie, int $index) => $this->movieData($movie, $index + 1, false, true))
+            ->all();
+        $globalExtras = $globalExtraModels->values()
+            ->map(fn (GlobalMovie $movie) => $this->movieData($movie, null, false, false))
             ->all();
         $japan = $japanModels->values()
-            ->map(fn (JapaneseMovie $movie, int $index) => $this->movieData($movie, $index + 1, true))
+            ->map(fn (JapaneseMovie $movie, int $index) => $this->movieData($movie, $index + 1, true, true))
             ->all();
 
         $history = HistoryRecorder::fromConfig();
@@ -115,12 +135,34 @@ class ExportStaticSite extends Command
 
         $this->copyPublicAssets($output);
         $this->exportRobotsTxt($output);
+        $japanSeries = SeriesCatalog::japan($japan);
+        $worldSeries = SeriesCatalog::world($global, $globalExtras);
+        $seriesMovieLinks = array_merge($worldSeries['movieLinks'], $japanSeries['movieLinks']);
+        $this->seriesMovieLinks = $seriesMovieLinks;
+
         $boardOnly = $this->boardOnlyMovies($globalInsights, $japanInsights, $global, $japan);
         $knownIds = $this->knownMovieIds($global, $japan, $boardOnly);
+        foreach ($japanSeries['extraMovies'] as $extra) {
+            $id = (string) ($extra['id'] ?? '');
+            if ($id !== '' && ! isset($knownIds[$id])) {
+                $knownIds[$id] = [
+                    'revenue' => (string) ($extra['revenue'] ?? ''),
+                    'rank' => null,
+                ];
+            }
+        }
         $this->exportMoviePages($output, collect($global), collect($japan), $knownIds);
         foreach ($boardOnly as $movie) {
             $this->writeMoviePage($output, $movie, ($movie['region'] ?? '') === 'japan', $knownIds);
         }
+        foreach ($globalExtras as $movie) {
+            $this->writeMoviePage($output, $movie, false, $knownIds);
+        }
+        foreach ($japanSeries['extraMovies'] as $movie) {
+            $this->writeMoviePage($output, $movie, true, $knownIds);
+        }
+        $this->exportSeriesPages($output, $japanSeries, $worldSeries);
+        $this->exportSeriesPages($output, $worldSeries, $japanSeries);
         $this->exportTrustPages($output);
         $this->exportNowPage($output, $globalInsights, $japanInsights);
         $this->exportJapanRankingPage($output, $japan, $japanLastUpdated);
@@ -128,17 +170,22 @@ class ExportStaticSite extends Command
             $output,
             $global,
             $japan,
-            $boardOnly,
+            array_merge($boardOnly, $globalExtras, $japanSeries['extraMovies']),
             $globalLastUpdated,
             $japanLastUpdated,
             $globalInsights,
             $japanInsights,
+            array_merge(
+                $this->seriesSitemapEntries($japanSeries),
+                $this->seriesSitemapEntries($worldSeries),
+            ),
         );
         File::put($output.'/index.html', $this->indexHtml('/', $global, $globalLastUpdated));
 
-        $moviePageCount = count($global) + count($japan) + count($boardOnly);
+        $moviePageCount = count($global) + count($japan) + count($boardOnly) + count($globalExtras) + count($japanSeries['extraMovies']);
         $this->info("Static site exported to {$output}");
         $this->line('Global: '.count($global).' movies / Japan: '.count($japan).' movies');
+        $this->line('Series: Japan '.count($japanSeries['series']).' / World '.count($worldSeries['series']));
         $this->line("Movie pages: {$moviePageCount}");
 
         return self::SUCCESS;
@@ -299,7 +346,7 @@ class ExportStaticSite extends Command
         ];
     }
 
-    private function movieData(GlobalMovie|JapaneseMovie $movie, int $rank, bool $isJapan): array
+    private function movieData(GlobalMovie|JapaneseMovie $movie, ?int $rank, bool $isJapan, bool $inRanking = true): array
     {
         $releaseDate = $movie->release_date?->format('Y-m-d');
         $poster = $this->resolvePosterPath($movie);
@@ -327,6 +374,9 @@ class ExportStaticSite extends Command
             'slug' => $movie->movie_id,
             'tmdbId' => $movie->tmdb_id,
             'rank' => $rank,
+            'inRanking' => $inRanking,
+            'collectionId' => $movie->tmdb_collection_id ?? null,
+            'collectionName' => $movie->tmdb_collection_name ?? null,
             'title' => $title,
             'originalTitle' => $movie->original_title,
             'releaseDate' => $releaseDate,
@@ -339,9 +389,7 @@ class ExportStaticSite extends Command
             'boxOffice' => (int) $movie->box_office,
             'revenueBillion' => $revenueBillion,
             'productionCountry' => $isJapan ? ($movie->production_country ?? '日本') : null,
-            'revenue' => $isJapan
-                ? number_format($movie->box_office / 100000000, 1).'億円'
-                : number_format($movie->box_office / 100000000, 2).'億ドル',
+            'revenue' => $this->revenueLabel((int) $movie->box_office, $isJapan, $inRanking),
             'revenueYen' => $isJapan ? null : number_format($movie->box_office * $usdJpy / 100000000, 1).'億円',
             'analysis' => $movie->ai_analysis,
             'sourceUrl' => $movie->data_source_url,
@@ -349,6 +397,17 @@ class ExportStaticSite extends Command
                 ? Carbon::parse($movie->last_updated)->timezone('Asia/Tokyo')->toAtomString()
                 : null,
         ];
+    }
+
+    private function revenueLabel(int $boxOffice, bool $isJapan, bool $inRanking): string
+    {
+        if ($boxOffice <= 0 || $boxOffice === 1_000_000_000) {
+            return $inRanking ? ($isJapan ? '0.0億円' : '0.00億ドル') : '不明';
+        }
+
+        return $isJapan
+            ? number_format($boxOffice / 100000000, 1).'億円'
+            : number_format($boxOffice / 100000000, 2).'億ドル';
     }
 
     private function resolvePosterPath(GlobalMovie|JapaneseMovie $movie): ?string
@@ -442,7 +501,7 @@ TXT;
     private function moviesForClientPayload(array $movies): array
     {
         return array_map(function (array $movie) {
-            unset($movie['pageHistory']);
+            unset($movie['pageHistory'], $movie['collectionId'], $movie['collectionName'], $movie['inRanking']);
 
             return $movie;
         }, $movies);
@@ -2166,6 +2225,7 @@ XML);
         ?string $japanLastUpdated = null,
         array $globalInsights = [],
         array $japanInsights = [],
+        array $seriesUrls = [],
     ): void {
         $baseUrl = rtrim(config('app.url'), '/');
         $moviesById = $this->moviesById($global, $japan, $boardOnly);
@@ -2212,6 +2272,12 @@ XML);
             'changefreq' => 'monthly',
             'priority' => '0.3',
         ]];
+
+        foreach ($seriesUrls as $seriesUrl) {
+            if (is_array($seriesUrl) && isset($seriesUrl['loc'])) {
+                $urls[] = $seriesUrl;
+            }
+        }
 
         foreach (array_merge($global, $japan, $boardOnly) as $movie) {
             $urls[] = [
@@ -2438,7 +2504,14 @@ XML);
     ): string {
         $market = $isJapan ? '日本興収' : '世界興収';
         $rankLabel = $isJapan ? '日本ランキング' : '世界ランキング';
-        $lead = $title.'の'.$market.'は'.($movie['revenue'] ?? '').'（'.$rankLabel.$this->formatRankValue($movie['rank'] ?? null).'）。';
+        $revenue = (string) ($movie['revenue'] ?? '');
+        if ($revenue === '') {
+            $revenue = '不明';
+        }
+        $rankBit = is_numeric($movie['rank'] ?? null)
+            ? '（'.$rankLabel.$this->formatRankValue($movie['rank']).'）'
+            : '';
+        $lead = $title.'の'.$market.'は'.$revenue.$rankBit.'。';
 
         $releaseLabel = $this->formatReleaseDate($releaseDate);
         if ($releaseLabel !== '-') {
@@ -2631,6 +2704,12 @@ XML);
             $backParts[] = '<a href="'.$this->h($nowPath).'">公開中の動向に戻る</a>';
         }
         $backParts[] = '<a href="'.$eHomeUrl.'">'.$eRankLabel.'一覧に戻る</a>';
+        $seriesLink = $this->seriesMovieLinks[(string) ($movie['id'] ?? '')] ?? null;
+        $seriesHtml = '';
+        if (is_array($seriesLink) && ($seriesLink['href'] ?? '') !== '') {
+            $seriesHtml = '<p class="movie-series-link">シリーズ: <a href="'.$this->h((string) $seriesLink['href']).'">'.$this->h((string) $seriesLink['name']).'</a></p>';
+            $backParts[] = '<a href="'.$this->h((string) $seriesLink['href']).'">シリーズページ</a>';
+        }
         $backHtml = '<p class="movie-back-link">'.implode(' · ', $backParts).'</p>';
         $relatedLink = $siblingUrl
             ? '<link rel="related" href="'.$this->h($siblingUrl).'">'."\n    "
@@ -2699,6 +2778,7 @@ XML);
           </dl>
         </div>
         {$historyHtml}
+        {$seriesHtml}
       </article>
       {$backHtml}
       {$siblingAnchor}
@@ -2731,7 +2811,7 @@ HTML;
         $ccUrl = 'https://creativecommons.org/licenses/by-sa/4.0/deed.ja';
 
         return <<<HTML
-        <p class="site-footer-links"><a href="/now/">公開中の動向</a> · <a href="/about/">このサイトについて</a> · <a href="/privacy/">プライバシーポリシー</a> · <a href="/feed.xml">RSS</a></p>
+        <p class="site-footer-links"><a href="/series/">シリーズ興行収入</a> · <a href="/now/">公開中の動向</a> · <a href="/about/">このサイトについて</a> · <a href="/privacy/">プライバシーポリシー</a> · <a href="/feed.xml">RSS</a></p>
         <p>&copy; {$year} MUBIRAN. All rights reserved.</p>
         <p class="site-footer-attr">
             <a class="tmdb-attr" href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">
@@ -3114,7 +3194,8 @@ HTML;
             .'<h1 class="page-title">'.$this->h($heading).'</h1>'
             .'<p class="ranking-static-intro">'.$this->h($intro).'</p>'
             .'<ol class="ranking-static-list">'."\n".$items.'</ol>'
-            .'<p class="ranking-static-switch"><a href="'.$this->h($otherHref).'">'.$this->h($otherLabel).'</a></p>'
+            .'<p class="ranking-static-switch"><a href="'.$this->h($otherHref).'">'.$this->h($otherLabel).'</a>'
+            .' · <a href="/series/">シリーズ興行収入</a></p>'
             .'</main>';
     }
 

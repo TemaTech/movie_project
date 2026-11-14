@@ -77,8 +77,10 @@ trait ExportsSeriesPages
     private function seriesCatalogLastmod(array $catalog): ?string
     {
         if (is_string($catalog['retrievedAt'] ?? null) && $catalog['retrievedAt'] !== '') {
-            return $this->atomTimestamp($catalog['retrievedAt'].'T00:00:00+09:00')
-                ?? $this->atomTimestamp($catalog['retrievedAt']);
+            return $this->clampAtomTimestamp(
+                $this->atomTimestamp($catalog['retrievedAt'].'T00:00:00+09:00')
+                    ?? $this->atomTimestamp($catalog['retrievedAt'])
+            );
         }
 
         $latest = null;
@@ -93,24 +95,25 @@ trait ExportsSeriesPages
     }
 
     /**
+     * シリーズの lastmod / dateModified。公開日は使わず、作品の興収データ時点かデータセット更新日。
+     * 未公開作品は含めず、ビルド時点より後にはしない。
+     *
      * @param  array<string, mixed>  $series
      */
     private function seriesLastmod(array $series, ?string $fallback): ?string
     {
-        $latest = $fallback;
+        $latest = null;
         foreach ($series['films'] ?? [] as $film) {
-            if (! is_array($film)) {
+            if (! is_array($film) || SeriesCatalog::filmIsUnreleased($film)) {
                 continue;
             }
-            foreach ([$film['updatedAt'] ?? null, $film['releaseDate'] ?? null] as $raw) {
-                $at = is_string($raw) ? $this->atomTimestamp($raw) : null;
-                if ($at !== null && ($latest === null || strcmp($at, $latest) > 0)) {
-                    $latest = $at;
-                }
+            $at = $this->movieAsOfTimestamp($film);
+            if ($at !== null && ($latest === null || strcmp($at, $latest) > 0)) {
+                $latest = $at;
             }
         }
 
-        return $latest;
+        return $latest ?? $this->clampAtomTimestamp($fallback);
     }
 
     /**
@@ -166,7 +169,7 @@ trait ExportsSeriesPages
             .$rows.'</tbody></table>'
             .$attribution;
 
-        $jsonLd = $this->seriesIndexJsonLd($catalog, $heading);
+        $jsonLd = $this->seriesIndexJsonLd($catalog, $heading, $this->seriesCatalogLastmod($catalog));
 
         $crumb = $isJapan ? '日本のシリーズ' : '世界のシリーズ';
 
@@ -238,7 +241,8 @@ trait ExportsSeriesPages
                 .'<section class="ranking-list" id="series-ranking-list">'.$rows.'</section>';
 
         $attribution = $isJapan ? $this->japanSeriesAttribution($catalog) : $this->worldSeriesAttribution();
-        $jsonLd = $this->seriesDetailJsonLd($series, $catalog, $movies);
+        $dateModified = $this->seriesLastmod($series, $this->seriesCatalogLastmod($catalog));
+        $jsonLd = $this->seriesDetailJsonLd($series, $catalog, $movies, $dateModified);
         $embedded = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP);
         $footer = $this->siteFooterInnerHtml();
         $styles = $this->viteStyles();
@@ -405,18 +409,19 @@ HTML;
             if ($id === '' || $title === '') {
                 continue;
             }
+            $unreleased = SeriesCatalog::filmIsUnreleased($film);
             $boxOffice = is_numeric($film['boxOffice'] ?? null) ? (int) $film['boxOffice'] : 0;
-            $known = $boxOffice > 0 && $boxOffice !== 1_000_000_000;
-            $ranked = SeriesCatalog::displayGroup($film) === 0;
+            $known = ! $unreleased && $boxOffice > 0 && $boxOffice !== 1_000_000_000;
+            $ranked = ! $unreleased && SeriesCatalog::displayGroup($film) === 0;
             $displayRank = null;
             if ($ranked) {
                 $seriesRank++;
                 $displayRank = $seriesRank;
             }
-            $rankingPosition = ! empty($film['inRanking']) && is_numeric($film['rank'] ?? null)
+            $rankingPosition = ! $unreleased && ! empty($film['inRanking']) && is_numeric($film['rank'] ?? null)
                 ? (int) $film['rank']
                 : null;
-            $revenue = $this->seriesFilmRevenue($film, $isJapan);
+            $revenue = $unreleased ? '公開予定' : $this->seriesFilmRevenue($film, $isJapan);
             $movies[] = [
                 'id' => $id,
                 'slug' => (string) ($film['slug'] ?? $id),
@@ -430,7 +435,8 @@ HTML;
                 'releaseYear' => $film['releaseYear'] ?? null,
                 'genres' => is_array($film['genres'] ?? null) ? $film['genres'] : [],
                 'posterUrl' => (string) ($film['posterUrl'] ?? ''),
-                'isActive' => (bool) ($film['isActive'] ?? false),
+                'isActive' => $unreleased ? false : (bool) ($film['isActive'] ?? false),
+                'unreleased' => $unreleased,
                 'boxOffice' => $known ? $boxOffice : 0,
                 'revenueBillion' => $known && $isJapan
                     ? number_format($boxOffice / 100000000, 1)
@@ -520,7 +526,7 @@ HTML;
         $titleClass = $this->seriesTitleClass($title);
         $chip = $this->seriesRankingChipHtml($movie);
         $active = ! empty($movie['isActive']) ? ' active-movie' : '';
-        $badge = ! empty($movie['isActive']) ? '<div class="active-badge-card">公開中</div>' : '';
+        $badge = $this->seriesStatusBadgeHtml($movie);
         $subtitle = $this->seriesOriginalTitleHtml($movie, 'div');
         $year = $this->seriesReleaseYearHtml($movie, 'div');
         $yen = ! empty($movie['revenueYen'])
@@ -557,13 +563,14 @@ HTML;
         $active = ! empty($movie['isActive']) ? ' active-movie' : '';
         $japan = $isJapan ? ' is-japan' : '';
         $rental = (($movie['metric'] ?? '') === JapanBoxOfficeAmount::METRIC_DISTRIBUTOR_RENTALS) ? ' is-rental' : '';
-        $badge = ! empty($movie['isActive']) ? '<div class="active-badge-card">公開中</div>' : '';
+        $upcoming = ! empty($movie['unreleased']) ? ' is-upcoming' : '';
+        $badge = $this->seriesStatusBadgeHtml($movie);
         $subtitle = $this->seriesOriginalTitleHtml($movie, 'span');
         $year = $this->seriesReleaseYearHtml($movie, 'span');
         $yen = ! empty($movie['revenueYen'])
             ? '<span class="revenue-sub">'.$this->h((string) $movie['revenueYen']).'</span>'
             : '';
-        $boxOffice = (($movie['metric'] ?? '') === JapanBoxOfficeAmount::METRIC_DISTRIBUTOR_RENTALS)
+        $boxOffice = (($movie['metric'] ?? '') === JapanBoxOfficeAmount::METRIC_DISTRIBUTOR_RENTALS) || ! empty($movie['unreleased'])
             ? 0
             : (int) ($movie['boxOffice'] ?? 0);
         $max = $isJapan ? 150 : 3;
@@ -571,7 +578,7 @@ HTML;
         $rankLabel = $this->seriesRankLabel($movie);
         $rankClass = is_numeric($movie['rank'] ?? null) && (int) $movie['rank'] > 0 ? '' : ' list-rank-unranked';
 
-        return '<article class="list-item'.$active.$japan.$rental.'" data-movie-id="'.$id.'" role="button" tabindex="0" aria-label="'.$this->h($title).'の詳細を見る">'
+        return '<article class="list-item'.$active.$japan.$rental.$upcoming.'" data-movie-id="'.$id.'" role="button" tabindex="0" aria-label="'.$this->h($title).'の詳細を見る">'
             .$badge
             .'<div class="revenue-bar-bg" style="width: '.$width.'%;"></div>'
             .$bg
@@ -579,6 +586,21 @@ HTML;
             .'<div class="list-info"><div class="title-line"><a class="movie-title '.$titleClass.'" href="'.$href.'">'.$this->h($title).'</a>'.$chip.'</div>'.$year.$subtitle.'</div>'
             .'<div class="list-revenue"><span class="revenue-main">'.$this->h((string) ($movie['revenue'] ?? '不明')).'</span>'.$yen.'</div>'
             .'</article>';
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function seriesStatusBadgeHtml(array $movie): string
+    {
+        if (! empty($movie['unreleased'])) {
+            return '<div class="upcoming-badge-card">公開予定</div>';
+        }
+        if (! empty($movie['isActive'])) {
+            return '<div class="active-badge-card">公開中</div>';
+        }
+
+        return '';
     }
 
     /**
@@ -748,7 +770,7 @@ HTML;
     /**
      * @param  array<string, mixed>  $catalog
      */
-    private function seriesIndexJsonLd(array $catalog, string $name): string
+    private function seriesIndexJsonLd(array $catalog, string $name, ?string $dateModified = null): string
     {
         $baseUrl = rtrim(config('app.url'), '/');
         $path = $catalog['indexPath'] ?? '/series/';
@@ -766,6 +788,12 @@ HTML;
         }
 
         $crumb = ($catalog['region'] ?? '') === 'japan' ? '日本のシリーズ' : '世界のシリーズ';
+        $itemList = array_filter([
+            '@type' => 'ItemList',
+            'name' => $name,
+            'dateModified' => $dateModified,
+            'itemListElement' => $elements,
+        ], fn (mixed $value): bool => $value !== null && $value !== '');
         $graph = [
             '@context' => 'https://schema.org',
             '@graph' => [
@@ -776,11 +804,7 @@ HTML;
                         ['@type' => 'ListItem', 'position' => 2, 'item' => ['@id' => $baseUrl.$path, 'name' => $crumb]],
                     ],
                 ],
-                [
-                    '@type' => 'ItemList',
-                    'name' => $name,
-                    'itemListElement' => $elements,
-                ],
+                $itemList,
             ],
         ];
 
@@ -792,7 +816,7 @@ HTML;
      * @param  array<string, mixed>  $catalog
      * @param  list<array<string, mixed>>  $movies
      */
-    private function seriesDetailJsonLd(array $series, array $catalog, array $movies = []): string
+    private function seriesDetailJsonLd(array $series, array $catalog, array $movies = [], ?string $dateModified = null): string
     {
         $baseUrl = rtrim(config('app.url'), '/');
         $indexPath = $catalog['indexPath'] ?? '/series/';
@@ -820,6 +844,12 @@ HTML;
         }
 
         $indexName = ($catalog['region'] ?? '') === 'japan' ? '日本のシリーズ' : '世界のシリーズ';
+        $itemList = array_filter([
+            '@type' => 'ItemList',
+            'name' => $name.'のシリーズ興行収入',
+            'dateModified' => $dateModified,
+            'itemListElement' => $elements,
+        ], fn (mixed $value): bool => $value !== null && $value !== '');
         $graph = [
             '@context' => 'https://schema.org',
             '@graph' => [
@@ -831,11 +861,7 @@ HTML;
                         ['@type' => 'ListItem', 'position' => 3, 'item' => ['@id' => $baseUrl.$path, 'name' => $name]],
                     ],
                 ],
-                [
-                    '@type' => 'ItemList',
-                    'name' => $name.'のシリーズ興行収入',
-                    'itemListElement' => $elements,
-                ],
+                $itemList,
             ],
         ];
 

@@ -6,6 +6,7 @@ use App\Console\Commands\ExportStaticSite;
 use App\Services\Series\SeriesCatalog;
 use App\Services\Series\SeriesFilmMatcher;
 use App\Services\Series\SeriesSlug;
+use Carbon\Carbon;
 use ReflectionMethod;
 use Tests\TestCase;
 
@@ -392,6 +393,294 @@ class SeriesExportTest extends TestCase
         ]], true, null);
         $this->assertStringContainsString('href="/series/"', $ranking);
         $this->assertStringContainsString('日本映画興行収入ランキング', $ranking);
+    }
+
+    public function test_unreleased_films_are_labeled_excluded_from_totals_and_off_the_podium(): void
+    {
+        Carbon::setTestNow('2026-11-14T12:00:00+09:00');
+        try {
+            $catalog = SeriesCatalog::world([[
+                'id' => 'tmdb-1',
+                'title' => '公開済み',
+                'rank' => 10,
+                'inRanking' => true,
+                'boxOffice' => 500_000_000,
+                'releaseDate' => '2020-01-01',
+                'releaseYear' => 2020,
+                'updatedAt' => '2026-10-01T03:00:00+09:00',
+                'collectionId' => 86837,
+                'collectionName' => '戦狼 Collection',
+            ]], [[
+                'id' => 'tmdb-2',
+                'title' => '続編',
+                'rank' => null,
+                'inRanking' => false,
+                'boxOffice' => 0,
+                'releaseDate' => '2031-12-17',
+                'releaseYear' => 2031,
+                'updatedAt' => '2026-11-14T03:00:00+09:00',
+                'collectionId' => 86837,
+                'collectionName' => '戦狼 Collection',
+            ]]);
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $series = $catalog['series'][0];
+        $this->assertSame(500_000_000, $series['totalUsd']);
+        $this->assertSame(1, $series['knownCount']);
+        $this->assertCount(2, $series['films']);
+        $this->assertTrue($series['films'][1]['unreleased']);
+        $this->assertSame('公開予定', $series['films'][1]['revenue']);
+        $this->assertNull($series['films'][1]['rank']);
+
+        $html = $this->invoke('seriesDetailHtml', $series, $catalog);
+        $this->assertStringContainsString('upcoming-badge-card', $html);
+        $this->assertStringContainsString('公開予定', $html);
+        $this->assertStringContainsString('<article class="top-card rank-1" data-movie-id="tmdb-1"', $html);
+        $this->assertStringNotContainsString('<article class="top-card', explode('id="series-ranking-list"', $html)[1]);
+        $this->assertStringContainsString('data-movie-id="tmdb-2"', explode('id="series-ranking-list"', $html)[1]);
+        $this->assertStringContainsString('list-rank-unranked', $html);
+    }
+
+    public function test_world_collection_slugs_are_unique_and_not_generic(): void
+    {
+        $catalog = SeriesCatalog::world([
+            [
+                'id' => 'tmdb-ww1',
+                'title' => '戦狼',
+                'rank' => 1,
+                'inRanking' => true,
+                'boxOffice' => 100,
+                'collectionId' => 86837,
+                'collectionName' => '戦狼 Collection',
+            ],
+            [
+                'id' => 'tmdb-c1',
+                'title' => 'Generic A',
+                'rank' => 2,
+                'inRanking' => true,
+                'boxOffice' => 90,
+                'collectionId' => 11,
+                'collectionName' => 'Collection',
+            ],
+            [
+                'id' => 'tmdb-c2',
+                'title' => 'Generic B',
+                'rank' => 3,
+                'inRanking' => true,
+                'boxOffice' => 80,
+                'collectionId' => 22,
+                'collectionName' => 'Collection',
+            ],
+        ]);
+
+        $paths = array_column($catalog['series'], 'path');
+        $slugs = array_column($catalog['series'], 'slug');
+        $this->assertCount(3, $paths);
+        $this->assertSame($paths, array_unique($paths));
+        $this->assertSame($slugs, array_unique($slugs));
+        $this->assertSame('/series/global/戦狼-Collection/', $catalog['series'][0]['path']);
+        $this->assertNotContains('/series/global/collection/', $paths);
+        foreach ($slugs as $slug) {
+            $this->assertNotSame('', $slug);
+            $this->assertFalse(SeriesSlug::isGeneric((string) $slug));
+        }
+        $this->assertContains('tmdb-collection-11', $slugs);
+        $this->assertContains('tmdb-collection-22', $slugs);
+    }
+
+    public function test_all_series_paths_are_unique_across_japan_and_world(): void
+    {
+        $japan = SeriesCatalog::japan([]);
+        $world = SeriesCatalog::world([
+            [
+                'id' => 'tmdb-ww1',
+                'title' => '戦狼',
+                'rank' => 1,
+                'inRanking' => true,
+                'boxOffice' => 100,
+                'collectionId' => 86837,
+                'collectionName' => '戦狼 Collection',
+            ],
+            [
+                'id' => 'tmdb-hp',
+                'title' => 'ハリー・ポッターと賢者の石',
+                'rank' => 2,
+                'inRanking' => true,
+                'boxOffice' => 90,
+                'collectionId' => 1241,
+                'collectionName' => 'ハリー・ポッター コレクション',
+            ],
+        ]);
+
+        $paths = [];
+        foreach ([$japan, $world] as $catalog) {
+            $paths[] = $catalog['indexPath'];
+            foreach ($catalog['series'] as $series) {
+                $this->assertNotSame('', $series['slug']);
+                $this->assertNotSame('/series/global/collection/', $series['path']);
+                $paths[] = $series['path'];
+            }
+        }
+        $this->assertSame($paths, array_values(array_unique($paths)));
+        $this->assertContains('/series/global/', $paths);
+        $this->assertNotContains('global', array_column($japan['series'], 'slug'));
+    }
+
+    public function test_lastmod_and_date_modified_never_use_release_dates_or_the_future(): void
+    {
+        config(['app.url' => 'https://mubiran.com']);
+        Carbon::setTestNow('2026-11-14T12:00:00+09:00');
+        $dir = sys_get_temp_dir().'/mubiran-series-future-'.bin2hex(random_bytes(4));
+        mkdir($dir);
+
+        $worldCatalog = [
+            'region' => 'global',
+            'indexPath' => '/series/global/',
+            'retrievedAt' => null,
+            'series' => [[
+                'slug' => '戦狼-Collection',
+                'name' => '戦狼 Collection',
+                'path' => '/series/global/戦狼-Collection/',
+                'indexable' => true,
+                'films' => [[
+                    'id' => 'tmdb-1',
+                    'title' => '戦狼',
+                    'boxOffice' => 100,
+                    'releaseDate' => '2015-04-02',
+                    'updatedAt' => '2026-10-01T03:00:00+09:00',
+                    'unreleased' => false,
+                ], [
+                    'id' => 'tmdb-2',
+                    'title' => '続編',
+                    'boxOffice' => null,
+                    'releaseDate' => '2031-12-17',
+                    'updatedAt' => '2026-11-14T03:00:00+09:00',
+                    'unreleased' => true,
+                ]],
+            ]],
+        ];
+        $japanCatalog = [
+            'region' => 'japan',
+            'indexPath' => '/series/',
+            'retrievedAt' => '2026-11-14',
+            'series' => [[
+                'slug' => 'ドラえもん',
+                'name' => 'ドラえもん',
+                'path' => '/series/ドラえもん/',
+                'indexable' => true,
+                'films' => [[
+                    'id' => 'jp-series-old',
+                    'title' => '映画ドラえもん のび太の絵世界物語',
+                    'boxOffice' => 4_610_000_000,
+                    'releaseDate' => '2025-03-07',
+                    'updatedAt' => '2026-11-14T00:00:00+09:00',
+                    'unreleased' => false,
+                    'href' => '/movies/jp-series-old/',
+                ], [
+                    'id' => 'jp-series-future',
+                    'title' => '映画ドラえもん のび太の蒸気時間車',
+                    'boxOffice' => null,
+                    'releaseDate' => '2027-03-05',
+                    'updatedAt' => '2026-11-14T00:00:00+09:00',
+                    'unreleased' => true,
+                    'href' => '/movies/jp-series-future/',
+                ]],
+            ]],
+        ];
+
+        try {
+            $this->invoke(
+                'exportSitemap',
+                $dir,
+                [[
+                    'id' => 'tmdb-1',
+                    'updatedAt' => '2026-10-01T03:00:00+09:00',
+                    'releaseDate' => '2015-04-02',
+                ]],
+                [],
+                [[
+                    'id' => 'jp-series-future',
+                    'updatedAt' => '2026-11-14T00:00:00+09:00',
+                    'releaseDate' => '2027-03-05',
+                    'boxOffice' => 0,
+                    'inRanking' => false,
+                    'indexable' => false,
+                ], [
+                    'id' => 'tmdb-2',
+                    'updatedAt' => '2026-11-14T03:00:00+09:00',
+                    'releaseDate' => '2031-12-17',
+                    'boxOffice' => 0,
+                    'inRanking' => false,
+                    'indexable' => false,
+                ]],
+                '2026-10-01 03:00:00',
+                '2026-11-14 00:00:00',
+                [],
+                [],
+                array_merge(
+                    $this->invoke('seriesSitemapEntries', $japanCatalog),
+                    $this->invoke('seriesSitemapEntries', $worldCatalog),
+                ),
+            );
+            $xml = (string) file_get_contents($dir.'/sitemap.xml');
+            $detail = $this->invoke('seriesDetailHtml', $japanCatalog['series'][0], $japanCatalog);
+            $worldDetail = $this->invoke('seriesDetailHtml', $worldCatalog['series'][0], $worldCatalog);
+            $extraPage = $this->invoke('moviePageHtml', [
+                'id' => 'jp-series-future',
+                'title' => '映画ドラえもん のび太の蒸気時間車',
+                'revenue' => '公開予定',
+                'boxOffice' => 0,
+                'rank' => null,
+                'inRanking' => false,
+                'releaseDate' => '2027-03-05',
+                'updatedAt' => '2026-11-14T00:00:00+09:00',
+                'posterUrl' => '',
+                'genres' => [],
+            ], true, sys_get_temp_dir(), []);
+            $worldExtraPage = $this->invoke('moviePageHtml', [
+                'id' => 'tmdb-2',
+                'title' => '続編',
+                'revenue' => '公開予定',
+                'boxOffice' => 0,
+                'rank' => null,
+                'inRanking' => false,
+                'releaseDate' => '2031-12-17',
+                'updatedAt' => '2026-11-14T03:00:00+09:00',
+                'posterUrl' => '',
+                'genres' => [],
+            ], false, sys_get_temp_dir(), []);
+        } finally {
+            Carbon::setTestNow();
+            @unlink($dir.'/sitemap.xml');
+            @rmdir($dir);
+        }
+
+        $this->assertStringNotContainsString('2031-12-17', $xml);
+        $this->assertStringNotContainsString('2027-03-05', $xml);
+        $this->assertStringContainsString('<loc>https://mubiran.com/series/ドラえもん/</loc>', $xml);
+        $this->assertStringContainsString('<loc>https://mubiran.com/series/global/戦狼-Collection/</loc>', $xml);
+        $this->assertSame('2026-10-01T03:00:00+09:00', $this->invoke('seriesLastmod', $worldCatalog['series'][0], null));
+        $this->assertSame('2026-11-14T00:00:00+09:00', $this->invoke('seriesLastmod', $japanCatalog['series'][0], '2026-11-14T00:00:00+09:00'));
+
+        $now = '2026-11-14T12:00:00+09:00';
+        preg_match_all('#<lastmod>(.*?)</lastmod>#', $xml, $lastmods);
+        foreach ($lastmods[1] as $lastmod) {
+            $this->assertLessThanOrEqual($now, $lastmod, $lastmod);
+        }
+        foreach ([$detail, $worldDetail, $extraPage, $worldExtraPage] as $html) {
+            preg_match_all('#"dateModified":"([^"]+)"#', $html, $dates);
+            foreach ($dates[1] as $dateModified) {
+                $this->assertLessThanOrEqual($now, $dateModified, $dateModified);
+                $this->assertStringNotContainsString('2031', $dateModified);
+                $this->assertStringNotContainsString('2027-03-05', $dateModified);
+            }
+        }
+        $this->assertStringContainsString('"dateModified":"2026-11-14T00:00:00+09:00"', $detail);
+        $this->assertStringContainsString('"dateModified":"2026-10-01T03:00:00+09:00"', $worldDetail);
+        $this->assertStringContainsString('"dateModified":"2026-11-14T00:00:00+09:00"', $extraPage);
+        $this->assertStringContainsString('"dateModified":"2026-11-14T03:00:00+09:00"', $worldExtraPage);
     }
 
     private function invoke(string $method, mixed ...$arguments): mixed

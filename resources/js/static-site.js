@@ -278,6 +278,16 @@ function seriesRankLabel(movie) {
     return Number.isInteger(rank) && rank > 0 ? String(rank) : '—';
 }
 
+function seriesStatusBadge(movie) {
+    if (movie.unreleased) {
+        return '<div class="upcoming-badge-card">公開予定</div>';
+    }
+    if (movie.isActive) {
+        return '<div class="active-badge-card">公開中</div>';
+    }
+    return '';
+}
+
 function seriesYearLine(movie, tag = 'span') {
     if (!isSeriesPage()) return '';
     let year = movie.releaseYear;
@@ -301,7 +311,7 @@ function movieCard(movie) {
     const bgImage = url ? `<div class="card-bg-image" style="background-image:url('${escapeHtml(url)}')"></div>` : '';
     const rankClass = Number.isInteger(Number(movie.rank)) && Number(movie.rank) > 0 ? `rank-${movie.rank}` : 'rank-none';
     return `<article class="top-card ${rankClass} ${movie.isActive ? 'active-movie' : ''}${movie.news?.length ? ' has-news' : ''}" data-movie-id="${escapeHtml(movie.id)}" role="button" tabindex="0" aria-label="${escapeHtml(movie.title)}の詳細を見る">
-        ${movie.isActive ? '<div class="active-badge-card">公開中</div>' : ''}
+        ${isSeriesPage() ? seriesStatusBadge(movie) : (movie.isActive ? '<div class="active-badge-card">公開中</div>' : '')}
         <div class="rank-badge">${isSeriesPage() ? escapeHtml(seriesRankLabel(movie)) : movie.rank}</div>
         <div class="card-poster ${url ? '' : 'poster-placeholder'}" ${posterStyle(movie.posterUrl)}></div>
         ${bgImage}
@@ -322,12 +332,13 @@ function movieRow(movie, isJapan) {
     const subtitle = showOriginalTitle(movie)
         ? `<span class="movie-title-en">${escapeHtml(movie.originalTitle)}</span>` : '';
     const bgImage = url ? `<div class="list-bg-image" style="background-image:url('${escapeHtml(url)}')"></div>` : '';
-    const barWidth = isSeriesPage() && movie.metric === 'distributor_rentals' ? 0 : revenueBarWidth(movie, isJapan);
+    const barWidth = isSeriesPage() && (movie.metric === 'distributor_rentals' || movie.unreleased) ? 0 : revenueBarWidth(movie, isJapan);
     const rental = movie.metric === 'distributor_rentals' ? ' is-rental' : '';
+    const upcoming = movie.unreleased ? ' is-upcoming' : '';
     const rankLabel = isSeriesPage() ? seriesRankLabel(movie) : movie.rank;
     const rankClass = isSeriesPage() && seriesRankLabel(movie) === '—' ? ' list-rank-unranked' : '';
-    return `<article class="list-item ${movie.isActive ? 'active-movie' : ''} ${isJapan ? 'is-japan' : ''}${movie.news?.length ? ' has-news' : ''}${rental}" data-movie-id="${escapeHtml(movie.id)}" role="button" tabindex="0" aria-label="${escapeHtml(movie.title)}の詳細を見る">
-        ${movie.isActive ? '<div class="active-badge-card">公開中</div>' : ''}
+    return `<article class="list-item ${movie.isActive ? 'active-movie' : ''} ${isJapan ? 'is-japan' : ''}${movie.news?.length ? ' has-news' : ''}${rental}${upcoming}" data-movie-id="${escapeHtml(movie.id)}" role="button" tabindex="0" aria-label="${escapeHtml(movie.title)}の詳細を見る">
+        ${isSeriesPage() ? seriesStatusBadge(movie) : (movie.isActive ? '<div class="active-badge-card">公開中</div>' : '')}
         <div class="revenue-bar-bg" style="width: ${barWidth}%;"></div>
         ${bgImage}
         <div class="list-rank${rankClass}">${rankLabel}</div>

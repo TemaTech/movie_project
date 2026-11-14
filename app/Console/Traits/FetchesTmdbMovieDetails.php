@@ -74,6 +74,17 @@ trait FetchesTmdbMovieDetails
             return null;
         }
 
+        $cacheKey = hash('sha256', mb_strtolower(trim($title)).'|'.($releaseDate ?? '').'|'.mb_strtolower(trim((string) $originalTitle)));
+        $cachePath = storage_path('app/tmdb-series/search/'.$cacheKey.'.json');
+        if (File::exists($cachePath)) {
+            $cached = json_decode(File::get($cachePath), true);
+            if (is_array($cached) && array_key_exists('tmdbId', $cached)) {
+                return is_numeric($cached['tmdbId']) && (int) $cached['tmdbId'] > 0
+                    ? (int) $cached['tmdbId']
+                    : null;
+            }
+        }
+
         [$cleanedTitle, $yearFromTitle] = $this->extractYearFromTitle($title);
         $year = $yearFromTitle
             ?: ($releaseDate ? (int) substr($releaseDate, 0, 4) : null)
@@ -130,7 +141,11 @@ trait FetchesTmdbMovieDetails
             }
         }
 
-        return $bestMatch ? (int) $bestMatch['id'] : null;
+        $tmdbId = $bestMatch ? (int) $bestMatch['id'] : null;
+        File::ensureDirectoryExists(dirname($cachePath));
+        File::put($cachePath, json_encode(['tmdbId' => $tmdbId], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+        return $tmdbId;
     }
 
     /**

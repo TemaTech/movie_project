@@ -370,6 +370,55 @@ class SeoExportTest extends TestCase
         $this->assertNull($this->invoke('movieAsOfTimestamp', []));
     }
 
+    public function test_movie_lastmod_and_date_modified_are_never_in_the_future(): void
+    {
+        config(['app.url' => 'https://mubiran.com']);
+        Carbon::setTestNow('2026-11-14T12:00:00+09:00');
+        $dir = sys_get_temp_dir().'/mubiran-future-lastmod-'.bin2hex(random_bytes(4));
+        mkdir($dir);
+
+        $futureMovie = [
+            'id' => 'jp-series-future',
+            'title' => '未公開',
+            'revenue' => '不明',
+            'boxOffice' => 0,
+            'rank' => null,
+            'inRanking' => false,
+            'releaseDate' => '2027-03-05',
+            'updatedAt' => '2027-03-05T00:00:00+09:00',
+            'posterUrl' => '',
+            'genres' => [],
+        ];
+        $released = [
+            'id' => 'tmdb-299534',
+            'updatedAt' => '2026-10-01T03:00:00+09:00',
+            'releaseDate' => '2019-04-24',
+        ];
+
+        try {
+            $this->invoke('exportSitemap', $dir, [$released], [], [$futureMovie]);
+            $xml = (string) file_get_contents($dir.'/sitemap.xml');
+            $html = $this->invoke('moviePageHtml', $futureMovie, true, sys_get_temp_dir());
+            $clamped = $this->invoke('movieAsOfTimestamp', $futureMovie);
+        } finally {
+            Carbon::setTestNow();
+            @unlink($dir.'/sitemap.xml');
+            @rmdir($dir);
+        }
+
+        $now = '2026-11-14T12:00:00+09:00';
+        $this->assertSame($now, $clamped);
+        $this->assertSame($now, $this->movieJsonLd($html)['dateModified']);
+        preg_match_all('#<lastmod>(.*?)</lastmod>#', $xml, $matches);
+        foreach ($matches[1] as $lastmod) {
+            $this->assertLessThanOrEqual($now, $lastmod);
+        }
+        $this->assertStringNotContainsString('2027-03-05T00:00:00+09:00', $xml);
+        $this->assertNull($this->invoke('movieAsOfTimestamp', [
+            'releaseDate' => '2031-12-17',
+        ]));
+    }
+
     public function test_sitemap_movie_lastmod_matches_json_ld_date_modified(): void
     {
         config(['app.url' => 'https://mubiran.com']);

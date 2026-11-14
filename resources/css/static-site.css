@@ -492,7 +492,33 @@ body.content-page { padding-bottom: 40px; }
     font-weight: 500;
     color: var(--text-secondary);
 }
-.list-item.is-rental .revenue-main { color: var(--text-secondary); }
+.list-item.is-rental .revenue-main,
+.list-item.is-upcoming .revenue-main { color: var(--text-secondary); }
+.upcoming-badge-card {
+    position: absolute;
+    top: 10px;
+    left: 25px;
+    transform: translateX(-50%);
+    right: auto;
+    background: rgba(255, 215, 0, 0.18);
+    color: var(--accent-gold);
+    border: 1px solid rgba(255, 215, 0, 0.45);
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-weight: 700;
+    z-index: 10;
+    white-space: nowrap;
+}
+@media (max-width: 768px) {
+    .upcoming-badge-card {
+        top: 4px;
+        left: 28px;
+        font-size: 0.4rem;
+        padding: 1px 4px;
+        line-height: 1;
+    }
+}
 
 .series-lead { color: var(--text-secondary); line-height: 1.7; margin: 0 0 16px; }
 .series-stats {

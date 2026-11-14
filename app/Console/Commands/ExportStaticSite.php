@@ -366,7 +366,10 @@ class ExportStaticSite extends Command
         ));
         $isActive = (bool) $movie->is_active;
         if (! $isJapan && ! $movie->is_active && $releaseDate) {
-            $isActive = Carbon::parse($releaseDate)->greaterThanOrEqualTo(now('Asia/Tokyo')->subMonths(6));
+            $release = Carbon::parse($releaseDate)->timezone('Asia/Tokyo')->startOfDay();
+            $today = now('Asia/Tokyo')->startOfDay();
+            $isActive = $release->lessThanOrEqualTo($today)
+                && $release->greaterThanOrEqualTo($today->copy()->subMonths(6));
         }
 
         $usdJpy = $this->usdJpy();
@@ -461,6 +464,7 @@ class ExportStaticSite extends Command
     private function hydrateSeriesMedia(array &$catalog, string $detailsDir): void
     {
         $posters = [];
+        $hydratedIds = [];
         foreach ($catalog['extraMovies'] ?? [] as $index => $movie) {
             if (! is_array($movie)) {
                 continue;
@@ -469,6 +473,7 @@ class ExportStaticSite extends Command
             $id = (string) ($catalog['extraMovies'][$index]['id'] ?? '');
             if ($id !== '') {
                 $posters[$id] = (string) ($catalog['extraMovies'][$index]['posterUrl'] ?? '');
+                $hydratedIds[$id] = true;
             }
         }
 
@@ -483,7 +488,8 @@ class ExportStaticSite extends Command
                 $id = (string) ($film['id'] ?? '');
                 if ($id !== '' && ($posters[$id] ?? '') !== '') {
                     $catalog['series'][$seriesIndex]['films'][$filmIndex]['posterUrl'] = $posters[$id];
-
+                }
+                if ($id !== '' && isset($hydratedIds[$id])) {
                     continue;
                 }
                 if (($film['posterUrl'] ?? '') !== '' && File::exists($detailsDir.'/'.$id.'.json')) {
@@ -2519,10 +2525,11 @@ XML);
 
         $body = '';
         foreach ($urls as $url) {
+            $lastmod = is_string($url['lastmod'] ?? null) ? $this->clampAtomTimestamp($url['lastmod']) : null;
             $body .= "    <url>\n";
             $body .= '        <loc>'.$this->h($url['loc'])."</loc>\n";
-            if (is_string($url['lastmod']) && $url['lastmod'] !== '') {
-                $body .= '        <lastmod>'.$this->h($url['lastmod'])."</lastmod>\n";
+            if (is_string($lastmod) && $lastmod !== '') {
+                $body .= '        <lastmod>'.$this->h($lastmod)."</lastmod>\n";
             }
             $body .= '        <changefreq>'.$url['changefreq']."</changefreq>\n";
             $body .= '        <priority>'.$url['priority']."</priority>\n";
@@ -2557,8 +2564,22 @@ XML);
     }
 
     /**
+     * sitemap lastmod と JSON-LD dateModified はビルド時点より後にしない。
+     */
+    private function clampAtomTimestamp(?string $at): ?string
+    {
+        if ($at === null || $at === '') {
+            return null;
+        }
+
+        $now = now('Asia/Tokyo')->toAtomString();
+
+        return strcmp($at, $now) > 0 ? $now : $at;
+    }
+
+    /**
      * 興収が増えた日を優先し、無ければ最終取得日時を「時点」として使う。
-     * JSON-LD dateModified と sitemap lastmod の単一のソース。
+     * JSON-LD dateModified と sitemap lastmod の単一のソース。公開日は使わない。
      *
      * @param  array<string, mixed>  $movie
      */
@@ -2569,7 +2590,7 @@ XML);
             $history['grossIncreasedAt'] ?? null,
             $movie['updatedAt'] ?? null,
         ] as $raw) {
-            $at = $this->atomTimestamp($raw);
+            $at = $this->clampAtomTimestamp($this->atomTimestamp($raw));
             if ($at !== null) {
                 return $at;
             }
@@ -2655,7 +2676,7 @@ XML);
             }
         }
 
-        return $latest ?? $this->atomTimestamp($datasetUpdated);
+        return $latest ?? $this->clampAtomTimestamp($this->atomTimestamp($datasetUpdated));
     }
 
     /**

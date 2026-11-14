@@ -75,14 +75,15 @@ class SeriesCatalog
         foreach ($byCollection as $collection) {
             $films = self::sortFilmsByBoxOffice($collection['films'] ?? []);
 
-            $slug = SeriesSlug::unique((string) $collection['name'], $usedSlugs);
+            $slug = SeriesSlug::unique((string) $collection['name'], $usedSlugs, (int) $collection['id']);
             $usedSlugs[] = $slug;
             $total = 0;
             $known = 0;
             $rows = [];
             foreach ($films as $film) {
                 $yenOrUsd = (int) ($film['boxOffice'] ?? 0);
-                $hasFigure = $yenOrUsd > 0 && $yenOrUsd !== 1_000_000_000;
+                $unreleased = self::filmIsUnreleased($film);
+                $hasFigure = ! $unreleased && $yenOrUsd > 0 && $yenOrUsd !== 1_000_000_000;
                 if ($hasFigure) {
                     $total += $yenOrUsd;
                     $known++;
@@ -97,18 +98,21 @@ class SeriesCatalog
                     'releaseYear' => $film['releaseYear'] ?? null,
                     'releaseDate' => $film['releaseDate'] ?? null,
                     'boxOffice' => $hasFigure ? $yenOrUsd : null,
-                    'revenue' => $hasFigure ? ($film['revenue'] ?? null) : '不明',
+                    'revenue' => $unreleased ? '公開予定' : ($hasFigure ? ($film['revenue'] ?? null) : '不明'),
                     'revenueBillion' => $hasFigure ? ($film['revenueBillion'] ?? null) : null,
                     'revenueYen' => $hasFigure ? ($film['revenueYen'] ?? null) : null,
-                    'rank' => $inRanking ? ($film['rank'] ?? null) : null,
+                    'rank' => ($unreleased || ! $inRanking) ? null : ($film['rank'] ?? null),
                     'metric' => 'box_office',
                     'kind' => 'theatrical',
                     'href' => isset($film['id']) ? '/movies/'.$film['id'].'/' : null,
-                    'inRanking' => $inRanking,
+                    'inRanking' => $unreleased ? false : $inRanking,
                     'posterUrl' => $film['posterUrl'] ?? '',
                     'genres' => is_array($film['genres'] ?? null) ? $film['genres'] : [],
-                    'isActive' => (bool) ($film['isActive'] ?? false),
+                    'isActive' => $unreleased ? false : (bool) ($film['isActive'] ?? false),
+                    'unreleased' => $unreleased,
                     'productionCountry' => $film['productionCountry'] ?? null,
+                    'updatedAt' => $film['updatedAt'] ?? null,
+                    'pageHistory' => is_array($film['pageHistory'] ?? null) ? $film['pageHistory'] : [],
                 ];
                 if (! empty($film['id'])) {
                     $movieLinks[(string) $film['id']] = [
@@ -181,14 +185,15 @@ class SeriesCatalog
         $known = 0;
         $hasRentals = false;
         foreach ($films as $film) {
-            if (! empty($film['boxOffice'])) {
-                $known++;
-                if (($film['metric'] ?? '') === JapanBoxOfficeAmount::METRIC_DISTRIBUTOR_RENTALS) {
-                    $sumRentals += (int) $film['boxOffice'];
-                    $hasRentals = true;
-                } else {
-                    $sumBoxOffice += (int) $film['boxOffice'];
-                }
+            if (! empty($film['unreleased']) || empty($film['boxOffice'])) {
+                continue;
+            }
+            $known++;
+            if (($film['metric'] ?? '') === JapanBoxOfficeAmount::METRIC_DISTRIBUTOR_RENTALS) {
+                $sumRentals += (int) $film['boxOffice'];
+                $hasRentals = true;
+            } else {
+                $sumBoxOffice += (int) $film['boxOffice'];
             }
         }
 
@@ -235,6 +240,8 @@ class SeriesCatalog
         $href = null;
         $releaseDate = $wikiFilm['releaseDate'] ?? null;
         $boxOffice = $wikiYen;
+        $updatedAt = is_string($series['retrievedAt'] ?? null) ? $series['retrievedAt'].'T00:00:00+09:00' : null;
+        $pageHistory = [];
 
         $posterUrl = '';
         $originalTitle = (string) ($wikiFilm['wikipediaTitle'] ?? '');
@@ -259,6 +266,8 @@ class SeriesCatalog
             $tmdbId = is_numeric($matched['tmdbId'] ?? null) ? (int) $matched['tmdbId'] : null;
             $revenueBillion = $matched['revenueBillion'] ?? null;
             $productionCountry = (string) ($matched['productionCountry'] ?? $productionCountry);
+            $updatedAt = is_string($matched['updatedAt'] ?? null) ? $matched['updatedAt'] : $updatedAt;
+            $pageHistory = is_array($matched['pageHistory'] ?? null) ? $matched['pageHistory'] : [];
             if (is_numeric($matched['boxOffice'] ?? null) && (int) $matched['boxOffice'] > 0) {
                 $boxOffice = (int) $matched['boxOffice'];
                 $metric = JapanBoxOfficeAmount::METRIC_BOX_OFFICE;
@@ -281,10 +290,24 @@ class SeriesCatalog
                 'genres' => [],
                 'originalTitle' => $originalTitle,
                 'productionCountry' => $productionCountry,
-                'updatedAt' => is_string($series['retrievedAt'] ?? null) ? $series['retrievedAt'].'T00:00:00+09:00' : null,
+                'updatedAt' => $updatedAt,
                 'seriesSlug' => $series['slug'] ?? null,
-                'indexable' => is_numeric($boxOffice) && (int) $boxOffice > 0,
+                'indexable' => is_numeric($boxOffice) && (int) $boxOffice > 0 && ! self::filmIsUnreleased([
+                    'releaseDate' => $releaseDate,
+                    'releaseYear' => $year,
+                ]),
             ];
+        }
+
+        $unreleased = self::filmIsUnreleased([
+            'releaseDate' => $releaseDate,
+            'releaseYear' => $year,
+        ]);
+        if ($unreleased) {
+            $boxOffice = null;
+            $inRanking = false;
+            $rank = null;
+            $isActive = false;
         }
 
         return [
@@ -296,18 +319,23 @@ class SeriesCatalog
             'releaseYear' => $year,
             'releaseDate' => $releaseDate,
             'boxOffice' => $boxOffice,
-            'revenue' => $boxOffice ? number_format($boxOffice / 100000000, 1).'億円' : '不明',
-            'revenueBillion' => $revenueBillion,
+            'revenue' => $unreleased
+                ? '公開予定'
+                : ($boxOffice ? number_format($boxOffice / 100000000, 1).'億円' : '不明'),
+            'revenueBillion' => $unreleased ? null : $revenueBillion,
             'rank' => $inRanking ? $rank : null,
             'metric' => $metric,
             'kind' => $wikiFilm['kind'] ?? 'theatrical',
-            'unclear' => ! empty($wikiFilm['unclear']) && $boxOffice === null,
+            'unclear' => ! empty($wikiFilm['unclear']) && $boxOffice === null && ! $unreleased,
             'href' => $href,
             'inRanking' => $inRanking,
             'posterUrl' => $posterUrl,
             'genres' => $genres,
             'isActive' => $isActive,
+            'unreleased' => $unreleased,
             'productionCountry' => $productionCountry,
+            'updatedAt' => $updatedAt,
+            'pageHistory' => $pageHistory,
         ];
     }
 
@@ -339,12 +367,15 @@ class SeriesCatalog
     }
 
     /**
-     * 0 = 興収、1 = 配給収入のみ、2 = 不明。
+     * 0 = 興収、1 = 配給収入のみ、2 = 不明、3 = 公開予定。
      *
      * @param  array<string, mixed>  $film
      */
     public static function displayGroup(array $film): int
     {
+        if (self::filmIsUnreleased($film)) {
+            return 3;
+        }
         $boxOffice = $film['boxOffice'] ?? null;
         $hasFigure = is_numeric($boxOffice) && (int) $boxOffice > 0 && (int) $boxOffice !== 1_000_000_000;
         if (! $hasFigure) {
@@ -355,6 +386,31 @@ class SeriesCatalog
         }
 
         return 0;
+    }
+
+    /**
+     * 公開日がビルド時点より後なら未公開。公開日がなく公開年だけ未来の場合も含む。
+     *
+     * @param  array<string, mixed>  $film
+     */
+    public static function filmIsUnreleased(array $film, ?\DateTimeInterface $now = null): bool
+    {
+        if (array_key_exists('unreleased', $film) && is_bool($film['unreleased'])) {
+            return $film['unreleased'];
+        }
+
+        $now = $now ?? now('Asia/Tokyo');
+        $today = $now->format('Y-m-d');
+        $date = $film['releaseDate'] ?? null;
+        if (is_string($date) && preg_match('/^\d{4}-\d{2}-\d{2}/', $date)) {
+            return substr($date, 0, 10) > $today;
+        }
+        $year = $film['releaseYear'] ?? null;
+        if (is_numeric($year) && (int) $year > (int) $now->format('Y')) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

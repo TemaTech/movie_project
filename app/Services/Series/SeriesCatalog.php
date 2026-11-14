@@ -185,6 +185,9 @@ class SeriesCatalog
         $films = [];
 
         foreach ($wikiFilms as $wikiFilm) {
+            if (SeriesFilmMatcher::isNonFilmRowTitle((string) ($wikiFilm['title'] ?? ''))) {
+                continue;
+            }
             if (($wikiFilm['kind'] ?? 'theatrical') === 'theatrical' || in_array($wikiFilm['kind'] ?? '', ['compilation', 'crossover'], true)) {
                 $matchResult = SeriesFilmMatcher::matchAll($wikiFilm, $rankingMovies);
                 $matched = $matchResult['matches'][0] ?? null;
@@ -249,7 +252,7 @@ class SeriesCatalog
      */
     private static function japanFilmRow(array $series, array $wikiFilm, ?array $matched, array &$extraMovies): array
     {
-        $title = (string) ($wikiFilm['title'] ?? '');
+        $title = SeriesFilmMatcher::displayTitle((string) ($wikiFilm['title'] ?? ''));
         $year = $wikiFilm['releaseYear'] ?? null;
         $wikiYen = is_numeric($wikiFilm['boxOfficeYen'] ?? null) ? (int) $wikiFilm['boxOfficeYen'] : null;
         $metric = (string) ($wikiFilm['metric'] ?? JapanBoxOfficeAmount::METRIC_BOX_OFFICE);
@@ -275,7 +278,7 @@ class SeriesCatalog
             $href = $id !== '' ? '/movies/'.$id.'/' : null;
             $rank = is_numeric($matched['rank'] ?? null) ? (int) $matched['rank'] : null;
             $inRanking = $rank !== null && $rank <= 200;
-            $title = (string) ($matched['title'] ?? $title);
+            $title = SeriesFilmMatcher::displayTitle((string) ($matched['title'] ?? $title));
             $releaseDate = $matched['releaseDate'] ?? $releaseDate;
             $year = $matched['releaseYear'] ?? $year;
             $posterUrl = (string) ($matched['posterUrl'] ?? '');
@@ -379,6 +382,14 @@ class SeriesCatalog
                 if (isset($indexByKey[$key])) {
                     $existingIndex = $indexByKey[$key];
                     break;
+                }
+            }
+            if ($existingIndex === null) {
+                foreach ($kept as $index => $existing) {
+                    if (SeriesFilmMatcher::isSameFilm($existing, $film)) {
+                        $existingIndex = $index;
+                        break;
+                    }
                 }
             }
             if ($existingIndex === null) {

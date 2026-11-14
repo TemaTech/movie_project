@@ -6,11 +6,11 @@
     "license": "CC BY-SA 4.0",
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/deed.ja",
     "seriesCount": 86,
-    "filmCount": 494,
-    "rankingFilmCount": 273,
-    "completeSeriesCount": 3,
-    "incompleteSeriesCount": 83,
-    "unknownYenCount": 327,
+    "filmCount": 482,
+    "rankingFilmCount": 265,
+    "completeSeriesCount": 36,
+    "incompleteSeriesCount": 50,
+    "unknownYenCount": 209,
     "tmdbHttpCalls": 0,
     "series": [
         {
@@ -436,24 +436,11 @@
                     "wikipediaTitle": null,
                     "releaseDate": "2001-11-16",
                     "releaseYear": 2001,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 20300000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
-                },
-                {
-                    "title": "ハリー・ポッターと賢者の石 (映画)",
-                    "shortTitle": "ハリー・ポッターと賢者の石",
-                    "wikipediaTitle": "ハリー・ポッターと賢者の石 (映画)",
-                    "releaseDate": null,
-                    "releaseYear": 2001,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
-                    "metric": "box_office",
-                    "unclear": true,
-                    "kind": "theatrical",
-                    "source": "ranking_table"
                 },
                 {
                     "title": "ハリー・ポッター 秘密の部屋",
@@ -461,24 +448,11 @@
                     "wikipediaTitle": null,
                     "releaseDate": "2002-11-14",
                     "releaseYear": 2002,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 17300000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
-                },
-                {
-                    "title": "ハリー・ポッターと秘密の部屋 (映画)",
-                    "shortTitle": "ハリー・ポッターと秘密の部屋",
-                    "wikipediaTitle": "ハリー・ポッターと秘密の部屋 (映画)",
-                    "releaseDate": null,
-                    "releaseYear": 2002,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
-                    "metric": "box_office",
-                    "unclear": true,
-                    "kind": "theatrical",
-                    "source": "ranking_table"
                 },
                 {
                     "title": "ハリー・ポッター アズカバンの囚人",
@@ -486,24 +460,11 @@
                     "wikipediaTitle": null,
                     "releaseDate": "2004-05-31",
                     "releaseYear": 2004,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 13500000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
-                },
-                {
-                    "title": "ハリー・ポッターとアズカバンの囚人 (映画)",
-                    "shortTitle": "ハリー・ポッターとアズカバンの囚人",
-                    "wikipediaTitle": "ハリー・ポッターとアズカバンの囚人 (映画)",
-                    "releaseDate": null,
-                    "releaseYear": 2004,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
-                    "metric": "box_office",
-                    "unclear": true,
-                    "kind": "theatrical",
-                    "source": "ranking_table"
                 },
                 {
                     "title": "ハリー・ポッター 炎のゴブレット",
@@ -511,24 +472,11 @@
                     "wikipediaTitle": null,
                     "releaseDate": "2005-11-18",
                     "releaseYear": 2005,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 11000000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
-                },
-                {
-                    "title": "ハリー・ポッターと炎のゴブレット (映画)",
-                    "shortTitle": "ハリー・ポッターと炎のゴブレット",
-                    "wikipediaTitle": "ハリー・ポッターと炎のゴブレット (映画)",
-                    "releaseDate": null,
-                    "releaseYear": 2005,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
-                    "metric": "box_office",
-                    "unclear": true,
-                    "kind": "theatrical",
-                    "source": "ranking_table"
                 },
                 {
                     "title": "ハリー・ポッター 不死鳥の騎士団",
@@ -536,24 +484,11 @@
                     "wikipediaTitle": null,
                     "releaseDate": "2007-07-11",
                     "releaseYear": 2007,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 9400000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
-                },
-                {
-                    "title": "ハリー・ポッターと不死鳥の騎士団 (映画)",
-                    "shortTitle": "ハリー・ポッターと不死鳥の騎士団",
-                    "wikipediaTitle": "ハリー・ポッターと不死鳥の騎士団 (映画)",
-                    "releaseDate": null,
-                    "releaseYear": 2007,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
-                    "metric": "box_office",
-                    "unclear": true,
-                    "kind": "theatrical",
-                    "source": "ranking_table"
                 },
                 {
                     "title": "ハリー・ポッター 謎のプリンス",
@@ -561,24 +496,11 @@
                     "wikipediaTitle": null,
                     "releaseDate": "2009-07-15",
                     "releaseYear": 2009,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 8000000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
-                },
-                {
-                    "title": "ハリー・ポッターと謎のプリンス (映画)",
-                    "shortTitle": "ハリー・ポッターと謎のプリンス",
-                    "wikipediaTitle": "ハリー・ポッターと謎のプリンス (映画)",
-                    "releaseDate": null,
-                    "releaseYear": 2009,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
-                    "metric": "box_office",
-                    "unclear": true,
-                    "kind": "theatrical",
-                    "source": "ranking_table"
                 },
                 {
                     "title": "ハリー・ポッター 死の秘宝 PART 1",
@@ -586,10 +508,10 @@
                     "wikipediaTitle": null,
                     "releaseDate": "2010-11-19",
                     "releaseYear": 2010,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 6860000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -598,10 +520,10 @@
                     "wikipediaTitle": null,
                     "releaseDate": "2011-07-15",
                     "releaseYear": 2011,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 9670000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 }
             ],
@@ -910,10 +832,10 @@
                     "wikipediaTitle": "劇場版「鬼滅の刃」無限列車編",
                     "releaseDate": null,
                     "releaseYear": 2020,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 40750000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -923,10 +845,10 @@
                     "wikipediaTitle": "劇場版「鬼滅の刃」無限城編 第一章 猗窩座再来",
                     "releaseDate": null,
                     "releaseYear": 2025,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 40360000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -948,10 +870,10 @@
                     "wikipediaTitle": "スター・ウォーズ エピソード4/新たなる希望",
                     "releaseDate": "1977-05-25",
                     "releaseYear": 1977,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 6130000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -972,10 +894,10 @@
                     "wikipediaTitle": "スター・ウォーズ エピソード6/ジェダイの帰還",
                     "releaseDate": "1983-05-25",
                     "releaseYear": 1983,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5300000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -984,10 +906,10 @@
                     "wikipediaTitle": "スター・ウォーズ エピソード1/ファントム・メナス",
                     "releaseDate": "1999-05-19",
                     "releaseYear": 1999,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 12710000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -996,10 +918,10 @@
                     "wikipediaTitle": "スター・ウォーズ エピソード2/クローンの攻撃",
                     "releaseDate": "2002-05-16",
                     "releaseYear": 2002,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 9360000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -1008,10 +930,10 @@
                     "wikipediaTitle": "スター・ウォーズ エピソード3/シスの復讐",
                     "releaseDate": "2005-05-19",
                     "releaseYear": 2005,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 9230000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -1032,10 +954,10 @@
                     "wikipediaTitle": "スター・ウォーズ/フォースの覚醒",
                     "releaseDate": "2015-12-18",
                     "releaseYear": 2015,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 11650000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -1056,10 +978,10 @@
                     "wikipediaTitle": "スター・ウォーズ/最後のジェダイ",
                     "releaseDate": "2017-12-15",
                     "releaseYear": 2017,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 7510000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -1080,10 +1002,10 @@
                     "wikipediaTitle": "スター・ウォーズ/スカイウォーカーの夜明け",
                     "releaseDate": "2019-12-20",
                     "releaseYear": 2019,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 7320000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 }
             ],
@@ -1687,7 +1609,7 @@
             "notes": "2022年作品までの総興行収入",
             "films": [
                 {
-                    "title": "ONE PIECE (2000年の映画)",
+                    "title": "ONE PIECE",
                     "shortTitle": "ONE PIECE",
                     "wikipediaTitle": "ONE PIECE (2000年の映画)",
                     "releaseDate": "2000-03-04",
@@ -1903,15 +1825,15 @@
             "notes": "2025年作品までの総興行収入",
             "films": [
                 {
-                    "title": "ジュラシック・パーク (映画)",
+                    "title": "ジュラシック・パーク",
                     "shortTitle": "ジュラシック・パーク",
                     "wikipediaTitle": "ジュラシック・パーク (映画)",
                     "releaseDate": null,
                     "releaseYear": 1993,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
+                    "boxOfficeYen": 12850000000,
+                    "distributorRentalsYen": 8300000000,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -1921,10 +1843,10 @@
                     "wikipediaTitle": "ロスト・ワールド/ジュラシック・パーク",
                     "releaseDate": null,
                     "releaseYear": 1997,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
+                    "boxOfficeYen": 9500000000,
+                    "distributorRentalsYen": 5800000000,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -1934,10 +1856,10 @@
                     "wikipediaTitle": "ジュラシック・パークIII",
                     "releaseDate": null,
                     "releaseYear": 2001,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5130000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -1947,10 +1869,10 @@
                     "wikipediaTitle": "ジュラシック・ワールド",
                     "releaseDate": null,
                     "releaseYear": 2015,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 9530000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -1960,10 +1882,10 @@
                     "wikipediaTitle": "ジュラシック・ワールド/炎の王国",
                     "releaseDate": null,
                     "releaseYear": 2018,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 8070000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -1973,10 +1895,10 @@
                     "wikipediaTitle": "ジュラシック・ワールド/新たなる支配者",
                     "releaseDate": null,
                     "releaseYear": 2022,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 6320000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -1993,7 +1915,7 @@
             "notes": "2022年までの総興行収入",
             "films": [
                 {
-                    "title": "アイアンマン (映画)",
+                    "title": "アイアンマン",
                     "shortTitle": "アイアンマン",
                     "wikipediaTitle": "アイアンマン (映画)",
                     "releaseDate": "2008-05-02",
@@ -2005,7 +1927,7 @@
                     "kind": "theatrical"
                 },
                 {
-                    "title": "インクレディブル・ハルク (映画)",
+                    "title": "インクレディブル・ハルク",
                     "shortTitle": "インクレディブル・ハルク",
                     "wikipediaTitle": "インクレディブル・ハルク (映画)",
                     "releaseDate": "2008-06-13",
@@ -2077,7 +1999,7 @@
                     "kind": "theatrical"
                 },
                 {
-                    "title": "マイティ・ソー (映画)",
+                    "title": "マイティ・ソー",
                     "shortTitle": "マイティ・ソー",
                     "wikipediaTitle": "マイティ・ソー (映画)",
                     "releaseDate": "2011-05-06",
@@ -2113,7 +2035,7 @@
                     "kind": "theatrical"
                 },
                 {
-                    "title": "アベンジャーズ (2012年の映画)",
+                    "title": "アベンジャーズ",
                     "shortTitle": "アベンジャーズ",
                     "wikipediaTitle": "アベンジャーズ (2012年の映画)",
                     "releaseDate": "2012-05-04",
@@ -2185,7 +2107,7 @@
                     "kind": "theatrical"
                 },
                 {
-                    "title": "ガーディアンズ・オブ・ギャラクシー (映画)",
+                    "title": "ガーディアンズ・オブ・ギャラクシー",
                     "shortTitle": "ガーディアンズ・オブ・ギャラクシー",
                     "wikipediaTitle": "ガーディアンズ・オブ・ギャラクシー (映画)",
                     "releaseDate": "2014-08-01",
@@ -2245,7 +2167,7 @@
                     "kind": "theatrical"
                 },
                 {
-                    "title": "アントマン (映画)",
+                    "title": "アントマン",
                     "shortTitle": "アントマン",
                     "wikipediaTitle": "アントマン (映画)",
                     "releaseDate": "2015-07-17",
@@ -2293,7 +2215,7 @@
                     "kind": "theatrical"
                 },
                 {
-                    "title": "ドクター・ストレンジ (映画)",
+                    "title": "ドクター・ストレンジ",
                     "shortTitle": "ドクター・ストレンジ",
                     "wikipediaTitle": "ドクター・ストレンジ (映画)",
                     "releaseDate": "2016-11-04",
@@ -2425,7 +2347,7 @@
                     "kind": "theatrical"
                 },
                 {
-                    "title": "ブラックパンサー (映画)",
+                    "title": "ブラックパンサー",
                     "shortTitle": "ブラックパンサー",
                     "wikipediaTitle": "ブラックパンサー (映画)",
                     "releaseDate": "2018-02-16",
@@ -2478,14 +2400,14 @@
                     "wikipediaTitle": "アベンジャーズ/エンドゲーム",
                     "releaseDate": "2019-04-26",
                     "releaseYear": 2019,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 6130000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
-                    "title": "キャプテン・マーベル (映画)",
+                    "title": "キャプテン・マーベル",
                     "shortTitle": "キャプテン・マーベル",
                     "wikipediaTitle": "キャプテン・マーベル (映画)",
                     "releaseDate": "2019-03-08",
@@ -2545,7 +2467,7 @@
                     "kind": "theatrical"
                 },
                 {
-                    "title": "エターナルズ (映画)",
+                    "title": "エターナルズ",
                     "shortTitle": "エターナルズ",
                     "wikipediaTitle": "エターナルズ (映画)",
                     "releaseDate": "2021-11-05",
@@ -2569,7 +2491,7 @@
                     "kind": "theatrical"
                 },
                 {
-                    "title": "ブラック・ウィドウ (映画)",
+                    "title": "ブラック・ウィドウ",
                     "shortTitle": "ブラック・ウィドウ",
                     "wikipediaTitle": "ブラック・ウィドウ (映画)",
                     "releaseDate": "2021-07-09",
@@ -3388,10 +3310,10 @@
                     "wikipediaTitle": null,
                     "releaseDate": "1996-05-22",
                     "releaseYear": 1996,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 6500000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -3412,10 +3334,10 @@
                     "wikipediaTitle": "ミッション:インポッシブル2",
                     "releaseDate": null,
                     "releaseYear": 2000,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 9700000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -3437,10 +3359,10 @@
                     "wikipediaTitle": "ミッション:インポッシブル3",
                     "releaseDate": null,
                     "releaseYear": 2006,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5150000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -3450,10 +3372,10 @@
                     "wikipediaTitle": null,
                     "releaseDate": "2011-12-16",
                     "releaseYear": 2011,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5380000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -3462,10 +3384,10 @@
                     "wikipediaTitle": null,
                     "releaseDate": "2015-07-31",
                     "releaseYear": 2015,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5140000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -3486,10 +3408,10 @@
                     "wikipediaTitle": "ミッション:インポッシブル/デッドレコニング PART ONE",
                     "releaseDate": null,
                     "releaseYear": 2023,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5430000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -3499,36 +3421,12 @@
                     "wikipediaTitle": "ミッション:インポッシブル/ファイナル・レコニング",
                     "releaseDate": null,
                     "releaseYear": 2025,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5280000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
-                },
-                {
-                    "title": "Box Office Mojo",
-                    "shortTitle": "Box Office Mojo",
-                    "wikipediaTitle": "Box Office Mojo",
-                    "releaseDate": null,
-                    "releaseYear": null,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
-                    "metric": "box_office",
-                    "unclear": true,
-                    "kind": "theatrical"
-                },
-                {
-                    "title": "ミッション:インポッシブル 合計",
-                    "shortTitle": "合計",
-                    "wikipediaTitle": null,
-                    "releaseDate": null,
-                    "releaseYear": null,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
-                    "metric": "box_office",
-                    "unclear": true,
-                    "kind": "theatrical"
                 }
             ],
             "slug": "ミッションインポッシブル"
@@ -3548,10 +3446,10 @@
                     "wikipediaTitle": "パイレーツ・オブ・カリビアン/呪われた海賊たち",
                     "releaseDate": null,
                     "releaseYear": 2003,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 6800000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -3561,10 +3459,10 @@
                     "wikipediaTitle": "パイレーツ・オブ・カリビアン/デッドマンズ・チェスト",
                     "releaseDate": null,
                     "releaseYear": 2006,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 10020000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -3574,10 +3472,10 @@
                     "wikipediaTitle": "パイレーツ・オブ・カリビアン/ワールド・エンド",
                     "releaseDate": null,
                     "releaseYear": 2007,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 10900000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -3587,10 +3485,10 @@
                     "wikipediaTitle": "パイレーツ・オブ・カリビアン/生命の泉",
                     "releaseDate": null,
                     "releaseYear": 2011,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 8870000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -3600,10 +3498,10 @@
                     "wikipediaTitle": "パイレーツ・オブ・カリビアン/最後の海賊",
                     "releaseDate": null,
                     "releaseYear": 2017,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 6710000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -3625,10 +3523,10 @@
                     "wikipediaTitle": "踊る大捜査線 THE MOVIE",
                     "releaseDate": null,
                     "releaseYear": 1998,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
+                    "boxOfficeYen": 10100000000,
+                    "distributorRentalsYen": 5000000000,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -3638,10 +3536,10 @@
                     "wikipediaTitle": "踊る大捜査線 THE MOVIE 2 レインボーブリッジを封鎖せよ!",
                     "releaseDate": null,
                     "releaseYear": 2003,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 17350000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -3651,10 +3549,10 @@
                     "wikipediaTitle": "踊る大捜査線 THE MOVIE3 ヤツらを解放せよ!",
                     "releaseDate": null,
                     "releaseYear": 2010,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 7310000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -3664,10 +3562,10 @@
                     "wikipediaTitle": "踊る大捜査線 THE FINAL 新たなる希望",
                     "releaseDate": null,
                     "releaseYear": 2012,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5970000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -3689,10 +3587,10 @@
                     "wikipediaTitle": "アナと雪の女王",
                     "releaseDate": null,
                     "releaseYear": 2014,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 25500000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -3702,10 +3600,10 @@
                     "wikipediaTitle": "アナと雪の女王2",
                     "releaseDate": null,
                     "releaseYear": 2019,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 13370000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -3727,24 +3625,11 @@
                     "wikipediaTitle": null,
                     "releaseDate": "2002-05-03",
                     "releaseYear": 2002,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 7500000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
-                },
-                {
-                    "title": "スパイダーマン (2002年の映画)",
-                    "shortTitle": "スパイダーマン",
-                    "wikipediaTitle": "スパイダーマン (2002年の映画)",
-                    "releaseDate": null,
-                    "releaseYear": 2002,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
-                    "metric": "box_office",
-                    "unclear": true,
-                    "kind": "theatrical",
-                    "source": "ranking_table"
                 },
                 {
                     "title": "スパイダーマン2",
@@ -3752,10 +3637,10 @@
                     "wikipediaTitle": null,
                     "releaseDate": "2004-06-30",
                     "releaseYear": 2004,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 6700000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -3764,10 +3649,10 @@
                     "wikipediaTitle": null,
                     "releaseDate": "2007-05-04",
                     "releaseYear": 2007,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 7120000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -3860,10 +3745,10 @@
                     "wikipediaTitle": null,
                     "releaseDate": "2026-07-31",
                     "releaseYear": 2026,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5850000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -3875,31 +3760,7 @@
                     "boxOfficeYen": null,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": false,
-                    "kind": "theatrical"
-                },
-                {
-                    "title": "Box Office Mojo",
-                    "shortTitle": "Box Office Mojo",
-                    "wikipediaTitle": "Box Office Mojo",
-                    "releaseDate": null,
-                    "releaseYear": null,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
-                    "metric": "box_office",
                     "unclear": true,
-                    "kind": "theatrical"
-                },
-                {
-                    "title": "スパイダーマン 合計",
-                    "shortTitle": "合計",
-                    "wikipediaTitle": null,
-                    "releaseDate": null,
-                    "releaseYear": null,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
-                    "metric": "box_office",
-                    "unclear": false,
                     "kind": "theatrical"
                 }
             ],
@@ -3931,24 +3792,11 @@
                     "wikipediaTitle": null,
                     "releaseDate": "1999-03-31",
                     "releaseYear": 1999,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 8700000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
-                },
-                {
-                    "title": "マトリックス (映画)",
-                    "shortTitle": "マトリックス",
-                    "wikipediaTitle": "マトリックス (映画)",
-                    "releaseDate": null,
-                    "releaseYear": 1999,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
-                    "metric": "box_office",
-                    "unclear": true,
-                    "kind": "theatrical",
-                    "source": "ranking_table"
                 },
                 {
                     "title": "『マトリックス リローデッド』",
@@ -3956,10 +3804,10 @@
                     "wikipediaTitle": null,
                     "releaseDate": "2003-05-15",
                     "releaseYear": 2003,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 11000000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -3968,10 +3816,10 @@
                     "wikipediaTitle": null,
                     "releaseDate": "2003-11-05",
                     "releaseYear": 2003,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 6700000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -3999,15 +3847,15 @@
             "notes": "2004年作品までの総興行収入",
             "films": [
                 {
-                    "title": "ロード・オブ・ザ・リング (2001年の映画)",
+                    "title": "ロード・オブ・ザ・リング",
                     "shortTitle": "ロード・オブ・ザ・リング",
                     "wikipediaTitle": "ロード・オブ・ザ・リング (2001年の映画)",
                     "releaseDate": "2001-12-19",
                     "releaseYear": 2001,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 9070000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -4016,10 +3864,10 @@
                     "wikipediaTitle": "ロード・オブ・ザ・リング/二つの塔",
                     "releaseDate": "2002-12-18",
                     "releaseYear": 2002,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 7900000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -4028,22 +3876,10 @@
                     "wikipediaTitle": "ロード・オブ・ザ・リング/王の帰還",
                     "releaseDate": "2003-12-17",
                     "releaseYear": 2003,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 10320000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
-                    "kind": "theatrical"
-                },
-                {
-                    "title": "Box Office Mojo",
-                    "shortTitle": "Box Office Mojo",
-                    "wikipediaTitle": "Box Office Mojo",
-                    "releaseDate": null,
-                    "releaseYear": null,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
-                    "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 }
             ],
@@ -4064,10 +3900,10 @@
                     "wikipediaTitle": "ターミネーター2",
                     "releaseDate": null,
                     "releaseYear": 1991,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
+                    "boxOfficeYen": 8790000000,
+                    "distributorRentalsYen": 5750000000,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -4077,10 +3913,10 @@
                     "wikipediaTitle": "ターミネーター3",
                     "releaseDate": null,
                     "releaseYear": 2003,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 8200000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -4102,10 +3938,10 @@
                     "wikipediaTitle": "シン・ゴジラ",
                     "releaseDate": null,
                     "releaseYear": 2016,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 8250000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -4115,23 +3951,10 @@
                     "wikipediaTitle": "ゴジラ-1.0",
                     "releaseDate": null,
                     "releaseYear": 2023,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 7650000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
-                    "kind": "theatrical",
-                    "source": "ranking_table"
-                },
-                {
-                    "title": "ゴジラ-0.0",
-                    "shortTitle": "ゴジラ-0.0",
-                    "wikipediaTitle": "ゴジラ-0.0",
-                    "releaseDate": null,
-                    "releaseYear": 2026,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
-                    "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -4153,10 +3976,10 @@
                     "wikipediaTitle": "シン・エヴァンゲリオン劇場版",
                     "releaseDate": null,
                     "releaseYear": 2021,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 10280000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -4202,10 +4025,10 @@
                     "wikipediaTitle": "トイ・ストーリー3",
                     "releaseDate": null,
                     "releaseYear": 2010,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 10800000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -4214,14 +4037,14 @@
                     "wikipediaTitle": "トイ・ストーリー4",
                     "releaseDate": null,
                     "releaseYear": 2019,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 10090000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
-                    "title": "バズ・ライトイヤー (映画)",
+                    "title": "バズ・ライトイヤー",
                     "shortTitle": "バズ・ライトイヤー",
                     "wikipediaTitle": "バズ・ライトイヤー (映画)",
                     "releaseDate": null,
@@ -4238,10 +4061,10 @@
                     "wikipediaTitle": "トイ・ストーリー5",
                     "releaseDate": null,
                     "releaseYear": 2026,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 13040000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 }
             ],
@@ -4262,10 +4085,10 @@
                     "wikipediaTitle": "怪盗グルーの月泥棒",
                     "releaseDate": null,
                     "releaseYear": 2010,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 1200000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -4274,10 +4097,10 @@
                     "wikipediaTitle": "怪盗グルーのミニオン危機一発",
                     "releaseDate": null,
                     "releaseYear": 2013,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 2500000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -4286,10 +4109,10 @@
                     "wikipediaTitle": "ミニオンズ",
                     "releaseDate": null,
                     "releaseYear": 2015,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5230000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -4298,10 +4121,10 @@
                     "wikipediaTitle": "怪盗グルーのミニオン大脱走",
                     "releaseDate": null,
                     "releaseYear": 2017,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 7310000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -4881,15 +4704,15 @@
             "notes": "2024年作品までの総興行収入",
             "films": [
                 {
-                    "title": "キングダム (映画)",
+                    "title": "キングダム",
                     "shortTitle": "キングダム",
                     "wikipediaTitle": "キングダム (映画)",
                     "releaseDate": null,
                     "releaseYear": 2019,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5730000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -4899,10 +4722,10 @@
                     "wikipediaTitle": "キングダム2 遥かなる大地へ",
                     "releaseDate": null,
                     "releaseYear": 2022,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5160000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -4912,10 +4735,10 @@
                     "wikipediaTitle": "キングダム 運命の炎",
                     "releaseDate": null,
                     "releaseYear": 2023,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5600000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -4925,10 +4748,10 @@
                     "wikipediaTitle": "キングダム 大将軍の帰還",
                     "releaseDate": null,
                     "releaseYear": 2024,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 8030000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -4938,10 +4761,10 @@
                     "wikipediaTitle": "キングダム 魂の決戦",
                     "releaseDate": null,
                     "releaseYear": 2026,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 6900000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -4963,10 +4786,10 @@
                     "wikipediaTitle": "LIMIT OF LOVE 海猿",
                     "releaseDate": null,
                     "releaseYear": 2006,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 7100000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -4976,10 +4799,10 @@
                     "wikipediaTitle": "THE LAST MESSAGE 海猿",
                     "releaseDate": null,
                     "releaseYear": 2010,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 8040000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -4989,10 +4812,10 @@
                     "wikipediaTitle": "BRAVE HEARTS 海猿",
                     "releaseDate": null,
                     "releaseYear": 2012,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 7330000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -5014,10 +4837,10 @@
                     "wikipediaTitle": "バック・トゥ・ザ・フューチャー",
                     "releaseDate": null,
                     "releaseYear": 1985,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
+                    "boxOfficeYen": 6090000000,
+                    "distributorRentalsYen": 3650000000,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -5027,10 +4850,10 @@
                     "wikipediaTitle": "バック・トゥ・ザ・フューチャー PART2",
                     "releaseDate": null,
                     "releaseYear": 1989,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
+                    "boxOfficeYen": 9500000000,
+                    "distributorRentalsYen": 5530000000,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -5040,10 +4863,10 @@
                     "wikipediaTitle": "バック・トゥ・ザ・フューチャー PART3",
                     "releaseDate": null,
                     "releaseYear": 1990,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
+                    "boxOfficeYen": 8200000000,
+                    "distributorRentalsYen": 4750000000,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -5065,10 +4888,10 @@
                     "wikipediaTitle": "ズートピア",
                     "releaseDate": null,
                     "releaseYear": 2016,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 7630000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -5078,10 +4901,10 @@
                     "wikipediaTitle": "ズートピア2",
                     "releaseDate": null,
                     "releaseYear": 2025,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 15710000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -5103,10 +4926,10 @@
                     "wikipediaTitle": "インディ・ジョーンズ/魔宮の伝説",
                     "releaseDate": null,
                     "releaseYear": 1984,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
+                    "boxOfficeYen": 5430000000,
+                    "distributorRentalsYen": 3200000000,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -5116,10 +4939,10 @@
                     "wikipediaTitle": "インディ・ジョーンズ/最後の聖戦",
                     "releaseDate": null,
                     "releaseYear": 1989,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
+                    "boxOfficeYen": 7400000000,
+                    "distributorRentalsYen": 4400000000,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -5129,10 +4952,10 @@
                     "wikipediaTitle": "インディ・ジョーンズ/クリスタル・スカルの王国",
                     "releaseDate": null,
                     "releaseYear": 2008,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5710000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -5149,7 +4972,7 @@
             "notes": "2016年作品までの総興行収入",
             "films": [
                 {
-                    "title": "バイオハザード (2002年の映画)",
+                    "title": "バイオハザード",
                     "shortTitle": "バイオハザード",
                     "wikipediaTitle": "バイオハザード (2002年の映画)",
                     "releaseDate": "2002-03-15",
@@ -5353,15 +5176,15 @@
             "notes": "2022年作品までの総興行収入",
             "films": [
                 {
-                    "title": "トップガン (映画)",
+                    "title": "トップガン",
                     "shortTitle": "トップガン",
                     "wikipediaTitle": "トップガン (映画)",
                     "releaseDate": null,
                     "releaseYear": 1986,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
+                    "boxOfficeYen": 6700000000,
+                    "distributorRentalsYen": 3900000000,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -5371,10 +5194,10 @@
                     "wikipediaTitle": "トップガン マーヴェリック",
                     "releaseDate": null,
                     "releaseYear": 2022,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 13810000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -5391,15 +5214,15 @@
             "notes": "2022年作品までの総興行収入",
             "films": [
                 {
-                    "title": "アバター (2009年の映画)",
+                    "title": "アバター",
                     "shortTitle": "アバター",
                     "wikipediaTitle": "アバター (2009年の映画)",
                     "releaseDate": null,
                     "releaseYear": 2009,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 15900000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -5421,10 +5244,10 @@
                     "wikipediaTitle": "るろうに剣心 京都大火編",
                     "releaseDate": null,
                     "releaseYear": 2014,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5250000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -5446,10 +5269,10 @@
                     "wikipediaTitle": "ファンタスティック・ビーストと魔法使いの旅",
                     "releaseDate": null,
                     "releaseYear": 2016,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 7340000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -5459,10 +5282,10 @@
                     "wikipediaTitle": "ファンタスティック・ビーストと黒い魔法使いの誕生",
                     "releaseDate": null,
                     "releaseYear": 2018,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 6570000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -5484,10 +5307,10 @@
                     "wikipediaTitle": "モンスターズ・インク",
                     "releaseDate": null,
                     "releaseYear": 2002,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 9370000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -5497,10 +5320,10 @@
                     "wikipediaTitle": "モンスターズ・ユニバーシティ",
                     "releaseDate": null,
                     "releaseYear": 2013,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 8960000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -5522,10 +5345,10 @@
                     "wikipediaTitle": "ファインディング・ニモ",
                     "releaseDate": null,
                     "releaseYear": 2003,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 11000000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -5535,10 +5358,10 @@
                     "wikipediaTitle": "ファインディング・ドリー",
                     "releaseDate": null,
                     "releaseYear": 2016,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 6830000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -5555,7 +5378,7 @@
             "notes": "2023年作品までの総興行収入",
             "films": [
                 {
-                    "title": "トランスフォーマー (2007年の映画)",
+                    "title": "トランスフォーマー",
                     "shortTitle": "トランスフォーマー",
                     "wikipediaTitle": "トランスフォーマー (2007年の映画)",
                     "releaseDate": "2007-07-03",
@@ -5615,23 +5438,11 @@
                     "kind": "theatrical"
                 },
                 {
-                    "title": "バンブルビー (映画)",
+                    "title": "バンブルビー",
                     "shortTitle": "バンブルビー",
                     "wikipediaTitle": "バンブルビー (映画)",
                     "releaseDate": "2018-12-21",
                     "releaseYear": 2018,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
-                    "metric": "box_office",
-                    "unclear": true,
-                    "kind": "theatrical"
-                },
-                {
-                    "title": "Box Office Mojo",
-                    "shortTitle": "Box Office Mojo",
-                    "wikipediaTitle": "Box Office Mojo",
-                    "releaseDate": null,
-                    "releaseYear": null,
                     "boxOfficeYen": null,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
@@ -5656,10 +5467,10 @@
                     "wikipediaTitle": "劇場版 呪術廻戦 0",
                     "releaseDate": null,
                     "releaseYear": 2021,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 13890000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -5692,10 +5503,10 @@
                     "wikipediaTitle": "オーシャンズ11",
                     "releaseDate": null,
                     "releaseYear": 2002,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 6900000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -5723,15 +5534,15 @@
             "notes": "2016年作品までの総興行収入",
             "films": [
                 {
-                    "title": "アリス・イン・ワンダーランド (映画)",
+                    "title": "アリス・イン・ワンダーランド",
                     "shortTitle": "アリス・イン・ワンダーランド",
                     "wikipediaTitle": "アリス・イン・ワンダーランド (映画)",
                     "releaseDate": null,
                     "releaseYear": 2010,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 11800000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -5753,10 +5564,10 @@
                     "wikipediaTitle": "機動戦士ガンダムSEED FREEDOM",
                     "releaseDate": null,
                     "releaseYear": 2024,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5380000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -5778,23 +5589,23 @@
                     "wikipediaTitle": "タワーリング・インフェルノ",
                     "releaseDate": null,
                     "releaseYear": 1975,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
+                    "boxOfficeYen": 6220000000,
+                    "distributorRentalsYen": 3730000000,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
                 {
-                    "title": "ダ・ヴィンチ・コード (映画)",
+                    "title": "ダ・ヴィンチ・コード",
                     "shortTitle": "ダ・ヴィンチ・コード",
                     "wikipediaTitle": "ダ・ヴィンチ・コード (映画)",
                     "releaseDate": null,
                     "releaseYear": 2006,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 9050000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -5881,7 +5692,7 @@
             "reportedTotalYen": 13070000000,
             "notes": "2015年作品までの総興行収入",
             "films": [],
-            "slug": "naruto"
+            "slug": "NARUTO--ナルト"
         },
         {
             "name": "HERO",
@@ -5893,28 +5704,28 @@
             "notes": "2015年作品までの総興行収入",
             "films": [
                 {
-                    "title": "HERO (2002年の映画)",
+                    "title": "HERO",
                     "shortTitle": "hero",
                     "wikipediaTitle": "HERO (2002年の映画)",
                     "releaseDate": null,
                     "releaseYear": 2003,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 4050000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
                 {
-                    "title": "HERO (2007年の映画)",
+                    "title": "HERO",
                     "shortTitle": "HERO",
                     "wikipediaTitle": "HERO (2007年の映画)",
                     "releaseDate": null,
                     "releaseYear": 2007,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 8150000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -5936,10 +5747,10 @@
                     "wikipediaTitle": "ナルニア国物語/第1章: ライオンと魔女",
                     "releaseDate": null,
                     "releaseYear": 2006,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 6860000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -5979,7 +5790,7 @@
                     "kind": "theatrical"
                 },
                 {
-                    "title": "スーサイド・スクワッド (映画)",
+                    "title": "スーサイド・スクワッド",
                     "shortTitle": "スーサイド・スクワッド",
                     "wikipediaTitle": "スーサイド・スクワッド (映画)",
                     "releaseDate": "2016-08-05",
@@ -6003,7 +5814,7 @@
                     "kind": "theatrical"
                 },
                 {
-                    "title": "ジャスティス・リーグ (映画)",
+                    "title": "ジャスティス・リーグ",
                     "shortTitle": "ジャスティス・リーグ",
                     "wikipediaTitle": "ジャスティス・リーグ (映画)",
                     "releaseDate": "2017-11-17",
@@ -6015,7 +5826,7 @@
                     "kind": "theatrical"
                 },
                 {
-                    "title": "ワンダーウーマン (映画)",
+                    "title": "ワンダーウーマン",
                     "shortTitle": "ワンダーウーマン",
                     "wikipediaTitle": "ワンダーウーマン (映画)",
                     "releaseDate": "2017-06-02",
@@ -6027,7 +5838,7 @@
                     "kind": "theatrical"
                 },
                 {
-                    "title": "アクアマン (映画)",
+                    "title": "アクアマン",
                     "shortTitle": "アクアマン",
                     "wikipediaTitle": "アクアマン (映画)",
                     "releaseDate": "2018-12-21",
@@ -6039,7 +5850,7 @@
                     "kind": "theatrical"
                 },
                 {
-                    "title": "シャザム! (映画)",
+                    "title": "シャザム!",
                     "shortTitle": "シャザム!",
                     "wikipediaTitle": "シャザム! (映画)",
                     "releaseDate": "2019-04-05",
@@ -6087,7 +5898,7 @@
                     "kind": "theatrical"
                 },
                 {
-                    "title": "ブラックアダム (映画)",
+                    "title": "ブラックアダム",
                     "shortTitle": "ブラックアダム",
                     "wikipediaTitle": "ブラックアダム (映画)",
                     "releaseDate": "2022-10-21",
@@ -6399,7 +6210,7 @@
             "notes": "2024年作品までの総興行収入",
             "films": [
                 {
-                    "title": "あぶない刑事 (映画)",
+                    "title": "あぶない刑事",
                     "shortTitle": "あぶない刑事",
                     "wikipediaTitle": "あぶない刑事 (映画)",
                     "releaseDate": "1987-12-12",
@@ -6517,7 +6328,7 @@
             "reportedTotalYen": 11230000000,
             "notes": "2012年作品までの総興行収入",
             "films": [],
-            "slug": "always"
+            "slug": "ALWAYS-三丁目の夕日"
         },
         {
             "name": "STAND BY ME ドラえもん",
@@ -6534,15 +6345,15 @@
                     "wikipediaTitle": "STAND BY ME ドラえもん",
                     "releaseDate": null,
                     "releaseYear": 2014,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 8380000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
             ],
-            "slug": "stand-by-me"
+            "slug": "STAND-BY-ME-ドラえもん"
         },
         {
             "name": "僕のヒーローアカデミア",
@@ -6570,10 +6381,10 @@
                     "wikipediaTitle": "テルマエ・ロマエ",
                     "releaseDate": null,
                     "releaseYear": 2012,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5980000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -6595,10 +6406,10 @@
                     "wikipediaTitle": "モアナと伝説の海",
                     "releaseDate": null,
                     "releaseYear": 2017,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5160000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 },
@@ -6608,10 +6419,10 @@
                     "wikipediaTitle": "モアナと伝説の海2",
                     "releaseDate": null,
                     "releaseYear": 2024,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5170000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -6633,15 +6444,15 @@
                     "wikipediaTitle": "劇場版TOKYO MER〜走る緊急救命室〜南海ミッション",
                     "releaseDate": null,
                     "releaseYear": 2025,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5290000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
             ],
-            "slug": "tokyo-mer"
+            "slug": "TOKYO-MER走る緊急救命室"
         },
         {
             "name": "東京リベンジャーズ",
@@ -6669,10 +6480,10 @@
                     "wikipediaTitle": "インサイド・ヘッド2",
                     "releaseDate": null,
                     "releaseYear": 2024,
-                    "boxOfficeYen": null,
+                    "boxOfficeYen": 5360000000,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical",
                     "source": "ranking_table"
                 }
@@ -6722,7 +6533,7 @@
             "notes": "2024年作品までの総興行収入",
             "films": [
                 {
-                    "title": "ヴェノム (映画)",
+                    "title": "ヴェノム",
                     "shortTitle": "ヴェノム",
                     "wikipediaTitle": "ヴェノム (映画)",
                     "releaseDate": "2018-10-05",
@@ -6746,19 +6557,7 @@
                     "kind": "theatrical"
                 },
                 {
-                    "title": "ヴェノム:レット・ゼア・ビー・カーネイジ",
-                    "shortTitle": "ヴェノム：レット・ゼア・ビー・カーネイジ",
-                    "wikipediaTitle": "ヴェノム:レット・ゼア・ビー・カーネイジ",
-                    "releaseDate": "2021-10-01",
-                    "releaseYear": 2021,
-                    "boxOfficeYen": null,
-                    "distributorRentalsYen": null,
-                    "metric": "box_office",
-                    "unclear": true,
-                    "kind": "theatrical"
-                },
-                {
-                    "title": "クレイヴン・ザ・ハンター (映画)",
+                    "title": "クレイヴン・ザ・ハンター",
                     "shortTitle": "クレイヴン・ザ・ハンター",
                     "wikipediaTitle": "クレイヴン・ザ・ハンター (映画)",
                     "releaseDate": "2022-04-01",
@@ -6766,7 +6565,7 @@
                     "boxOfficeYen": null,
                     "distributorRentalsYen": null,
                     "metric": "box_office",
-                    "unclear": true,
+                    "unclear": false,
                     "kind": "theatrical"
                 },
                 {
@@ -6782,7 +6581,7 @@
                     "kind": "theatrical"
                 },
                 {
-                    "title": "クレイヴン・ザ・ハンター (映画)",
+                    "title": "クレイヴン・ザ・ハンター",
                     "shortTitle": "クレイヴン・ザ・ハンター",
                     "wikipediaTitle": "クレイヴン・ザ・ハンター (映画)",
                     "releaseDate": "2024-12-13",
@@ -6916,7 +6715,56 @@
             "startYear": 2015,
             "reportedTotalYen": 4140000000,
             "notes": "2019年作品までの総興行収入",
-            "films": [],
+            "films": [
+                {
+                    "title": "ぷちぐるラブライブ!",
+                    "shortTitle": "ぷちぐるラブライブ!",
+                    "wikipediaTitle": "ぷちぐるラブライブ!",
+                    "releaseDate": null,
+                    "releaseYear": null,
+                    "boxOfficeYen": null,
+                    "distributorRentalsYen": null,
+                    "metric": "box_office",
+                    "unclear": true,
+                    "kind": "theatrical"
+                },
+                {
+                    "title": "ラブライブ! スクールアイドルフェスティバル",
+                    "shortTitle": "ラブライブ! スクールアイドルフェスティバル",
+                    "wikipediaTitle": "ラブライブ! スクールアイドルフェスティバル",
+                    "releaseDate": null,
+                    "releaseYear": null,
+                    "boxOfficeYen": null,
+                    "distributorRentalsYen": null,
+                    "metric": "box_office",
+                    "unclear": true,
+                    "kind": "theatrical"
+                },
+                {
+                    "title": "ラブライブ!シリーズ ラブライブ！オフィシャルカードゲーム",
+                    "shortTitle": "ラブライブ！オフィシャルカードゲーム",
+                    "wikipediaTitle": null,
+                    "releaseDate": null,
+                    "releaseYear": null,
+                    "boxOfficeYen": null,
+                    "distributorRentalsYen": null,
+                    "metric": "box_office",
+                    "unclear": true,
+                    "kind": "theatrical"
+                },
+                {
+                    "title": "幻日のヨハネ -SUNSHINE in the MIRROR-",
+                    "shortTitle": "幻日のヨハネ-SUNSHINE in the MIRROR-",
+                    "wikipediaTitle": "幻日のヨハネ -SUNSHINE in the MIRROR-",
+                    "releaseDate": null,
+                    "releaseYear": null,
+                    "boxOfficeYen": null,
+                    "distributorRentalsYen": null,
+                    "metric": "box_office",
+                    "unclear": true,
+                    "kind": "theatrical"
+                }
+            ],
             "slug": "ラブライブ!シリーズ"
         },
         {
@@ -6983,7 +6831,7 @@
             "reportedTotalYen": 2990000000,
             "notes": "2023年作品までの総興行収入",
             "films": [],
-            "slug": "meg"
+            "slug": "MEG-ザモンスター"
         },
         {
             "name": "映画 すみっコぐらし",
@@ -7020,22 +6868,32 @@
         }
     ],
     "warnings": [
+        "ハリー・ポッター: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
         "スター・ウォーズ: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
         "マーベル・シネマティック・ユニバース: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
         "マーベル・シネマティック・ユニバース: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
         "マーベル・シネマティック・ユニバース: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
+        "ミッション:インポッシブル: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
+        "スパイダーマン: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
+        "マトリックス: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
+        "ロード・オブ・ザ・リング: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
         "ロード・オブ・ザ・リング: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
         "トイ・ストーリー: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
         "怪盗グルー: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
         "ワイルド・スピード: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
         "ワイルド・スピード: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
         "ワイルド・スピード: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
+        "ワイルド・スピード: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
+        "バイオハザード: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
+        "バイオハザード: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
+        "トランスフォーマー: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
         "DCエクステンデッド・ユニバース: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
         "DCエクステンデッド・ユニバース: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
         "DCエクステンデッド・ユニバース: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
         "ソニーズ・スパイダーマン・ユニバース: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
-        "ソニーズ・スパイダーマン・ユニバース: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
-        "歴代表からシリーズへ追加 78 件"
+        "ラブライブ!シリーズ: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
+        "ラブライブ!シリーズ: 世界興収表を日本興収としては使わず、作品名のみ採用: ",
+        "歴代表からシリーズへ追加 69 件"
     ],
     "unparsedSeries": [
         {
@@ -7152,11 +7010,6 @@
             "name": "ゴールデンカムイ",
             "reason": "no_films",
             "wikipediaTitle": "ゴールデンカムイ"
-        },
-        {
-            "name": "ラブライブ!シリーズ",
-            "reason": "no_films",
-            "wikipediaTitle": "ラブライブ!シリーズ"
         },
         {
             "name": "ゲゲゲの鬼太郎（実写）",

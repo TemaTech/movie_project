@@ -82,6 +82,10 @@ class ImportJapanSeries extends Command
         $ambiguous = $assigned['ambiguous'];
         $warnings = array_merge($warnings, $assigned['warnings']);
 
+        if ($this->option('skip-tmdb')) {
+            $this->copyExistingTmdbIds($series);
+        }
+
         $hadPageFilms = [];
         foreach ($series as $entry) {
             $hadPageFilms[(string) $entry['name']] = ($entry['films'] ?? []) !== [];
@@ -382,6 +386,53 @@ class ImportJapanSeries extends Command
         });
 
         return true;
+    }
+
+    /**
+     * --skip-tmdb 時も既存スナップショットの TMDB id を落とさない。
+     *
+     * @param  list<array<string, mixed>>  $series
+     */
+    private function copyExistingTmdbIds(array &$series): void
+    {
+        $existingByName = [];
+        foreach (JapanSeriesSnapshot::series() as $row) {
+            $name = (string) ($row['name'] ?? '');
+            if ($name !== '') {
+                $existingByName[$name] = is_array($row['films'] ?? null) ? $row['films'] : [];
+            }
+        }
+
+        foreach ($series as &$entry) {
+            $oldFilms = $existingByName[(string) ($entry['name'] ?? '')] ?? [];
+            if ($oldFilms === []) {
+                continue;
+            }
+            foreach ($entry['films'] ?? [] as &$film) {
+                if (! is_array($film) || ! empty($film['tmdbId'])) {
+                    continue;
+                }
+                $incoming = SeriesFilmMatcher::identityCompact((string) ($film['title'] ?? ''));
+                $incomingYear = SeriesFilmMatcher::year($film);
+                foreach ($oldFilms as $old) {
+                    if (! is_array($old) || empty($old['tmdbId'])) {
+                        continue;
+                    }
+                    $have = SeriesFilmMatcher::identityCompact((string) ($old['title'] ?? ''));
+                    if ($incoming === '' || $have === '' || $incoming !== $have) {
+                        continue;
+                    }
+                    $oldYear = SeriesFilmMatcher::year($old);
+                    if ($incomingYear && $oldYear && abs($incomingYear - $oldYear) > 1) {
+                        continue;
+                    }
+                    $film['tmdbId'] = $old['tmdbId'];
+                    break;
+                }
+            }
+            unset($film);
+        }
+        unset($entry);
     }
 
     /**

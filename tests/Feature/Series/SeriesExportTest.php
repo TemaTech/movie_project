@@ -422,7 +422,7 @@ class SeriesExportTest extends TestCase
             $raw['films'],
             fn (array $film) => str_contains((string) $film['title'], '賢者の石')
         ));
-        $this->assertGreaterThan(1, count($rawStone));
+        $this->assertNotSame([], $rawStone);
 
         $catalog = SeriesCatalog::japan([]);
         $hp = collect($catalog['series'])->firstWhere('name', 'ハリー・ポッター');

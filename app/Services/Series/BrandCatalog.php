@@ -52,8 +52,9 @@ class BrandCatalog
 
     /**
      * @param  array<string, mixed>  $movie
+     * @return list<array<string, mixed>>
      */
-    public static function match(array $movie): ?array
+    public static function matchingBrands(array $movie): array
     {
         $tmdbId = self::tmdbId($movie);
         $collectionId = is_numeric($movie['collectionId'] ?? null) ? (int) $movie['collectionId'] : null;
@@ -82,11 +83,17 @@ class BrandCatalog
             }
         }
 
-        if (count($hits) !== 1) {
-            return null;
-        }
+        return $hits;
+    }
 
-        return $hits[0];
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    public static function match(array $movie): ?array
+    {
+        $hits = self::matchingBrands($movie);
+
+        return count($hits) === 1 ? $hits[0] : null;
     }
 
     /**

@@ -3,7 +3,10 @@
 namespace Tests\Feature\Series;
 
 use App\Console\Commands\ExportStaticSite;
+use App\Models\GlobalMovie;
+use App\Models\JapaneseMovie;
 use App\Services\Series\BrandCatalog;
+use Illuminate\Support\Facades\Schema;
 use ReflectionMethod;
 use ReflectionProperty;
 use Tests\TestCase;
@@ -229,6 +232,68 @@ class BrandExportTest extends TestCase
         $this->assertSame([], $catalog['series']);
     }
 
+    public function test_ranking_movies_with_collection_ids_match_at_most_one_brand(): void
+    {
+        $movies = $this->productionRankingMoviesWithCollectionIds();
+        if ($movies === null) {
+            $this->assertBrandMapIdsAreUnique();
+
+            return;
+        }
+
+        $this->assertNotEmpty($movies);
+        foreach ($movies as $movie) {
+            $hits = BrandCatalog::matchingBrands($movie);
+            $this->assertLessThanOrEqual(
+                1,
+                count($hits),
+                sprintf(
+                    '%s (tmdb %s, collection %s) matched %s',
+                    (string) ($movie['title'] ?? $movie['id'] ?? '?'),
+                    (string) ($movie['tmdbId'] ?? ''),
+                    (string) ($movie['collectionId'] ?? ''),
+                    implode(', ', array_column($hits, 'slug'))
+                )
+            );
+        }
+    }
+
+    public function test_kung_fu_panda_collection_matches_only_dreamworks(): void
+    {
+        $pixarCollections = [];
+        $dreamworksCollections = [];
+        foreach (BrandCatalog::definitions() as $brand) {
+            $slug = (string) ($brand['slug'] ?? '');
+            $ids = array_map('intval', $brand['collectionIds'] ?? []);
+            if ($slug === 'pixar') {
+                $pixarCollections = $ids;
+            }
+            if ($slug === 'dreamworks') {
+                $dreamworksCollections = $ids;
+            }
+        }
+        $this->assertNotContains(77816, $pixarCollections);
+        $this->assertContains(77816, $dreamworksCollections);
+
+        foreach ([
+            ['tmdbId' => 9502, 'title' => 'カンフー・パンダ', 'originalTitle' => 'Kung Fu Panda', 'boxOffice' => 632_091_832, 'rank' => 191],
+            ['tmdbId' => 49444, 'title' => 'カンフー・パンダ２', 'originalTitle' => 'Kung Fu Panda 2', 'boxOffice' => 665_692_281, 'rank' => 175],
+        ] as $film) {
+            $movie = $film + [
+                'id' => 'tmdb-'.$film['tmdbId'],
+                'collectionId' => 77816,
+                'inRanking' => true,
+            ];
+            $hits = BrandCatalog::matchingBrands($movie);
+            $this->assertSame(
+                ['dreamworks'],
+                array_column($hits, 'slug'),
+                $film['title'].' with collection 77816 should match only DreamWorks'
+            );
+            $this->assertSame('dreamworks', BrandCatalog::match($movie)['slug'] ?? null);
+        }
+    }
+
     /**
      * @return list<array<string, mixed>>
      */
@@ -305,6 +370,90 @@ class BrandExportTest extends TestCase
             $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
         }
         rmdir($dir);
+    }
+
+    /**
+     * @return list<array<string, mixed>>|null
+     */
+    private function productionRankingMoviesWithCollectionIds(): ?array
+    {
+        try {
+            $schema = Schema::connection('mysql');
+            if (! $schema->hasTable('global_movies')) {
+                return null;
+            }
+            $query = GlobalMovie::query()->orderBy('box_office', 'desc');
+            if ($schema->hasColumn('global_movies', 'in_ranking')) {
+                $query->where('in_ranking', true);
+            }
+            $global = $query->get();
+            if ($global->isEmpty()) {
+                return null;
+            }
+
+            $movies = [];
+            foreach ($global as $index => $movie) {
+                $movies[] = [
+                    'id' => $movie->movie_id,
+                    'tmdbId' => $movie->tmdb_id,
+                    'title' => $movie->title,
+                    'originalTitle' => $movie->original_title,
+                    'collectionId' => $movie->tmdb_collection_id ?? null,
+                    'boxOffice' => (int) $movie->box_office,
+                    'rank' => $index + 1,
+                    'inRanking' => true,
+                ];
+            }
+            if ($schema->hasTable('japanese_movies')) {
+                $japanHasCollection = $schema->hasColumn('japanese_movies', 'tmdb_collection_id');
+                foreach (JapaneseMovie::orderBy('box_office', 'desc')->get() as $index => $movie) {
+                    $movies[] = [
+                        'id' => $movie->movie_id,
+                        'tmdbId' => $movie->tmdb_id,
+                        'title' => $movie->title,
+                        'originalTitle' => $movie->original_title,
+                        'collectionId' => $japanHasCollection ? ($movie->tmdb_collection_id ?? null) : null,
+                        'boxOffice' => (int) $movie->box_office,
+                        'rank' => $index + 1,
+                        'inRanking' => true,
+                    ];
+                }
+            }
+
+            return $movies;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function assertBrandMapIdsAreUnique(): void
+    {
+        $tmdbOwners = [];
+        $collectionOwners = [];
+        foreach (BrandCatalog::definitions() as $brand) {
+            $slug = (string) ($brand['slug'] ?? '');
+            foreach ($brand['tmdbIds'] ?? [] as $id) {
+                if (! is_numeric($id) || (int) $id <= 0) {
+                    continue;
+                }
+                $id = (int) $id;
+                if (isset($tmdbOwners[$id])) {
+                    $this->fail("tmdbId {$id} is registered on {$tmdbOwners[$id]} and {$slug}");
+                }
+                $tmdbOwners[$id] = $slug;
+            }
+            foreach ($brand['collectionIds'] ?? [] as $id) {
+                if (! is_numeric($id) || (int) $id <= 0) {
+                    continue;
+                }
+                $id = (int) $id;
+                if (isset($collectionOwners[$id])) {
+                    $this->fail("collectionId {$id} is registered on {$collectionOwners[$id]} and {$slug}");
+                }
+                $collectionOwners[$id] = $slug;
+            }
+        }
+        $this->assertNotEmpty($tmdbOwners);
     }
 
     private function ensureViteManifest(): void

@@ -24,7 +24,7 @@ trait ExportsSeriesPages
         File::ensureDirectoryExists($jsonDir);
 
         foreach ($catalog['series'] ?? [] as $series) {
-            if (! is_array($series) || empty($series['slug'])) {
+            if (! is_array($series) || empty($series['slug']) || ! SeriesCatalog::hasListedFilms($series)) {
                 continue;
             }
             $movies = $this->seriesMoviesForUi($series, $isJapan);
@@ -57,7 +57,7 @@ trait ExportsSeriesPages
         ]];
 
         foreach ($catalog['series'] ?? [] as $series) {
-            if (! is_array($series) || empty($series['path']) || empty($series['indexable'])) {
+            if (! is_array($series) || empty($series['path']) || empty($series['indexable']) || ! SeriesCatalog::hasListedFilms($series)) {
                 continue;
             }
             $entries[] = [
@@ -123,7 +123,7 @@ trait ExportsSeriesPages
     private function seriesIndexHtml(array $catalog, array $otherCatalog): string
     {
         $isJapan = ($catalog['region'] ?? '') === 'japan';
-        $series = is_array($catalog['series'] ?? null) ? $catalog['series'] : [];
+        $series = $this->listedSeries($catalog);
         $heading = $isJapan ? '日本の映画シリーズ興行収入' : '世界の映画シリーズ興行収入';
         $pageTitle = $heading.' | MUBIRAN';
         $description = $isJapan
@@ -132,11 +132,9 @@ trait ExportsSeriesPages
         if ($series !== []) {
             $top = $series[0];
             $topName = (string) ($top['name'] ?? '');
-            $topTotal = $isJapan
-                ? $this->yenLabel($top['totalYen'] ?? null)
-                : $this->usdLabel($top['totalUsd'] ?? null);
+            $topTotal = $this->seriesAmountLabel($top, $isJapan);
             if ($topName !== '' && $topTotal !== '不明') {
-                $description = $heading.'。1位は'.$topName.'の'.$topTotal.'。';
+                $description = $heading.'。1位は'.$topName.'の'.$this->seriesTotalWithNote($top, $isJapan).'。';
             }
         }
 
@@ -144,15 +142,14 @@ trait ExportsSeriesPages
         $otherLabel = $isJapan ? '世界のシリーズ興行収入' : '日本のシリーズ興行収入';
         $rows = '';
         foreach ($series as $index => $item) {
-            if (! is_array($item)) {
-                continue;
-            }
             $href = $this->h((string) ($item['path'] ?? '#'));
             $name = $this->h((string) ($item['name'] ?? ''));
-            $count = (int) ($item['filmCount'] ?? 0);
-            $total = $isJapan
-                ? $this->h($this->yenLabel($item['totalYen'] ?? null))
-                : $this->h($this->usdLabel($item['totalUsd'] ?? null));
+            $count = (int) ($item['filmCount'] ?? count($item['films'] ?? []));
+            $total = $this->h($this->seriesAmountLabel($item, $isJapan));
+            $note = SeriesCatalog::excludedUnknownNote($item);
+            if ($note !== null) {
+                $total .= '<small class="series-total-excluded">'.$this->h($note).'</small>';
+            }
             $rows .= '<tr><td class="series-rank">'.($index + 1).'</td>'
                 .'<td><a href="'.$href.'">'.$name.'</a></td>'
                 .'<td class="series-num">'.$count.'</td>'
@@ -196,10 +193,9 @@ trait ExportsSeriesPages
         $isJapan = ($catalog['region'] ?? '') === 'japan';
         $name = (string) ($series['name'] ?? '');
         $heading = $name.'のシリーズ興行収入';
-        $totalLabel = $isJapan
-            ? $this->yenLabel($series['totalYen'] ?? null)
-            : $this->usdLabel($series['totalUsd'] ?? null);
-        $pageTitle = $heading.' '.$totalLabel.' | MUBIRAN';
+        $amountLabel = $this->seriesAmountLabel($series, $isJapan);
+        $totalLabel = $this->seriesTotalWithNote($series, $isJapan);
+        $pageTitle = $heading.' '.$amountLabel.' | MUBIRAN';
         $filmCount = (int) ($series['filmCount'] ?? count($series['films'] ?? []));
         $description = $name.'シリーズの'.($isJapan ? '日本' : '世界').'興行収入。'
             .$filmCount.'作品、合計'.$totalLabel.'。';
@@ -214,9 +210,14 @@ trait ExportsSeriesPages
         $robots = ! empty($series['indexable']) ? 'index, follow' : 'noindex, follow';
         $jsonSrc = '/data/series/'.($isJapan ? 'japan' : 'global').'/'.rawurlencode((string) ($series['slug'] ?? '')).'.json';
 
+        $statsTotal = $this->h($amountLabel);
+        $excludedNote = SeriesCatalog::excludedUnknownNote($series);
+        if ($excludedNote !== null) {
+            $statsTotal .= '<small class="series-total-excluded">'.$this->h($excludedNote).'</small>';
+        }
         $stats = '<dl class="series-stats">'
             .'<div><dt>作品数</dt><dd>'.$filmCount.'</dd></div>'
-            .'<div><dt>シリーズ合計</dt><dd>'.$this->h($totalLabel).'</dd></div>';
+            .'<div><dt>シリーズ合計</dt><dd>'.$statsTotal.'</dd></div>';
         if ($isJapan && ! empty($series['hasRentals'])) {
             $stats .= '<div><dt>配給収入の作品</dt><dd>'.$this->h($this->yenLabel($series['sumRentalsYen'] ?? null)).'</dd></div>';
         }
@@ -371,9 +372,8 @@ HTML;
             'crumb' => $isJapan ? '日本のシリーズ' : '世界のシリーズ',
             'usdJpy' => $this->usdJpy(),
             'filmCount' => (int) ($series['filmCount'] ?? count($movies)),
-            'totalLabel' => $isJapan
-                ? $this->yenLabel($series['totalYen'] ?? null)
-                : $this->usdLabel($series['totalUsd'] ?? null),
+            'totalLabel' => $this->seriesAmountLabel($series, $isJapan),
+            'excludedUnknownNote' => SeriesCatalog::excludedUnknownNote($series),
             'hasRentals' => ! empty($series['hasRentals']),
             'sumRentalsLabel' => ! empty($series['hasRentals'])
                 ? $this->yenLabel($series['sumRentalsYen'] ?? null)
@@ -697,13 +697,13 @@ HTML;
         $baseUrl = rtrim(config('app.url'), '/');
         $path = $catalog['indexPath'] ?? '/series/';
         $elements = [];
-        foreach ($catalog['series'] ?? [] as $offset => $series) {
-            if (! is_array($series) || empty($series['path']) || empty($series['name'])) {
+        foreach ($this->listedSeries($catalog) as $series) {
+            if (empty($series['path']) || empty($series['name'])) {
                 continue;
             }
             $elements[] = [
                 '@type' => 'ListItem',
-                'position' => $offset + 1,
+                'position' => count($elements) + 1,
                 'name' => $series['name'],
                 'url' => $baseUrl.$series['path'],
             ];
@@ -766,9 +766,12 @@ HTML;
         }
 
         $indexName = ($catalog['region'] ?? '') === 'japan' ? '日本のシリーズ' : '世界のシリーズ';
+        $isJapan = ($catalog['region'] ?? '') === 'japan';
         $itemList = array_filter([
             '@type' => 'ItemList',
             'name' => $name.'のシリーズ興行収入',
+            'description' => $name.'シリーズの'.($isJapan ? '日本' : '世界').'興行収入。'
+                .count($elements).'作品、合計'.$this->seriesTotalWithNote($series, $isJapan).'。',
             'dateModified' => $dateModified,
             'itemListElement' => $elements,
         ], fn (mixed $value): bool => $value !== null && $value !== '');
@@ -806,6 +809,43 @@ HTML;
     private function worldSeriesAttribution(): string
     {
         return '<p class="series-attr">世界のシリーズ区分と興行収入は <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDB</a> のコレクション（belongs_to_collection）と作品の revenue を出典としています。</p>';
+    }
+
+    /**
+     * @param  array<string, mixed>  $catalog
+     * @return list<array<string, mixed>>
+     */
+    private function listedSeries(array $catalog): array
+    {
+        $listed = [];
+        foreach ($catalog['series'] ?? [] as $series) {
+            if (is_array($series) && SeriesCatalog::hasListedFilms($series)) {
+                $listed[] = $series;
+            }
+        }
+
+        return $listed;
+    }
+
+    /**
+     * @param  array<string, mixed>  $series
+     */
+    private function seriesAmountLabel(array $series, bool $isJapan): string
+    {
+        return $isJapan
+            ? $this->yenLabel($series['totalYen'] ?? null)
+            : $this->usdLabel($series['totalUsd'] ?? null);
+    }
+
+    /**
+     * @param  array<string, mixed>  $series
+     */
+    private function seriesTotalWithNote(array $series, bool $isJapan): string
+    {
+        $amount = $this->seriesAmountLabel($series, $isJapan);
+        $note = SeriesCatalog::excludedUnknownNote($series);
+
+        return $note === null ? $amount : $amount.'（'.$note.'）';
     }
 
     private function yenLabel(mixed $yen): string

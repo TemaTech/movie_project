@@ -21,6 +21,9 @@ class SeriesCatalog
         foreach ($seriesRows as $row) {
             $row['retrievedAt'] = $retrievedAt;
             $page = self::buildJapanSeries($row, $rankingMovies, $claimed, $extraMovies);
+            if (! self::hasListedFilms($page)) {
+                continue;
+            }
             $built[] = $page;
             foreach ($page['films'] as $film) {
                 $id = (string) ($film['id'] ?? '');
@@ -140,6 +143,10 @@ class SeriesCatalog
                 }
             }
 
+            if ($rows === []) {
+                continue;
+            }
+
             $totalUsd = $total > 0 ? $total : null;
             $built[] = [
                 'slug' => $slug,
@@ -149,6 +156,7 @@ class SeriesCatalog
                 'collectionId' => $collection['id'],
                 'filmCount' => count($rows),
                 'knownCount' => $known,
+                'excludedUnknownCount' => count($rows) - $known,
                 'totalYen' => null,
                 'totalUsd' => $totalUsd,
                 'reportedTotalYen' => null,
@@ -223,9 +231,12 @@ class SeriesCatalog
         $sumBoxOffice = 0;
         $sumRentals = 0;
         $known = 0;
+        $excludedUnknown = 0;
         $hasRentals = false;
         foreach ($films as $film) {
             if (! empty($film['unreleased']) || empty($film['boxOffice'])) {
+                $excludedUnknown++;
+
                 continue;
             }
             $known++;
@@ -238,7 +249,7 @@ class SeriesCatalog
         }
 
         $reported = is_numeric($row['reportedTotalYen'] ?? null) ? (int) $row['reportedTotalYen'] : null;
-        $totalYen = $reported ?? ($sumBoxOffice > 0 ? $sumBoxOffice : null);
+        $totalYen = $sumBoxOffice > 0 ? $sumBoxOffice : null;
 
         return [
             'slug' => $row['slug'],
@@ -250,6 +261,7 @@ class SeriesCatalog
             'notes' => $row['notes'] ?? null,
             'filmCount' => count($films),
             'knownCount' => $known,
+            'excludedUnknownCount' => $excludedUnknown,
             'totalYen' => $totalYen,
             'sumBoxOfficeYen' => $sumBoxOffice > 0 ? $sumBoxOffice : null,
             'sumRentalsYen' => $sumRentals > 0 ? $sumRentals : null,
@@ -651,6 +663,37 @@ class SeriesCatalog
         }
 
         return $knownCount > 0 || (is_numeric($total) && (int) $total > 0);
+    }
+
+    /**
+     * @param  array<string, mixed>  $series
+     */
+    public static function hasListedFilms(array $series): bool
+    {
+        if ((int) ($series['filmCount'] ?? 0) > 0) {
+            return true;
+        }
+
+        $films = $series['films'] ?? [];
+
+        return is_array($films) && $films !== [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $series
+     */
+    public static function excludedUnknownNote(array $series): ?string
+    {
+        $count = (int) ($series['excludedUnknownCount'] ?? 0);
+        if ($count <= 0) {
+            return null;
+        }
+        $total = $series['totalYen'] ?? $series['totalUsd'] ?? null;
+        if (! is_numeric($total) || (int) $total <= 0) {
+            return null;
+        }
+
+        return '不明'.$count.'作を除く';
     }
 
     /**

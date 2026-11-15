@@ -105,10 +105,11 @@ class SeriesCatalog
                 $yenOrUsd = (int) ($film['boxOffice'] ?? 0);
                 $unreleased = self::filmIsUnreleased($film);
                 $hasFigure = ! $unreleased && $yenOrUsd > 0 && $yenOrUsd !== 1_000_000_000;
-                if ($hasFigure) {
-                    $total += $yenOrUsd;
-                    $known++;
+                if (! $hasFigure) {
+                    continue;
                 }
+                $total += $yenOrUsd;
+                $known++;
                 $inRanking = ($film['inRanking'] ?? true) && is_numeric($film['rank'] ?? null) && (int) $film['rank'] <= 200;
                 $rows[] = [
                     'id' => $film['id'] ?? null,
@@ -118,19 +119,19 @@ class SeriesCatalog
                     'originalTitle' => $film['originalTitle'] ?? '',
                     'releaseYear' => $film['releaseYear'] ?? null,
                     'releaseDate' => $film['releaseDate'] ?? null,
-                    'boxOffice' => $hasFigure ? $yenOrUsd : null,
-                    'revenue' => $unreleased ? '公開予定' : ($hasFigure ? ($film['revenue'] ?? null) : '不明'),
-                    'revenueBillion' => $hasFigure ? ($film['revenueBillion'] ?? null) : null,
-                    'revenueYen' => $hasFigure ? ($film['revenueYen'] ?? null) : null,
-                    'rank' => ($unreleased || ! $inRanking) ? null : ($film['rank'] ?? null),
+                    'boxOffice' => $yenOrUsd,
+                    'revenue' => $film['revenue'] ?? null,
+                    'revenueBillion' => $film['revenueBillion'] ?? null,
+                    'revenueYen' => $film['revenueYen'] ?? null,
+                    'rank' => $inRanking ? ($film['rank'] ?? null) : null,
                     'metric' => 'box_office',
                     'kind' => 'theatrical',
                     'href' => isset($film['id']) ? '/movies/'.$film['id'].'/' : null,
-                    'inRanking' => $unreleased ? false : $inRanking,
+                    'inRanking' => $inRanking,
                     'posterUrl' => $film['posterUrl'] ?? '',
                     'genres' => is_array($film['genres'] ?? null) ? $film['genres'] : [],
-                    'isActive' => $unreleased ? false : (bool) ($film['isActive'] ?? false),
-                    'unreleased' => $unreleased,
+                    'isActive' => (bool) ($film['isActive'] ?? false),
+                    'unreleased' => false,
                     'productionCountry' => $film['productionCountry'] ?? null,
                     'updatedAt' => $film['updatedAt'] ?? null,
                     'pageHistory' => is_array($film['pageHistory'] ?? null) ? $film['pageHistory'] : [],
@@ -156,7 +157,7 @@ class SeriesCatalog
                 'collectionId' => $collection['id'],
                 'filmCount' => count($rows),
                 'knownCount' => $known,
-                'excludedUnknownCount' => count($rows) - $known,
+                'excludedUnknownCount' => 0,
                 'totalYen' => null,
                 'totalUsd' => $totalUsd,
                 'reportedTotalYen' => null,
@@ -212,6 +213,7 @@ class SeriesCatalog
         $films = self::sortFilmsByBoxOffice(self::disambiguateDuplicateTitles(self::dedupeFilms($films)));
         $reported = is_numeric($row['reportedTotalYen'] ?? null) ? (int) $row['reportedTotalYen'] : null;
         $films = self::allocateReportedRemainder($films, $reported);
+        $films = array_values(array_filter($films, fn (array $film): bool => self::filmHasDisplayableAmount($film)));
         $titlesById = [];
         foreach ($films as $film) {
             $id = (string) ($film['id'] ?? '');
@@ -246,14 +248,8 @@ class SeriesCatalog
         $sumBoxOffice = 0;
         $sumRentals = 0;
         $known = 0;
-        $excludedUnknown = 0;
         $hasRentals = false;
         foreach ($films as $film) {
-            if (! empty($film['unreleased']) || empty($film['boxOffice'])) {
-                $excludedUnknown++;
-
-                continue;
-            }
             $known++;
             if (($film['metric'] ?? '') === JapanBoxOfficeAmount::METRIC_DISTRIBUTOR_RENTALS) {
                 $sumRentals += (int) $film['boxOffice'];
@@ -275,7 +271,7 @@ class SeriesCatalog
             'notes' => $row['notes'] ?? null,
             'filmCount' => count($films),
             'knownCount' => $known,
-            'excludedUnknownCount' => $excludedUnknown,
+            'excludedUnknownCount' => 0,
             'totalYen' => $totalYen,
             'sumBoxOfficeYen' => $sumBoxOffice > 0 ? $sumBoxOffice : null,
             'sumRentalsYen' => $sumRentals > 0 ? $sumRentals : null,
@@ -594,7 +590,7 @@ class SeriesCatalog
             return 3;
         }
         $boxOffice = $film['boxOffice'] ?? null;
-        $hasFigure = is_numeric($boxOffice) && (int) $boxOffice > 0 && (int) $boxOffice !== 1_000_000_000;
+        $hasFigure = is_numeric($boxOffice) && (int) $boxOffice > 0;
         if (! $hasFigure) {
             return 2;
         }
@@ -610,6 +606,21 @@ class SeriesCatalog
      *
      * @param  array<string, mixed>  $film
      */
+    /**
+     * 興収または配給収入の金額があり、未公開でも不明でもない作品だけをシリーズに出す。
+     *
+     * @param  array<string, mixed>  $film
+     */
+    public static function filmHasDisplayableAmount(array $film): bool
+    {
+        if (self::filmIsUnreleased($film)) {
+            return false;
+        }
+        $boxOffice = is_numeric($film['boxOffice'] ?? null) ? (int) $film['boxOffice'] : 0;
+
+        return $boxOffice > 0;
+    }
+
     public static function filmIsUnreleased(array $film, ?\DateTimeInterface $now = null): bool
     {
         if (array_key_exists('unreleased', $film) && is_bool($film['unreleased'])) {

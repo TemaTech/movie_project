@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Console\Traits\SavesMovieImages;
 use App\Models\GlobalMovie;
+use App\Services\BoxOffice\GlobalRankingAssembler;
 use App\Services\BoxOffice\HistoryRecorder;
 use App\Services\BoxOffice\MovieIdentity;
 use App\Services\BoxOffice\TheatricalRun;
@@ -75,7 +76,7 @@ class FetchGlobalBoxOffice extends Command
 
             if ($deferred !== [] && count($movies) < self::TARGET_MOVIES) {
                 $this->warn(sprintf('%d件の取得失敗分を再試行します', count($deferred)));
-                sleep(15);
+                $this->pause(15);
 
                 foreach ($deferred as $candidate) {
                     if (count($movies) >= self::TARGET_MOVIES) {
@@ -99,6 +100,14 @@ class FetchGlobalBoxOffice extends Command
                 return self::FAILURE;
             }
 
+            $movies = $this->appendPreviousRankingMovies($movies, $existingAnalyses);
+
+            $callsBeforeSeries = $this->tmdb->httpCalls();
+            $extras = $this->expandCollectionMovies($movies);
+            $movies = $this->promoteHighGrossingExtras($movies, $extras, $existingAnalyses);
+            $movies = GlobalRankingAssembler::finalize($movies, self::TARGET_MOVIES);
+            $extras = $this->expandCollectionMovies($movies);
+
             if (count($movies) < HistoryRecorder::MINIMUM_MOVIES) {
                 $this->error(sprintf(
                     '取得件数が%d件で下限%d件を下回ったため、履歴もデータベースも更新しません',
@@ -110,8 +119,6 @@ class FetchGlobalBoxOffice extends Command
             }
 
             $this->persistMovies($movies);
-            $callsBeforeSeries = $this->tmdb->httpCalls();
-            $extras = $this->expandCollectionMovies($movies);
             $this->persistSeriesExtras($extras);
             $this->info(sprintf(
                 '処理完了: ランキング%d件 / シリーズ追加%d件 / TMDb HTTP %d回（うちシリーズ展開 +%d）',
@@ -154,7 +161,7 @@ class FetchGlobalBoxOffice extends Command
                 }
 
                 $this->warn(sprintf('Discover page %d の取得に失敗しました (%d/%d)', $page, $attempt, self::MAX_DISCOVER_PAGE_RETRIES));
-                sleep(10 * $attempt);
+                $this->pause(10 * $attempt);
             }
 
             if ($pageMovies === null) {
@@ -176,7 +183,7 @@ class FetchGlobalBoxOffice extends Command
                 $candidates[] = $movie;
             }
 
-            sleep(1);
+            $this->pause(1);
         }
 
         return $candidates;
@@ -231,11 +238,14 @@ class FetchGlobalBoxOffice extends Command
                 return null;
             }
 
-            if (isset($movie['vote_count']) && (int) $movie['vote_count'] < 100) {
+            $voteCount = $movie['vote_count']
+                ?? $movieDetails['vote_count']
+                ?? (is_array($englishDetails) ? ($englishDetails['vote_count'] ?? null) : null);
+            if ($voteCount !== null && (int) $voteCount < 100) {
                 $this->info(sprintf(
                     'スキップ: %s (投票数: %d - データの信頼性が低い)',
                     $movie['title'] ?? $movieDetails['title'],
-                    (int) $movie['vote_count']
+                    (int) $voteCount
                 ));
 
                 return null;
@@ -635,6 +645,140 @@ class FetchGlobalBoxOffice extends Command
             GlobalMovie::insert($chunk);
         }
         $this->info(sprintf('シリーズ追加作品を%d件保存しました', count($movies)));
+    }
+
+    /**
+     * Discover に欠けている直前の歴代作品を、同じフィルタで取り直して足す。
+     *
+     * @param  list<array<string, mixed>>  $movies
+     * @param  array<int|string, mixed>  $existingAnalyses
+     * @return list<array<string, mixed>>
+     */
+    private function appendPreviousRankingMovies(array $movies, array $existingAnalyses): array
+    {
+        $have = $this->movieIds($movies);
+        $added = 0;
+
+        foreach ($this->previousRankingTmdbIds() as $tmdbId) {
+            if (isset($have[$tmdbId])) {
+                continue;
+            }
+
+            $record = $this->buildMovieRecord(['id' => $tmdbId], count($movies) + 1, $existingAnalyses);
+            if ($record === null) {
+                continue;
+            }
+            $movies[] = $record;
+            $have[$tmdbId] = true;
+            $added++;
+        }
+
+        if ($added > 0) {
+            $this->info(sprintf('直前の歴代から %d 件を補完しました', $added));
+        }
+
+        return $movies;
+    }
+
+    /**
+     * シリーズ追加のうち、今の200位より興収が高い作品を同じフィルタで歴代候補に上げる。
+     *
+     * @param  list<array<string, mixed>>  $movies
+     * @param  list<array<string, mixed>>  $extras
+     * @param  array<int|string, mixed>  $existingAnalyses
+     * @return list<array<string, mixed>>
+     */
+    private function promoteHighGrossingExtras(array $movies, array $extras, array $existingAnalyses): array
+    {
+        $have = $this->movieIds($movies);
+        $cutoff = GlobalRankingAssembler::cutoff($movies, self::TARGET_MOVIES);
+        $added = 0;
+
+        foreach ($extras as $extra) {
+            $tmdbId = (int) ($extra['tmdb_id'] ?? 0);
+            $boxOffice = (int) ($extra['box_office'] ?? 0);
+            if ($tmdbId <= 0 || isset($have[$tmdbId]) || $boxOffice <= $cutoff) {
+                continue;
+            }
+
+            $record = $this->buildMovieRecord([
+                'id' => $tmdbId,
+                'title' => $extra['title'] ?? null,
+                'release_date' => $extra['release_date'] ?? null,
+            ], count($movies) + 1, $existingAnalyses);
+            if ($record === null) {
+                continue;
+            }
+            $movies[] = $record;
+            $have[$tmdbId] = true;
+            $added++;
+        }
+
+        if ($added > 0) {
+            $this->info(sprintf('シリーズ追加から %d 件を歴代へ上げました', $added));
+        }
+
+        return $movies;
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function previousRankingTmdbIds(): array
+    {
+        $ids = [];
+        try {
+            $query = GlobalMovie::query()->where('region', 'global')->whereNotNull('tmdb_id');
+            if (Schema::hasColumn('global_movies', 'in_ranking')) {
+                $query->where('in_ranking', true);
+            }
+            foreach ($query->pluck('tmdb_id') as $id) {
+                $id = (int) $id;
+                if ($id > 0) {
+                    $ids[$id] = true;
+                }
+            }
+        } catch (\Throwable) {
+            // CI の空 DB やドライバなしでは履歴だけを使う
+        }
+
+        foreach ($this->history->registry()->movies() as $movie) {
+            if (($movie['region'] ?? '') !== 'global') {
+                continue;
+            }
+            $id = (int) ($movie['tmdbId'] ?? 0);
+            if ($id > 0) {
+                $ids[$id] = true;
+            }
+        }
+
+        return array_keys($ids);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $movies
+     * @return array<int, true>
+     */
+    private function movieIds(array $movies): array
+    {
+        $ids = [];
+        foreach ($movies as $movie) {
+            $id = (int) ($movie['tmdb_id'] ?? 0);
+            if ($id > 0) {
+                $ids[$id] = true;
+            }
+        }
+
+        return $ids;
+    }
+
+    private function pause(int $seconds): void
+    {
+        if ($seconds <= 0 || app()->runningUnitTests()) {
+            return;
+        }
+
+        sleep($seconds);
     }
 
     private function rollbackOpenTransaction(): void

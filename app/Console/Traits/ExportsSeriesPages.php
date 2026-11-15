@@ -12,13 +12,14 @@ trait ExportsSeriesPages
     /**
      * @param  array<string, mixed>  $catalog
      * @param  array<string, mixed>  $otherCatalog
+     * @param  array<string, mixed>  $brandCatalog
      */
-    private function exportSeriesPages(string $output, array $catalog, array $otherCatalog): void
+    private function exportSeriesPages(string $output, array $catalog, array $otherCatalog, array $brandCatalog = []): void
     {
         $isJapan = ($catalog['region'] ?? '') === 'japan';
         $indexDir = $output.($isJapan ? '/series' : '/series/global');
         File::ensureDirectoryExists($indexDir);
-        File::put($indexDir.'/index.html', $this->seriesIndexHtml($catalog, $otherCatalog));
+        File::put($indexDir.'/index.html', $this->seriesIndexHtml($catalog, $otherCatalog, $brandCatalog));
 
         $jsonDir = $output.'/data/series/'.($isJapan ? 'japan' : 'global');
         File::ensureDirectoryExists($jsonDir);
@@ -73,6 +74,39 @@ trait ExportsSeriesPages
 
     /**
      * @param  array<string, mixed>  $catalog
+     * @param  array<string, mixed>  $otherCatalog
+     */
+    private function exportBrandPages(string $output, array $catalog, array $otherCatalog): void
+    {
+        $isJapan = ($catalog['region'] ?? '') === 'japan';
+        $indexDir = $output.($isJapan ? '/series/brand' : '/series/global/brand');
+        File::ensureDirectoryExists($indexDir);
+        File::put($indexDir.'/index.html', $this->brandIndexHtml($catalog, $otherCatalog));
+
+        $jsonDir = $output.'/data/series/'.($isJapan ? 'japan' : 'global').'/brand';
+        File::ensureDirectoryExists($jsonDir);
+
+        foreach ($catalog['series'] ?? [] as $brand) {
+            if (! is_array($brand) || empty($brand['slug']) || ! SeriesCatalog::hasListedFilms($brand)) {
+                continue;
+            }
+            $page = $this->withBrandSibling($brand, $otherCatalog);
+            $movies = $this->seriesMoviesForUi($page, $isJapan);
+            File::put(
+                $jsonDir.'/'.$page['slug'].'.json',
+                json_encode(
+                    $this->seriesClientPayload($page, $catalog, $movies),
+                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                )
+            );
+            $dir = $indexDir.'/'.$page['slug'];
+            File::ensureDirectoryExists($dir);
+            File::put($dir.'/index.html', $this->seriesDetailHtml($page, $catalog, $movies));
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $catalog
      */
     private function seriesCatalogLastmod(array $catalog): ?string
     {
@@ -119,8 +153,9 @@ trait ExportsSeriesPages
     /**
      * @param  array<string, mixed>  $catalog
      * @param  array<string, mixed>  $otherCatalog
+     * @param  array<string, mixed>  $brandCatalog
      */
-    private function seriesIndexHtml(array $catalog, array $otherCatalog): string
+    private function seriesIndexHtml(array $catalog, array $otherCatalog, array $brandCatalog = []): string
     {
         $isJapan = ($catalog['region'] ?? '') === 'japan';
         $series = $this->listedSeries($catalog);
@@ -153,11 +188,16 @@ trait ExportsSeriesPages
         }
 
         $attribution = $isJapan ? $this->japanSeriesAttribution($catalog) : $this->worldSeriesAttribution();
+        $brandIndex = $isJapan ? '/series/brand/' : '/series/global/brand/';
+        $brandLinks = $this->brandNavHtml($brandCatalog, $brandIndex);
         $body = '<p class="series-lead">'.$this->h($isJapan
             ? 'Wikipediaの「映画シリーズの興行成績」に掲載されたシリーズです。作品ごとの日本興収と、シリーズ合計を掲載しています。'
             : '世界興収ランキングの作品が属するTMDBコレクションです。興収が分かる作品の世界興収を集計しています。'
         ).'</p>'
-            .'<p class="ranking-static-switch"><a href="'.$this->h($otherHref).'">'.$this->h($otherLabel).'</a></p>'
+            .'<p class="ranking-static-switch"><a href="'.$this->h($otherHref).'">'.$this->h($otherLabel).'</a>'
+            .($brandLinks !== '' ? ' · <a href="'.$this->h($brandIndex).'">スタジオ・ユニバース別</a>' : '')
+            .'</p>'
+            .$brandLinks
             .'<table class="series-table"><thead><tr><th>順位</th><th>シリーズ</th><th>作品数</th><th>合計</th></tr></thead><tbody>'
             .$rows.'</tbody></table>'
             .$attribution;
@@ -187,28 +227,39 @@ trait ExportsSeriesPages
     private function seriesDetailHtml(array $series, array $catalog, ?array $movies = null): string
     {
         $isJapan = ($catalog['region'] ?? '') === 'japan';
+        $isBrand = ($series['kind'] ?? $catalog['kind'] ?? '') === 'brand';
         $name = (string) ($series['name'] ?? '');
-        $heading = $name.'のシリーズ興行収入';
+        $heading = (string) ($series['heading'] ?? ($name.'のシリーズ興行収入'));
         $amountLabel = $this->seriesAmountLabel($series, $isJapan);
         $totalLabel = $this->seriesTotalWithNote($series, $isJapan);
-        $pageTitle = $heading.' '.$amountLabel.' | MUBIRAN';
+        $pageTitle = $isBrand
+            ? $heading.' | MUBIRAN'
+            : $heading.' '.$amountLabel.' | MUBIRAN';
         $filmCount = (int) ($series['filmCount'] ?? count($series['films'] ?? []));
-        $description = $name.'シリーズの'.($isJapan ? '日本' : '世界').'興行収入。'
-            .$filmCount.'作品、合計'.$totalLabel.'。';
+        $description = $isBrand
+            ? $heading.'。'.$filmCount.'作品、合計'.$totalLabel.'。'
+            : $name.'シリーズの'.($isJapan ? '日本' : '世界').'興行収入。'
+                .$filmCount.'作品、合計'.$totalLabel.'。';
         $movies ??= $this->seriesMoviesForUi($series, $isJapan);
         $payload = $this->seriesClientPayload($series, $catalog, $movies);
-        $indexHref = $isJapan ? '/series/' : '/series/global/';
-        $otherHref = $isJapan ? '/series/global/' : '/series/';
-        $otherLabel = $isJapan ? '世界のシリーズ興行収入' : '日本のシリーズ興行収入';
+        $indexHref = $isBrand
+            ? (string) ($catalog['indexPath'] ?? ($isJapan ? '/series/brand/' : '/series/global/brand/'))
+            : ($isJapan ? '/series/' : '/series/global/');
+        $parentHref = $isJapan ? '/series/' : '/series/global/';
+        $otherHref = (string) ($series['otherHref'] ?? ($isJapan ? '/series/global/' : '/series/'));
+        $otherLabel = (string) ($series['otherLabel'] ?? ($isJapan ? '世界のシリーズ興行収入' : '日本のシリーズ興行収入'));
         $rankingHref = $isJapan ? '/japan/' : '/';
         $nowHref = $isJapan ? '/now/' : '/now/global/';
         $crumb = $isJapan ? '日本のシリーズ' : '世界のシリーズ';
         $robots = ! empty($series['indexable']) ? 'index, follow' : 'noindex, follow';
-        $jsonSrc = '/data/series/'.($isJapan ? 'japan' : 'global').'/'.rawurlencode((string) ($series['slug'] ?? '')).'.json';
+        $jsonSrc = $isBrand
+            ? '/data/series/'.($isJapan ? 'japan' : 'global').'/brand/'.rawurlencode((string) ($series['slug'] ?? '')).'.json'
+            : '/data/series/'.($isJapan ? 'japan' : 'global').'/'.rawurlencode((string) ($series['slug'] ?? '')).'.json';
+        $totalDt = $isBrand ? '合計' : 'シリーズ合計';
 
         $stats = '<dl class="series-stats">'
             .'<div><dt>作品数</dt><dd>'.$filmCount.'</dd></div>'
-            .'<div><dt>シリーズ合計</dt><dd>'.$this->h($amountLabel).'</dd></div>';
+            .'<div><dt>'.$totalDt.'</dt><dd>'.$this->h($amountLabel).'</dd></div>';
         if ($isJapan && ! empty($series['hasRentals'])) {
             $stats .= '<div><dt>配給収入の作品</dt><dd>'.$this->h($this->yenLabel($series['sumRentalsYen'] ?? null)).'</dd></div>';
         }
@@ -226,7 +277,9 @@ trait ExportsSeriesPages
             ? '<p class="static-empty text-center text-white">データがありません。</p>'
             : '<section class="ranking-list" id="series-ranking-list">'.$rows.'</section>';
 
-        $attribution = $isJapan ? $this->japanSeriesAttribution($catalog) : $this->worldSeriesAttribution();
+        $attribution = $isBrand
+            ? $this->brandAttribution($isJapan)
+            : ($isJapan ? $this->japanSeriesAttribution($catalog) : $this->worldSeriesAttribution());
         $dateModified = $this->seriesLastmod($series, $this->seriesCatalogLastmod($catalog));
         $jsonLd = $this->seriesDetailJsonLd($series, $catalog, $movies, $dateModified);
         $embedded = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP);
@@ -248,9 +301,17 @@ trait ExportsSeriesPages
         $eRobots = $this->h($robots);
         $eName = $this->h($name);
         $eCrumb = $this->h($crumb);
+        $eParent = $this->h($parentHref);
         $eIndex = $this->h($indexHref);
         $eOther = $this->h($otherHref);
         $eOtherLabel = $this->h($otherLabel);
+        $brandCrumb = $isBrand
+            ? '<a href="'.$eIndex.'">ブランド</a><span aria-hidden="true"> › </span>'
+            : '';
+        $backIndexLabel = $isBrand ? 'ブランド一覧に戻る' : 'シリーズ一覧に戻る';
+        $eBackIndexLabel = $this->h($backIndexLabel);
+        $regionGlobal = $isBrand ? '/series/global/brand/' : '/series/global/';
+        $regionJapan = $isBrand ? '/series/brand/' : '/series/';
         $eRanking = $this->h($rankingHref);
         $eNow = $this->h($nowHref);
         $eJsonSrc = $this->h($jsonSrc);
@@ -302,23 +363,23 @@ trait ExportsSeriesPages
             <a href="{$eNow}" class="toggle-btn">公開中</a>
           </div>
           <div class="toggle-container region-toggle" role="group" aria-label="シリーズ切替">
-            <a href="/series/global/" class="toggle-btn {$this->h($isJapan ? '' : 'active')}">世界</a>
-            <a href="/series/" class="toggle-btn {$this->h($isJapan ? 'active' : '')}">日本</a>
+            <a href="{$regionGlobal}" class="toggle-btn {$this->h($isJapan ? '' : 'active')}">世界</a>
+            <a href="{$regionJapan}" class="toggle-btn {$this->h($isJapan ? 'active' : '')}">日本</a>
           </div>
         </div>
       </header>
       <main class="container">
         <nav class="content-breadcrumb" aria-label="パンくずリスト">
           <a href="/">ホーム</a><span aria-hidden="true"> › </span>
-          <a href="{$eIndex}">{$eCrumb}</a><span aria-hidden="true"> › </span>
-          <span>{$eName}</span>
+          <a href="{$eParent}">{$eCrumb}</a><span aria-hidden="true"> › </span>
+          {$brandCrumb}<span>{$eName}</span>
         </nav>
         <h1 class="page-title" id="page-title">{$eHeading}</h1>
         {$stats}
         {$metricNote}
         {$listHtml}
         {$attribution}
-        <p class="content-back-link"><a href="{$eIndex}">シリーズ一覧に戻る</a> · <a href="{$eOther}">{$eOtherLabel}</a></p>
+        <p class="content-back-link"><a href="{$eIndex}">{$eBackIndexLabel}</a> · <a href="{$eOther}">{$eOtherLabel}</a></p>
       </main>
       <footer>
         <div class="container">
@@ -352,14 +413,21 @@ HTML;
     private function seriesClientPayload(array $series, array $catalog, array $movies): array
     {
         $isJapan = ($catalog['region'] ?? '') === 'japan';
+        $isBrand = ($series['kind'] ?? $catalog['kind'] ?? '') === 'brand';
+        $name = (string) ($series['name'] ?? '');
 
         return [
             'region' => $isJapan ? 'japan' : 'global',
-            'name' => $series['name'] ?? '',
-            'heading' => ($series['name'] ?? '').'のシリーズ興行収入',
+            'kind' => $isBrand ? 'brand' : 'series',
+            'name' => $name,
+            'heading' => $isBrand
+                ? (string) ($series['heading'] ?? $name)
+                : $name.'のシリーズ興行収入',
             'path' => $series['path'] ?? '',
             'slug' => $series['slug'] ?? '',
-            'indexPath' => $isJapan ? '/series/' : '/series/global/',
+            'indexPath' => $isBrand
+                ? (string) ($catalog['indexPath'] ?? ($isJapan ? '/series/brand/' : '/series/global/brand/'))
+                : ($isJapan ? '/series/' : '/series/global/'),
             'crumb' => $isJapan ? '日本のシリーズ' : '世界のシリーズ',
             'usdJpy' => $this->usdJpy(),
             'filmCount' => (int) ($series['filmCount'] ?? count($movies)),
@@ -700,22 +768,29 @@ HTML;
             ];
         }
 
-        $crumb = ($catalog['region'] ?? '') === 'japan' ? '日本のシリーズ' : '世界のシリーズ';
+        $isJapan = ($catalog['region'] ?? '') === 'japan';
+        $isBrand = ($catalog['kind'] ?? '') === 'brand';
+        $crumb = $isJapan ? '日本のシリーズ' : '世界のシリーズ';
+        $parentPath = $isJapan ? '/series/' : '/series/global/';
         $itemList = array_filter([
             '@type' => 'ItemList',
             'name' => $name,
             'dateModified' => $dateModified,
             'itemListElement' => $elements,
         ], fn (mixed $value): bool => $value !== null && $value !== '');
+        $crumbs = [
+            ['@type' => 'ListItem', 'position' => 1, 'item' => ['@id' => $baseUrl.'/', 'name' => 'ホーム']],
+            ['@type' => 'ListItem', 'position' => 2, 'item' => ['@id' => $baseUrl.($isBrand ? $parentPath : $path), 'name' => $crumb]],
+        ];
+        if ($isBrand) {
+            $crumbs[] = ['@type' => 'ListItem', 'position' => 3, 'item' => ['@id' => $baseUrl.$path, 'name' => 'ブランド']];
+        }
         $graph = [
             '@context' => 'https://schema.org',
             '@graph' => [
                 [
                     '@type' => 'BreadcrumbList',
-                    'itemListElement' => [
-                        ['@type' => 'ListItem', 'position' => 1, 'item' => ['@id' => $baseUrl.'/', 'name' => 'ホーム']],
-                        ['@type' => 'ListItem', 'position' => 2, 'item' => ['@id' => $baseUrl.$path, 'name' => $crumb]],
-                    ],
+                    'itemListElement' => $crumbs,
                 ],
                 $itemList,
             ],
@@ -756,26 +831,40 @@ HTML;
             $elements[] = $item;
         }
 
-        $indexName = ($catalog['region'] ?? '') === 'japan' ? '日本のシリーズ' : '世界のシリーズ';
         $isJapan = ($catalog['region'] ?? '') === 'japan';
+        $isBrand = ($series['kind'] ?? $catalog['kind'] ?? '') === 'brand';
+        $parentPath = $isJapan ? '/series/' : '/series/global/';
+        $indexName = $isJapan ? '日本のシリーズ' : '世界のシリーズ';
+        $listName = $isBrand
+            ? (string) ($series['heading'] ?? $name)
+            : $name.'のシリーズ興行収入';
+        $listDescription = $isBrand
+            ? $listName.'。'.count($elements).'作品、合計'.$this->seriesTotalWithNote($series, $isJapan).'。'
+            : $name.'シリーズの'.($isJapan ? '日本' : '世界').'興行収入。'
+                .count($elements).'作品、合計'.$this->seriesTotalWithNote($series, $isJapan).'。';
         $itemList = array_filter([
             '@type' => 'ItemList',
-            'name' => $name.'のシリーズ興行収入',
-            'description' => $name.'シリーズの'.($isJapan ? '日本' : '世界').'興行収入。'
-                .count($elements).'作品、合計'.$this->seriesTotalWithNote($series, $isJapan).'。',
+            'name' => $listName,
+            'description' => $listDescription,
             'dateModified' => $dateModified,
             'itemListElement' => $elements,
         ], fn (mixed $value): bool => $value !== null && $value !== '');
+        $crumbs = [
+            ['@type' => 'ListItem', 'position' => 1, 'item' => ['@id' => $baseUrl.'/', 'name' => 'ホーム']],
+            ['@type' => 'ListItem', 'position' => 2, 'item' => ['@id' => $baseUrl.$parentPath, 'name' => $indexName]],
+        ];
+        if ($isBrand) {
+            $crumbs[] = ['@type' => 'ListItem', 'position' => 3, 'item' => ['@id' => $baseUrl.$indexPath, 'name' => 'ブランド']];
+            $crumbs[] = ['@type' => 'ListItem', 'position' => 4, 'item' => ['@id' => $baseUrl.$path, 'name' => $name]];
+        } else {
+            $crumbs[] = ['@type' => 'ListItem', 'position' => 3, 'item' => ['@id' => $baseUrl.$path, 'name' => $name]];
+        }
         $graph = [
             '@context' => 'https://schema.org',
             '@graph' => [
                 [
                     '@type' => 'BreadcrumbList',
-                    'itemListElement' => [
-                        ['@type' => 'ListItem', 'position' => 1, 'item' => ['@id' => $baseUrl.'/', 'name' => 'ホーム']],
-                        ['@type' => 'ListItem', 'position' => 2, 'item' => ['@id' => $baseUrl.$indexPath, 'name' => $indexName]],
-                        ['@type' => 'ListItem', 'position' => 3, 'item' => ['@id' => $baseUrl.$path, 'name' => $name]],
-                    ],
+                    'itemListElement' => $crumbs,
                 ],
                 $itemList,
             ],
@@ -855,5 +944,128 @@ HTML;
         }
 
         return number_format(((int) $usd) / 100000000, 2).'億ドル';
+    }
+
+    /**
+     * @param  array<string, mixed>  $catalog
+     * @param  array<string, mixed>  $otherCatalog
+     */
+    private function brandIndexHtml(array $catalog, array $otherCatalog): string
+    {
+        $isJapan = ($catalog['region'] ?? '') === 'japan';
+        $brands = $this->listedSeries($catalog);
+        $heading = $isJapan ? '日本の映画スタジオ・ユニバース興行収入' : '世界の映画スタジオ・ユニバース興行収入';
+        $pageTitle = $heading.' | MUBIRAN';
+        $description = $isJapan
+            ? '日本の歴代興行収入ランキングに載っている作品を、ディズニー・アニメーション、ピクサー、スタジオジブリなどの制作スタジオやユニバース別に集計した興行収入。'
+            : '世界の歴代興行収入ランキングに載っている作品を、MCU、ピクサー、DCなどの制作スタジオやユニバース別に集計した興行収入。';
+        if ($brands !== []) {
+            $top = $brands[0];
+            $topName = (string) ($top['name'] ?? '');
+            $topTotal = $this->seriesAmountLabel($top, $isJapan);
+            if ($topName !== '' && $topTotal !== '不明') {
+                $description = $heading.'。1位は'.$topName.'の'.$topTotal.'。';
+            }
+        }
+
+        $otherHref = $isJapan ? '/series/global/brand/' : '/series/brand/';
+        $otherLabel = $isJapan ? '世界のスタジオ・ユニバース' : '日本のスタジオ・ユニバース';
+        $parentHref = $isJapan ? '/series/' : '/series/global/';
+        $rows = '';
+        foreach ($brands as $index => $item) {
+            $href = $this->h((string) ($item['path'] ?? '#'));
+            $name = $this->h((string) ($item['name'] ?? ''));
+            $count = (int) ($item['filmCount'] ?? count($item['films'] ?? []));
+            $total = $this->h($this->seriesAmountLabel($item, $isJapan));
+            $rows .= '<tr><td class="series-rank">'.($index + 1).'</td>'
+                .'<td><a href="'.$href.'">'.$name.'</a></td>'
+                .'<td class="series-num">'.$count.'</td>'
+                .'<td class="series-num">'.$total.'</td></tr>'."\n";
+        }
+
+        $body = '<p class="series-lead">'.$this->h($isJapan
+            ? '日本の歴代ランキングに載っている作品だけを、制作スタジオやユニバースごとに集計しています。配給だけの作品は入れていません。'
+            : '世界の歴代ランキングに載っている作品だけを、制作スタジオやユニバースごとに集計しています。配給だけの作品は入れていません。'
+        ).'</p>'
+            .'<p class="ranking-static-switch"><a href="'.$this->h($otherHref).'">'.$this->h($otherLabel).'</a>'
+            .' · <a href="'.$this->h($parentHref).'">シリーズ一覧</a></p>'
+            .'<table class="series-table"><thead><tr><th>順位</th><th>ブランド</th><th>作品数</th><th>合計</th></tr></thead><tbody>'
+            .$rows.'</tbody></table>'
+            .$this->brandAttribution($isJapan);
+
+        $jsonLd = $this->seriesIndexJsonLd($catalog, $heading, $this->seriesCatalogLastmod($catalog));
+        $crumb = $isJapan ? '日本のシリーズ' : '世界のシリーズ';
+
+        return $this->seriesPageShell(
+            $catalog['indexPath'] ?? ($isJapan ? '/series/brand/' : '/series/global/brand/'),
+            $pageTitle,
+            $description,
+            'ブランド',
+            $heading,
+            $body,
+            $jsonLd,
+            [['href' => $parentHref, 'name' => $crumb]],
+            'index, follow',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $catalog
+     */
+    private function brandNavHtml(array $catalog, string $indexHref): string
+    {
+        $brands = $this->listedSeries($catalog);
+        if ($brands === []) {
+            return '';
+        }
+        $links = [];
+        foreach ($brands as $brand) {
+            $href = (string) ($brand['path'] ?? '');
+            $name = (string) ($brand['name'] ?? '');
+            if ($href === '' || $name === '') {
+                continue;
+            }
+            $links[] = '<a href="'.$this->h($href).'">'.$this->h($name).'</a>';
+        }
+        if ($links === []) {
+            return '';
+        }
+
+        return '<p class="series-lead">スタジオ・ユニバース別: '.implode(' · ', $links)
+            .' （<a href="'.$this->h($indexHref).'">一覧</a>）</p>';
+    }
+
+    /**
+     * @param  array<string, mixed>  $brand
+     * @param  array<string, mixed>  $otherCatalog
+     * @return array<string, mixed>
+     */
+    private function withBrandSibling(array $brand, array $otherCatalog): array
+    {
+        $slug = (string) ($brand['slug'] ?? '');
+        $isJapan = ($brand['region'] ?? '') === 'japan';
+        $sibling = null;
+        foreach ($otherCatalog['series'] ?? [] as $item) {
+            if (is_array($item) && ($item['slug'] ?? '') === $slug) {
+                $sibling = $item;
+                break;
+            }
+        }
+        if (is_array($sibling) && ($sibling['path'] ?? '') !== '') {
+            $brand['otherHref'] = (string) $sibling['path'];
+            $brand['otherLabel'] = (($sibling['region'] ?? '') === 'japan' ? '日本の' : '世界の').(string) ($brand['name'] ?? '');
+        } else {
+            $brand['otherHref'] = (string) ($otherCatalog['indexPath'] ?? ($isJapan ? '/series/global/brand/' : '/series/brand/'));
+            $brand['otherLabel'] = $isJapan ? '世界のスタジオ・ユニバース' : '日本のスタジオ・ユニバース';
+        }
+
+        return $brand;
+    }
+
+    private function brandAttribution(bool $isJapan): string
+    {
+        $scope = $isJapan ? '日本の歴代興行収入ランキング' : '世界の歴代興行収入ランキング';
+
+        return '<p class="series-attr">'.$this->h($scope).'に載っている作品だけを集計しています。どの作品がどのスタジオ・ユニバースかは、配給だけの関係を除いた対応表に基づきます。</p>';
     }
 }

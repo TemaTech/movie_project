@@ -146,10 +146,6 @@ trait ExportsSeriesPages
             $name = $this->h((string) ($item['name'] ?? ''));
             $count = (int) ($item['filmCount'] ?? count($item['films'] ?? []));
             $total = $this->h($this->seriesAmountLabel($item, $isJapan));
-            $note = SeriesCatalog::excludedUnknownNote($item);
-            if ($note !== null) {
-                $total .= '<small class="series-total-excluded">'.$this->h($note).'</small>';
-            }
             $rows .= '<tr><td class="series-rank">'.($index + 1).'</td>'
                 .'<td><a href="'.$href.'">'.$name.'</a></td>'
                 .'<td class="series-num">'.$count.'</td>'
@@ -159,7 +155,7 @@ trait ExportsSeriesPages
         $attribution = $isJapan ? $this->japanSeriesAttribution($catalog) : $this->worldSeriesAttribution();
         $body = '<p class="series-lead">'.$this->h($isJapan
             ? 'Wikipediaの「映画シリーズの興行成績」に掲載されたシリーズです。作品ごとの日本興収と、シリーズ合計を掲載しています。'
-            : '世界興収ランキングの作品が属するTMDBコレクションです。コレクション内の全作品の世界興収を集計しています。'
+            : '世界興収ランキングの作品が属するTMDBコレクションです。興収が分かる作品の世界興収を集計しています。'
         ).'</p>'
             .'<p class="ranking-static-switch"><a href="'.$this->h($otherHref).'">'.$this->h($otherLabel).'</a></p>'
             .'<table class="series-table"><thead><tr><th>順位</th><th>シリーズ</th><th>作品数</th><th>合計</th></tr></thead><tbody>'
@@ -210,14 +206,9 @@ trait ExportsSeriesPages
         $robots = ! empty($series['indexable']) ? 'index, follow' : 'noindex, follow';
         $jsonSrc = '/data/series/'.($isJapan ? 'japan' : 'global').'/'.rawurlencode((string) ($series['slug'] ?? '')).'.json';
 
-        $statsTotal = $this->h($amountLabel);
-        $excludedNote = SeriesCatalog::excludedUnknownNote($series);
-        if ($excludedNote !== null) {
-            $statsTotal .= '<small class="series-total-excluded">'.$this->h($excludedNote).'</small>';
-        }
         $stats = '<dl class="series-stats">'
             .'<div><dt>作品数</dt><dd>'.$filmCount.'</dd></div>'
-            .'<div><dt>シリーズ合計</dt><dd>'.$statsTotal.'</dd></div>';
+            .'<div><dt>シリーズ合計</dt><dd>'.$this->h($amountLabel).'</dd></div>';
         if ($isJapan && ! empty($series['hasRentals'])) {
             $stats .= '<div><dt>配給収入の作品</dt><dd>'.$this->h($this->yenLabel($series['sumRentalsYen'] ?? null)).'</dd></div>';
         }
@@ -390,7 +381,7 @@ HTML;
     {
         $films = [];
         foreach ($series['films'] ?? [] as $film) {
-            if (is_array($film)) {
+            if (is_array($film) && SeriesCatalog::filmHasDisplayableAmount($film)) {
                 $films[] = $film;
             }
         }
@@ -405,7 +396,7 @@ HTML;
             }
             $unreleased = SeriesCatalog::filmIsUnreleased($film);
             $boxOffice = is_numeric($film['boxOffice'] ?? null) ? (int) $film['boxOffice'] : 0;
-            $known = ! $unreleased && $boxOffice > 0 && $boxOffice !== 1_000_000_000;
+            $known = ! $unreleased && $boxOffice > 0;
             $ranked = ! $unreleased && SeriesCatalog::displayGroup($film) === 0;
             $displayRank = null;
             if ($ranked) {
@@ -469,7 +460,7 @@ HTML;
     private function seriesFilmRevenue(array $film, bool $isJapan): string
     {
         $boxOffice = $film['boxOffice'] ?? null;
-        if (! is_numeric($boxOffice) || (int) $boxOffice <= 0 || (int) $boxOffice === 1_000_000_000) {
+        if (! is_numeric($boxOffice) || (int) $boxOffice <= 0) {
             return '不明';
         }
         $label = is_string($film['revenue'] ?? null) && $film['revenue'] !== '' && $film['revenue'] !== '不明'
@@ -803,7 +794,7 @@ HTML;
         $retrieved = is_string($catalog['retrievedAt'] ?? null) ? $this->h($catalog['retrievedAt']) : '';
         $date = $retrieved !== '' ? '（取得日 '.$retrieved.'）' : '';
 
-        return '<p class="series-attr">日本のシリーズ興行収入は Wikipedia『<a href="'.$wikiUrl.'" target="_blank" rel="noreferrer">日本歴代興行成績上位の映画一覧</a>』の「映画シリーズの興行成績」'.$date.'を出典としています（<a href="'.$ccUrl.'" target="_blank" rel="noreferrer">CC BY-SA 4.0</a>）。数値が取れない作品は不明と表示しています。</p>';
+        return '<p class="series-attr">日本のシリーズ興行収入は Wikipedia『<a href="'.$wikiUrl.'" target="_blank" rel="noreferrer">日本歴代興行成績上位の映画一覧</a>』の「映画シリーズの興行成績」'.$date.'を出典としています（<a href="'.$ccUrl.'" target="_blank" rel="noreferrer">CC BY-SA 4.0</a>）。興収が分からない作品は掲載していません。</p>';
     }
 
     private function worldSeriesAttribution(): string

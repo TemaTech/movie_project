@@ -23,7 +23,7 @@ class SeriesExportTest extends TestCase
     {
         $catalog = SeriesCatalog::japan([]);
 
-        $this->assertGreaterThanOrEqual(50, count($catalog['series']));
+        $this->assertGreaterThanOrEqual(40, count($catalog['series']));
         $this->assertLessThan(count(JapanSeriesSnapshot::series()), count($catalog['series']));
         foreach ($catalog['series'] as $series) {
             $this->assertGreaterThan(0, (int) $series['filmCount'], (string) ($series['name'] ?? ''));
@@ -248,7 +248,7 @@ class SeriesExportTest extends TestCase
         ]);
 
         $this->assertStringContainsString('（配給収入）', $html);
-        $this->assertStringContainsString('不明', $html);
+        $this->assertStringNotContainsString('ドラえもん 数字なし', explode('id="series-ranking-list"', $html)[1] ?? $html);
         $this->assertStringContainsString('配給収入と興行収入は別の指標', $html);
         $this->assertStringContainsString('list-item', $html);
         $this->assertStringContainsString('list-rank-unranked', $html);
@@ -308,13 +308,12 @@ class SeriesExportTest extends TestCase
         $this->assertStringNotContainsString('series-release-year', $html);
         $this->assertStringContainsString('data-movie-id="rental"', explode('id="series-ranking-list"', $html)[1]);
         $this->assertStringContainsString('（配給収入）', $html);
-        $this->assertStringContainsString('不明', $html);
+        $this->assertStringNotContainsString('data-movie-id="unknown"', $html);
+        $this->assertStringNotContainsString('数字なし', $html);
         $podiumPos = strpos($html, '最高興収作');
         $rentalPos = strpos($html, '配収のみ');
-        $unknownPos = strpos($html, '数字なし');
         $this->assertNotFalse($podiumPos);
         $this->assertGreaterThan($podiumPos, $rentalPos);
-        $this->assertGreaterThan($rentalPos, $unknownPos);
         $this->assertStringContainsString('"position":1', $html);
         $this->assertStringContainsString('"name":"最高興収作"', $html);
     }
@@ -559,22 +558,19 @@ class SeriesExportTest extends TestCase
         $series = $catalog['series'][0];
         $this->assertSame(500_000_000, $series['totalUsd']);
         $this->assertSame(1, $series['knownCount']);
-        $this->assertSame(1, $series['excludedUnknownCount']);
-        $this->assertCount(2, $series['films']);
-        $this->assertTrue($series['films'][1]['unreleased']);
-        $this->assertSame('公開予定', $series['films'][1]['revenue']);
-        $this->assertNull($series['films'][1]['rank']);
+        $this->assertSame(0, $series['excludedUnknownCount']);
+        $this->assertCount(1, $series['films']);
+        $this->assertSame('tmdb-1', $series['films'][0]['id']);
+        $this->assertArrayNotHasKey('tmdb-2', $catalog['movieLinks']);
 
         $html = $this->invoke('seriesDetailHtml', $series, $catalog);
-        $this->assertStringContainsString('upcoming-badge-card', $html);
-        $this->assertStringContainsString('公開予定', $html);
         $this->assertStringContainsString('<article class="list-item rank-1" data-movie-id="tmdb-1"', $html);
         $this->assertStringNotContainsString('top-card', $html);
-        $this->assertStringContainsString('data-movie-id="tmdb-2"', explode('id="series-ranking-list"', $html)[1]);
-        $this->assertStringContainsString('is-upcoming', $html);
-        $this->assertStringContainsString('list-rank-unranked', $html);
-        $this->assertStringContainsString('不明1作を除く', $html);
+        $this->assertStringNotContainsString('data-movie-id="tmdb-2"', $html);
+        $this->assertStringNotContainsString('公開予定', $html);
+        $this->assertStringNotContainsString('不明1作を除く', $html);
         $this->assertStringContainsString('5.00億ドル', $html);
+        $this->assertStringContainsString('1作品、合計5.00億ドル', $html);
     }
 
     public function test_world_collection_slugs_are_unique_and_not_generic(): void
@@ -850,11 +846,8 @@ class SeriesExportTest extends TestCase
                 $series['totalYen'],
                 $name
             );
-            $this->assertSame(
-                $this->countUnknownOrUnreleased($series),
-                $series['excludedUnknownCount'],
-                $name
-            );
+            $this->assertSame(0, $series['excludedUnknownCount'], $name);
+            $this->assertSame($series['filmCount'], $series['knownCount'], $name);
             if ($name !== 'インサイド・ヘッド' && is_numeric($series['reportedTotalYen'] ?? null)) {
                 $this->assertNotSame(
                     (int) $series['reportedTotalYen'],
@@ -886,18 +879,20 @@ class SeriesExportTest extends TestCase
         $this->assertSame(9_400_000_000, $insideOut['totalYen']);
 
         $onePiece = collect($catalog['series'])->firstWhere('name', 'ONE PIECE');
-        $this->assertGreaterThan(0, $onePiece['excludedUnknownCount']);
+        $this->assertSame(0, $onePiece['excludedUnknownCount']);
         $html = $this->invoke('seriesDetailHtml', $onePiece, $catalog);
-        $this->assertStringContainsString('不明'.$onePiece['excludedUnknownCount'].'作を除く', $html);
-        $this->assertStringContainsString('合計'.$this->yenText($onePiece['totalYen']).'（不明'.$onePiece['excludedUnknownCount'].'作を除く）', $html);
+        $this->assertStringNotContainsString('不明', explode('id="series-ranking-list"', $html)[1] ?? '');
+        $this->assertStringNotContainsString('公開予定', $html);
+        $this->assertStringNotContainsString('作を除く', $html);
         $this->assertStringContainsString('"description":"ONE PIECEシリーズの日本興行収入。', $html);
+        $this->assertStringContainsString($onePiece['filmCount'].'作品、合計'.$this->yenText($onePiece['totalYen']), $html);
 
         $index = $this->invoke('seriesIndexHtml', $catalog, [
             'region' => 'global',
             'indexPath' => '/series/global/',
             'series' => [],
         ]);
-        $this->assertStringContainsString('不明'.$onePiece['excludedUnknownCount'].'作を除く', $index);
+        $this->assertStringNotContainsString('作を除く', $index);
         $this->assertStringContainsString($this->yenText($kingdom['totalYen']), $index);
         $this->assertStringNotContainsString($this->yenText($kingdom['reportedTotalYen']), $index);
     }
@@ -924,16 +919,8 @@ class SeriesExportTest extends TestCase
             'collectionName' => '不明シリーズ',
         ]]);
 
-        $this->assertCount(1, $catalog['series']);
-        $series = $catalog['series'][0];
-        $this->assertNull($series['totalUsd']);
-        $this->assertSame(2, $series['excludedUnknownCount']);
-        $this->assertNull(SeriesCatalog::excludedUnknownNote($series));
-
-        $html = $this->invoke('seriesDetailHtml', $series, $catalog);
-        $this->assertStringContainsString('<div><dt>シリーズ合計</dt><dd>不明</dd></div>', $html);
-        $this->assertStringNotContainsString('不明2作を除く', $html);
-        $this->assertStringContainsString('合計不明', $html);
+        $this->assertSame([], $catalog['series']);
+        $this->assertSame([], $catalog['movieLinks']);
     }
 
     public function test_zero_film_series_are_omitted_from_catalog_index_pages_and_sitemap(): void
@@ -960,7 +947,7 @@ class SeriesExportTest extends TestCase
             }
             $this->assertNotContains($name, $catalogNames);
         }
-        $this->assertSame(count($snapshot) - count($emptyNames), count($catalog['series']));
+        $this->assertLessThan(count($snapshot) - count($emptyNames), count($catalog['series']));
 
         $dir = sys_get_temp_dir().'/mubiran-series-empty-'.bin2hex(random_bytes(4));
         mkdir($dir);
@@ -1020,6 +1007,64 @@ class SeriesExportTest extends TestCase
         $this->assertFalse(collect($locs)->contains(fn (string $loc): bool => str_contains($loc, '/series/ロッキー/')));
         foreach ($catalog['movieLinks'] as $link) {
             $this->assertContains($link['name'], $catalogNames);
+        }
+    }
+
+    public function test_unknown_and_unreleased_films_are_hidden_and_empty_series_are_omitted(): void
+    {
+        $catalog = SeriesCatalog::japan([]);
+        $catalogNames = array_column($catalog['series'], 'name');
+        $hiddenSeries = [
+            '男はつらいよ',
+            '仮面ライダー',
+            'DCエクステンデッド・ユニバース',
+            'トランスフォーマー',
+            'バイオハザード',
+            'ソニーズ・スパイダーマン・ユニバース',
+            '銀魂（アニメ）',
+            'ワイルド・スピード',
+        ];
+        foreach ($hiddenSeries as $name) {
+            $this->assertNotContains($name, $catalogNames, $name);
+            $this->assertFalse(
+                collect($catalog['movieLinks'])->contains(fn (array $link): bool => ($link['name'] ?? '') === $name),
+                $name
+            );
+        }
+        foreach ($catalog['series'] as $series) {
+            $this->assertGreaterThan(0, (int) $series['filmCount'], (string) ($series['name'] ?? ''));
+            $this->assertSame(0, (int) $series['excludedUnknownCount'], (string) ($series['name'] ?? ''));
+            foreach ($series['films'] as $film) {
+                $this->assertTrue(
+                    SeriesCatalog::filmHasDisplayableAmount($film),
+                    (string) ($series['name'] ?? '').' '.(string) ($film['title'] ?? '')
+                );
+            }
+            $html = $this->invoke('seriesDetailHtml', $series, $catalog);
+            $this->assertStringNotContainsString('作を除く', $html, (string) ($series['name'] ?? ''));
+            $this->assertStringNotContainsString('upcoming-badge-card', $html, (string) ($series['name'] ?? ''));
+            $list = explode('id="series-ranking-list"', $html)[1] ?? '';
+            $this->assertStringNotContainsString('>不明<', $list, (string) ($series['name'] ?? ''));
+            $this->assertStringNotContainsString('公開予定', $list, (string) ($series['name'] ?? ''));
+        }
+
+        $index = $this->invoke('seriesIndexHtml', $catalog, [
+            'region' => 'global',
+            'indexPath' => '/series/global/',
+            'series' => [],
+        ]);
+        $this->assertStringNotContainsString('作を除く', $index);
+        foreach ($hiddenSeries as $name) {
+            $this->assertStringNotContainsString($name, $index);
+        }
+
+        $entries = $this->invoke('seriesSitemapEntries', $catalog);
+        $locs = array_column($entries, 'loc');
+        foreach ($hiddenSeries as $name) {
+            $this->assertFalse(
+                collect($locs)->contains(fn (string $loc): bool => str_contains($loc, rawurlencode($name))),
+                $name
+            );
         }
     }
 

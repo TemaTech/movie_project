@@ -15,6 +15,7 @@ use App\Services\BoxOffice\RegionalReleaseDate;
 use App\Services\BoxOffice\TheatricalRun;
 use App\Services\News\BoxOfficeNewsMatcher;
 use App\Services\News\YahooBoxOfficeNews;
+use App\Services\Series\BrandCatalog;
 use App\Services\Series\SeriesCatalog;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -40,6 +41,9 @@ class ExportStaticSite extends Command
 
     /** @var array<string, array{href: string, name: string}> */
     private array $seriesMovieLinks = [];
+
+    /** @var array<string, array{href: string, name: string}> */
+    private array $brandMovieLinks = [];
 
     /** JS の PER_PAGE（resources/js/static-site.js）。画面のページ分割に使う。静的HTMLは全件を載せる。 */
     private const RANKING_PAGE_SIZE = 100;
@@ -139,6 +143,8 @@ class ExportStaticSite extends Command
         $this->exportRobotsTxt($output);
         $japanSeries = SeriesCatalog::japan($japan);
         $worldSeries = SeriesCatalog::world($global, $globalExtras);
+        $japanBrands = BrandCatalog::japan($japan);
+        $worldBrands = BrandCatalog::world($global);
         $this->hydrateSeriesMedia($japanSeries, $output.'/data/details');
         $this->hydrateSeriesMedia($worldSeries, $output.'/data/details');
         $storage = storage_path('app/public');
@@ -147,6 +153,7 @@ class ExportStaticSite extends Command
         }
         $seriesMovieLinks = array_merge($worldSeries['movieLinks'], $japanSeries['movieLinks']);
         $this->seriesMovieLinks = $seriesMovieLinks;
+        $this->brandMovieLinks = array_merge($worldBrands['movieLinks'], $japanBrands['movieLinks']);
 
         $boardOnly = $this->boardOnlyMovies($globalInsights, $japanInsights, $global, $japan);
         $knownIds = $this->knownMovieIds($global, $japan, $boardOnly);
@@ -169,8 +176,10 @@ class ExportStaticSite extends Command
         foreach ($japanSeries['extraMovies'] as $movie) {
             $this->writeMoviePage($output, $movie, true, $knownIds);
         }
-        $this->exportSeriesPages($output, $japanSeries, $worldSeries);
-        $this->exportSeriesPages($output, $worldSeries, $japanSeries);
+        $this->exportSeriesPages($output, $japanSeries, $worldSeries, $japanBrands);
+        $this->exportSeriesPages($output, $worldSeries, $japanSeries, $worldBrands);
+        $this->exportBrandPages($output, $japanBrands, $worldBrands);
+        $this->exportBrandPages($output, $worldBrands, $japanBrands);
         $this->exportTrustPages($output);
         $this->exportNowPage($output, $globalInsights, $japanInsights);
         $this->exportJapanRankingPage($output, $japan, $japanLastUpdated);
@@ -186,6 +195,8 @@ class ExportStaticSite extends Command
             array_merge(
                 $this->seriesSitemapEntries($japanSeries),
                 $this->seriesSitemapEntries($worldSeries),
+                $this->seriesSitemapEntries($japanBrands),
+                $this->seriesSitemapEntries($worldBrands),
             ),
         );
         File::put($output.'/index.html', $this->indexHtml('/', $global, $globalLastUpdated));
@@ -2956,10 +2967,15 @@ XML);
         }
         $backParts[] = '<a href="'.$eHomeUrl.'">'.$eRankLabel.'一覧に戻る</a>';
         $seriesLink = $this->seriesMovieLinks[(string) ($movie['id'] ?? '')] ?? null;
+        $brandLink = $this->brandMovieLinks[(string) ($movie['id'] ?? '')] ?? null;
         $seriesHtml = '';
         if (is_array($seriesLink) && ($seriesLink['href'] ?? '') !== '') {
             $seriesHtml = '<p class="movie-series-link">シリーズ: <a href="'.$this->h((string) $seriesLink['href']).'">'.$this->h((string) $seriesLink['name']).'</a></p>';
             $backParts[] = '<a href="'.$this->h((string) $seriesLink['href']).'">シリーズページ</a>';
+        }
+        if (is_array($brandLink) && ($brandLink['href'] ?? '') !== '') {
+            $seriesHtml .= '<p class="movie-series-link">ブランド: <a href="'.$this->h((string) $brandLink['href']).'">'.$this->h((string) $brandLink['name']).'</a></p>';
+            $backParts[] = '<a href="'.$this->h((string) $brandLink['href']).'">ブランドページ</a>';
         }
         $backHtml = '<p class="movie-back-link">'.implode(' · ', $backParts).'</p>';
         $relatedLink = $siblingUrl

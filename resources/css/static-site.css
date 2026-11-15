@@ -500,6 +500,23 @@ body.content-page { padding-bottom: 40px; }
 }
 .series-stats dt { color: var(--text-secondary); font-size: .85rem; }
 .series-stats dd { font-family: var(--font-num), sans-serif; font-size: 1.15rem; color: var(--accent-gold); }
+.series-stats .series-total-excluded {
+    margin-left: .5em;
+    font-family: inherit;
+    font-size: .75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: 0;
+}
+.series-table .series-total-excluded {
+    display: block;
+    margin-top: .15rem;
+    font-size: .72rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-family: inherit;
+    white-space: nowrap;
+}
 .series-metric-note { color: var(--text-secondary); font-size: .85rem; line-height: 1.6; margin: 0 0 20px; }
 .series-attr { color: var(--text-secondary); font-size: .82rem; line-height: 1.7; margin: 24px 0 0; }
 .series-attr a { color: var(--accent-blue); }

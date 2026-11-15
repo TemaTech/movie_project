@@ -21,6 +21,9 @@ class SeriesCatalog
         foreach ($seriesRows as $row) {
             $row['retrievedAt'] = $retrievedAt;
             $page = self::buildJapanSeries($row, $rankingMovies, $claimed, $extraMovies);
+            if (! self::hasListedFilms($page)) {
+                continue;
+            }
             $built[] = $page;
             foreach ($page['films'] as $film) {
                 $id = (string) ($film['id'] ?? '');
@@ -140,6 +143,10 @@ class SeriesCatalog
                 }
             }
 
+            if ($rows === []) {
+                continue;
+            }
+
             $totalUsd = $total > 0 ? $total : null;
             $built[] = [
                 'slug' => $slug,
@@ -149,6 +156,7 @@ class SeriesCatalog
                 'collectionId' => $collection['id'],
                 'filmCount' => count($rows),
                 'knownCount' => $known,
+                'excludedUnknownCount' => count($rows) - $known,
                 'totalYen' => null,
                 'totalUsd' => $totalUsd,
                 'reportedTotalYen' => null,
@@ -202,6 +210,8 @@ class SeriesCatalog
         }
 
         $films = self::sortFilmsByBoxOffice(self::disambiguateDuplicateTitles(self::dedupeFilms($films)));
+        $reported = is_numeric($row['reportedTotalYen'] ?? null) ? (int) $row['reportedTotalYen'] : null;
+        $films = self::allocateReportedRemainder($films, $reported);
         $titlesById = [];
         foreach ($films as $film) {
             $id = (string) ($film['id'] ?? '');
@@ -217,15 +227,31 @@ class SeriesCatalog
             if ($extraId !== '' && isset($titlesById[$extraId])) {
                 $extra['title'] = $titlesById[$extraId];
             }
+            foreach ($films as $film) {
+                if ((string) ($film['id'] ?? '') !== $extraId) {
+                    continue;
+                }
+                if (! empty($film['unreleased']) || empty($film['boxOffice'])) {
+                    break;
+                }
+                $yen = (int) $film['boxOffice'];
+                $extra['boxOffice'] = $yen;
+                $extra['revenue'] = number_format($yen / 100000000, 1).'億円';
+                $extra['indexable'] = true;
+                break;
+            }
         }
         unset($extra);
 
         $sumBoxOffice = 0;
         $sumRentals = 0;
         $known = 0;
+        $excludedUnknown = 0;
         $hasRentals = false;
         foreach ($films as $film) {
             if (! empty($film['unreleased']) || empty($film['boxOffice'])) {
+                $excludedUnknown++;
+
                 continue;
             }
             $known++;
@@ -237,8 +263,7 @@ class SeriesCatalog
             }
         }
 
-        $reported = is_numeric($row['reportedTotalYen'] ?? null) ? (int) $row['reportedTotalYen'] : null;
-        $totalYen = $reported ?? ($sumBoxOffice > 0 ? $sumBoxOffice : null);
+        $totalYen = $sumBoxOffice > 0 ? $sumBoxOffice : null;
 
         return [
             'slug' => $row['slug'],
@@ -250,6 +275,7 @@ class SeriesCatalog
             'notes' => $row['notes'] ?? null,
             'filmCount' => count($films),
             'knownCount' => $known,
+            'excludedUnknownCount' => $excludedUnknown,
             'totalYen' => $totalYen,
             'sumBoxOfficeYen' => $sumBoxOffice > 0 ? $sumBoxOffice : null,
             'sumRentalsYen' => $sumRentals > 0 ? $sumRentals : null,
@@ -644,6 +670,90 @@ class SeriesCatalog
         return 'jp-series-'.substr(hash('sha256', mb_strtolower(trim($title)).'|'.($year ?? '')), 0, 12);
     }
 
+    /**
+     * Wikipediaのシリーズ合計から、金額が1本だけ欠けているときの残りを埋める。
+     * インサイド・ヘッド（2015）のように、歴代表に無い日本興収を総額との差で復元する。
+     *
+     * @param  list<array<string, mixed>>  $films
+     * @return list<array<string, mixed>>
+     */
+    public static function allocateReportedRemainder(array $films, ?int $reportedTotalYen): array
+    {
+        if ($reportedTotalYen === null || $reportedTotalYen <= 0) {
+            return $films;
+        }
+
+        $unknownIndexes = [];
+        $knownSum = 0;
+        foreach ($films as $index => $film) {
+            if (! empty($film['unreleased'])) {
+                continue;
+            }
+            if (($film['metric'] ?? '') === JapanBoxOfficeAmount::METRIC_DISTRIBUTOR_RENTALS) {
+                continue;
+            }
+            if (empty($film['boxOffice'])) {
+                $unknownIndexes[] = $index;
+
+                continue;
+            }
+            $knownSum += (int) $film['boxOffice'];
+        }
+
+        if (count($unknownIndexes) !== 1 || $knownSum <= 0) {
+            return $films;
+        }
+
+        $remainder = $reportedTotalYen - $knownSum;
+        if ($remainder < 100_000_000 || $remainder >= $reportedTotalYen) {
+            return $films;
+        }
+
+        $index = $unknownIndexes[0];
+        $films[$index]['boxOffice'] = $remainder;
+        $films[$index]['revenue'] = number_format($remainder / 100000000, 1).'億円';
+        $films[$index]['metric'] = JapanBoxOfficeAmount::METRIC_BOX_OFFICE;
+        $films[$index]['unclear'] = false;
+
+        return $films;
+    }
+
+    /**
+     * @param  array<string, mixed>  $catalog
+     * @param  list<array<string, mixed>>  $rankingMovies
+     * @return list<array{series: string, title: string, seriesYen: int, rankingYen: int}>
+     */
+    public static function rankingAmountMismatches(array $catalog, array $rankingMovies): array
+    {
+        $mismatches = [];
+        foreach ($catalog['series'] ?? [] as $series) {
+            if (! is_array($series)) {
+                continue;
+            }
+            foreach ($series['films'] ?? [] as $film) {
+                if (! is_array($film) || empty($film['boxOffice'])) {
+                    continue;
+                }
+                $matched = SeriesFilmMatcher::match($film, $rankingMovies);
+                if ($matched === null || ! is_numeric($matched['boxOffice'] ?? null) || (int) $matched['boxOffice'] <= 0) {
+                    continue;
+                }
+                $seriesYen = (int) $film['boxOffice'];
+                $rankingYen = (int) $matched['boxOffice'];
+                if (abs($seriesYen - $rankingYen) > 50_000_000) {
+                    $mismatches[] = [
+                        'series' => (string) ($series['name'] ?? ''),
+                        'title' => (string) ($film['title'] ?? ''),
+                        'seriesYen' => $seriesYen,
+                        'rankingYen' => $rankingYen,
+                    ];
+                }
+            }
+        }
+
+        return $mismatches;
+    }
+
     public static function isIndexable(int $filmCount, int $knownCount, mixed $total): bool
     {
         if ($filmCount < 2) {
@@ -651,6 +761,37 @@ class SeriesCatalog
         }
 
         return $knownCount > 0 || (is_numeric($total) && (int) $total > 0);
+    }
+
+    /**
+     * @param  array<string, mixed>  $series
+     */
+    public static function hasListedFilms(array $series): bool
+    {
+        if ((int) ($series['filmCount'] ?? 0) > 0) {
+            return true;
+        }
+
+        $films = $series['films'] ?? [];
+
+        return is_array($films) && $films !== [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $series
+     */
+    public static function excludedUnknownNote(array $series): ?string
+    {
+        $count = (int) ($series['excludedUnknownCount'] ?? 0);
+        if ($count <= 0) {
+            return null;
+        }
+        $total = $series['totalYen'] ?? $series['totalUsd'] ?? null;
+        if (! is_numeric($total) || (int) $total <= 0) {
+            return null;
+        }
+
+        return '不明'.$count.'作を除く';
     }
 
     /**

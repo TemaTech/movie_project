@@ -48,6 +48,9 @@ class JapanBoxOfficeAmountTest extends TestCase
     {
         $this->assertNull(JapanBoxOfficeAmount::parse('$7,723,431,572'));
         $this->assertNull(JapanBoxOfficeAmount::parse('29.4億ドル'));
+        $this->assertNull(JapanBoxOfficeAmount::parse('3億5,646万1,711ドル'));
+        $this->assertNull(JapanBoxOfficeAmount::parse('6億5,298万0,194ドル'));
+        $this->assertNull(JapanBoxOfficeAmount::parse('3億5646万ドル'));
     }
 
     public function test_missing_values_are_null(): void

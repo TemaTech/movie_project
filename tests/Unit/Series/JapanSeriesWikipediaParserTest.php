@@ -88,6 +88,26 @@ class JapanSeriesWikipediaParserTest extends TestCase
         $this->assertStringContainsString('世界興収表', $parsed['warnings'][0]);
     }
 
+    public function test_inside_out_worldwide_dollar_table_is_not_read_as_yen(): void
+    {
+        $html = file_get_contents(base_path('tests/fixtures/series/inside-out-worldwide.html'));
+        $this->assertIsString($html);
+
+        $parsed = (new JapanSeriesWikipediaParser)->parseSeriesPageHtml($html, [
+            'name' => 'インサイド・ヘッド',
+        ]);
+
+        $titles = array_column($parsed['films'], 'title');
+        $this->assertContains('インサイド・ヘッド', $titles);
+        $this->assertContains('インサイド・ヘッド2', $titles);
+        $this->assertNotContains('合計', $titles);
+        foreach ($parsed['films'] as $film) {
+            $this->assertNull($film['boxOfficeYen'], $film['title']);
+        }
+        $this->assertNotContains(356_460_000, array_column($parsed['films'], 'boxOfficeYen'));
+        $this->assertNotContains(652_980_000, array_column($parsed['films'], 'boxOfficeYen'));
+    }
+
     public function test_parses_ranking_table_bare_oku_numbers_and_strips_disambiguation(): void
     {
         $html = file_get_contents(base_path('tests/fixtures/series/ranking-oku-yen.html'));

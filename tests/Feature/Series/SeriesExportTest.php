@@ -23,7 +23,11 @@ class SeriesExportTest extends TestCase
     {
         $catalog = SeriesCatalog::japan([]);
 
-        $this->assertGreaterThanOrEqual(86, count($catalog['series']));
+        $this->assertGreaterThanOrEqual(50, count($catalog['series']));
+        $this->assertLessThan(count(JapanSeriesSnapshot::series()), count($catalog['series']));
+        foreach ($catalog['series'] as $series) {
+            $this->assertGreaterThan(0, (int) $series['filmCount'], (string) ($series['name'] ?? ''));
+        }
         $conan = collect($catalog['series'])->firstWhere('name', '名探偵コナン');
         $this->assertIsArray($conan);
         $theatrical = array_values(array_filter(
@@ -555,6 +559,7 @@ class SeriesExportTest extends TestCase
         $series = $catalog['series'][0];
         $this->assertSame(500_000_000, $series['totalUsd']);
         $this->assertSame(1, $series['knownCount']);
+        $this->assertSame(1, $series['excludedUnknownCount']);
         $this->assertCount(2, $series['films']);
         $this->assertTrue($series['films'][1]['unreleased']);
         $this->assertSame('公開予定', $series['films'][1]['revenue']);
@@ -568,6 +573,8 @@ class SeriesExportTest extends TestCase
         $this->assertStringContainsString('data-movie-id="tmdb-2"', explode('id="series-ranking-list"', $html)[1]);
         $this->assertStringContainsString('is-upcoming', $html);
         $this->assertStringContainsString('list-rank-unranked', $html);
+        $this->assertStringContainsString('不明1作を除く', $html);
+        $this->assertStringContainsString('5.00億ドル', $html);
     }
 
     public function test_world_collection_slugs_are_unique_and_not_generic(): void
@@ -808,6 +815,338 @@ class SeriesExportTest extends TestCase
         $this->assertStringContainsString('"dateModified":"2026-10-01T03:00:00+09:00"', $worldDetail);
         $this->assertStringContainsString('"dateModified":"2026-11-14T00:00:00+09:00"', $extraPage);
         $this->assertStringContainsString('"dateModified":"2026-11-14T03:00:00+09:00"', $worldExtraPage);
+    }
+
+    public function test_japan_series_total_is_the_sum_of_listed_known_films(): void
+    {
+        $catalog = SeriesCatalog::japan([]);
+        $names = [
+            'キングダム',
+            'ゴジラ',
+            'ジュラシック・パーク',
+            '鬼滅の刃',
+            'ONE PIECE',
+            '海猿',
+            'インディ・ジョーンズ',
+            'ファンタスティック・ビースト',
+            'ロバート・ラングドン',
+            'インサイド・ヘッド',
+            '名探偵コナン',
+        ];
+
+        $totals = array_map(
+            fn (array $series): int => (int) ($series['totalYen'] ?? 0),
+            $catalog['series']
+        );
+        $sorted = $totals;
+        rsort($sorted);
+        $this->assertSame($sorted, $totals);
+
+        foreach ($names as $name) {
+            $series = collect($catalog['series'])->firstWhere('name', $name);
+            $this->assertIsArray($series, $name);
+            $this->assertSame(
+                $this->sumListedBoxOfficeYen($series),
+                $series['totalYen'],
+                $name
+            );
+            $this->assertSame(
+                $this->countUnknownOrUnreleased($series),
+                $series['excludedUnknownCount'],
+                $name
+            );
+            if ($name !== 'インサイド・ヘッド' && is_numeric($series['reportedTotalYen'] ?? null)) {
+                $this->assertNotSame(
+                    (int) $series['reportedTotalYen'],
+                    $series['totalYen'],
+                    $name.' should not use the Wikipedia series total'
+                );
+            }
+        }
+
+        $insideOut = collect($catalog['series'])->firstWhere('name', 'インサイド・ヘッド');
+        $this->assertIsArray($insideOut);
+        $insideOut2015 = collect($insideOut['films'])->first(
+            fn (array $film) => (string) ($film['title'] ?? '') === 'インサイド・ヘッド'
+        );
+        $insideOut2 = collect($insideOut['films'])->first(
+            fn (array $film) => str_contains((string) ($film['title'] ?? ''), 'インサイド・ヘッド2')
+        );
+        $this->assertIsArray($insideOut2015);
+        $this->assertIsArray($insideOut2);
+
+        $kingdom = collect($catalog['series'])->firstWhere('name', 'キングダム');
+        $godzilla = collect($catalog['series'])->firstWhere('name', 'ゴジラ');
+        $jurassic = collect($catalog['series'])->firstWhere('name', 'ジュラシック・パーク');
+        $this->assertSame(31_420_000_000, $kingdom['totalYen']);
+        $this->assertSame(15_900_000_000, $godzilla['totalYen']);
+        $this->assertSame(51_400_000_000, $jurassic['totalYen']);
+        $this->assertSame(4_040_000_000, $insideOut2015['boxOffice']);
+        $this->assertSame(5_360_000_000, $insideOut2['boxOffice']);
+        $this->assertSame(9_400_000_000, $insideOut['totalYen']);
+
+        $onePiece = collect($catalog['series'])->firstWhere('name', 'ONE PIECE');
+        $this->assertGreaterThan(0, $onePiece['excludedUnknownCount']);
+        $html = $this->invoke('seriesDetailHtml', $onePiece, $catalog);
+        $this->assertStringContainsString('不明'.$onePiece['excludedUnknownCount'].'作を除く', $html);
+        $this->assertStringContainsString('合計'.$this->yenText($onePiece['totalYen']).'（不明'.$onePiece['excludedUnknownCount'].'作を除く）', $html);
+        $this->assertStringContainsString('"description":"ONE PIECEシリーズの日本興行収入。', $html);
+
+        $index = $this->invoke('seriesIndexHtml', $catalog, [
+            'region' => 'global',
+            'indexPath' => '/series/global/',
+            'series' => [],
+        ]);
+        $this->assertStringContainsString('不明'.$onePiece['excludedUnknownCount'].'作を除く', $index);
+        $this->assertStringContainsString($this->yenText($kingdom['totalYen']), $index);
+        $this->assertStringNotContainsString($this->yenText($kingdom['reportedTotalYen']), $index);
+    }
+
+    public function test_series_total_is_unknown_when_every_listed_film_lacks_a_figure(): void
+    {
+        $catalog = SeriesCatalog::world([[
+            'id' => 'tmdb-u1',
+            'title' => '数字なし',
+            'rank' => 1,
+            'inRanking' => true,
+            'boxOffice' => 0,
+            'releaseDate' => '2020-01-01',
+            'collectionId' => 101,
+            'collectionName' => '不明シリーズ',
+        ], [
+            'id' => 'tmdb-u2',
+            'title' => '続編も不明',
+            'rank' => 2,
+            'inRanking' => true,
+            'boxOffice' => 0,
+            'releaseDate' => '2021-01-01',
+            'collectionId' => 101,
+            'collectionName' => '不明シリーズ',
+        ]]);
+
+        $this->assertCount(1, $catalog['series']);
+        $series = $catalog['series'][0];
+        $this->assertNull($series['totalUsd']);
+        $this->assertSame(2, $series['excludedUnknownCount']);
+        $this->assertNull(SeriesCatalog::excludedUnknownNote($series));
+
+        $html = $this->invoke('seriesDetailHtml', $series, $catalog);
+        $this->assertStringContainsString('<div><dt>シリーズ合計</dt><dd>不明</dd></div>', $html);
+        $this->assertStringNotContainsString('不明2作を除く', $html);
+        $this->assertStringContainsString('合計不明', $html);
+    }
+
+    public function test_zero_film_series_are_omitted_from_catalog_index_pages_and_sitemap(): void
+    {
+        $snapshot = JapanSeriesSnapshot::series();
+        $emptyNames = [];
+        foreach ($snapshot as $row) {
+            if (! is_array($row) || ($row['films'] ?? []) !== []) {
+                continue;
+            }
+            $emptyNames[] = (string) ($row['name'] ?? '');
+        }
+        $this->assertGreaterThanOrEqual(20, count($emptyNames));
+
+        $catalog = SeriesCatalog::japan([]);
+        $catalogNames = array_column($catalog['series'], 'name');
+        $this->assertNotEmpty($catalog['series']);
+        foreach ($catalog['series'] as $series) {
+            $this->assertTrue(SeriesCatalog::hasListedFilms($series), (string) ($series['name'] ?? ''));
+        }
+        foreach ($emptyNames as $name) {
+            if ($name === '') {
+                continue;
+            }
+            $this->assertNotContains($name, $catalogNames);
+        }
+        $this->assertSame(count($snapshot) - count($emptyNames), count($catalog['series']));
+
+        $dir = sys_get_temp_dir().'/mubiran-series-empty-'.bin2hex(random_bytes(4));
+        mkdir($dir);
+        $mixed = [
+            'region' => 'japan',
+            'indexPath' => '/series/',
+            'retrievedAt' => '2026-11-14',
+            'sourceUrl' => 'https://ja.wikipedia.org/wiki/日本歴代興行成績上位の映画一覧',
+            'licenseUrl' => 'https://creativecommons.org/licenses/by-sa/4.0/deed.ja',
+            'series' => [[
+                'slug' => 'キングダム',
+                'name' => 'キングダム',
+                'path' => '/series/キングダム/',
+                'filmCount' => 5,
+                'totalYen' => 31_420_000_000,
+                'excludedUnknownCount' => 0,
+                'indexable' => true,
+                'films' => [[
+                    'title' => 'キングダム',
+                    'boxOffice' => 5_730_000_000,
+                    'metric' => 'box_office',
+                    'kind' => 'theatrical',
+                    'href' => '/movies/jp-kingdom/',
+                ]],
+            ], [
+                'slug' => 'ロッキー',
+                'name' => 'ロッキー',
+                'path' => '/series/ロッキー/',
+                'filmCount' => 0,
+                'totalYen' => null,
+                'excludedUnknownCount' => 0,
+                'indexable' => false,
+                'films' => [],
+            ]],
+        ];
+        $other = ['region' => 'global', 'indexPath' => '/series/global/', 'series' => []];
+
+        try {
+            $this->invoke('exportSeriesPages', $dir, $mixed, $other);
+            $index = (string) file_get_contents($dir.'/series/index.html');
+            $entries = $this->invoke('seriesSitemapEntries', $mixed);
+            $keptPage = is_file($dir.'/series/キングダム/index.html');
+            $emptyPage = is_file($dir.'/series/ロッキー/index.html');
+            $emptyJson = is_file($dir.'/data/series/japan/ロッキー.json');
+        } finally {
+            $this->removeDirectory($dir);
+        }
+
+        $this->assertTrue($keptPage);
+        $this->assertFalse($emptyPage);
+        $this->assertFalse($emptyJson);
+        $this->assertStringContainsString('href="/series/キングダム/"', $index);
+        $this->assertStringNotContainsString('href="/series/ロッキー/"', $index);
+        $this->assertStringNotContainsString('ロッキー', $index);
+        $locs = array_column($entries, 'loc');
+        $this->assertTrue(collect($locs)->contains(fn (string $loc): bool => str_contains($loc, '/series/キングダム/')));
+        $this->assertFalse(collect($locs)->contains(fn (string $loc): bool => str_contains($loc, '/series/ロッキー/')));
+        foreach ($catalog['movieLinks'] as $link) {
+            $this->assertContains($link['name'], $catalogNames);
+        }
+    }
+
+    public function test_allocate_reported_remainder_fills_the_one_missing_japan_gross(): void
+    {
+        $films = SeriesCatalog::allocateReportedRemainder([
+            [
+                'title' => 'インサイド・ヘッド',
+                'boxOffice' => null,
+                'metric' => 'box_office',
+                'unreleased' => false,
+            ],
+            [
+                'title' => 'インサイド・ヘッド2',
+                'boxOffice' => 5_360_000_000,
+                'metric' => 'box_office',
+                'unreleased' => false,
+            ],
+        ], 9_400_000_000);
+
+        $this->assertSame(4_040_000_000, $films[0]['boxOffice']);
+        $this->assertSame('40.4億円', $films[0]['revenue']);
+        $this->assertSame(5_360_000_000, $films[1]['boxOffice']);
+    }
+
+    public function test_series_page_amounts_match_ranking_movies(): void
+    {
+        $ranking = [
+            [
+                'id' => 'jp-tmdb-1022789',
+                'title' => 'インサイド・ヘッド2',
+                'releaseYear' => 2024,
+                'rank' => 40,
+                'inRanking' => true,
+                'boxOffice' => 5_360_000_000,
+            ],
+            [
+                'id' => 'jp-tmdb-kingdom',
+                'title' => 'キングダム',
+                'releaseYear' => 2019,
+                'rank' => 20,
+                'inRanking' => true,
+                'boxOffice' => 5_730_000_000,
+            ],
+            [
+                'id' => 'jp-tmdb-godzilla',
+                'title' => 'ゴジラ-1.0',
+                'releaseYear' => 2023,
+                'rank' => 30,
+                'inRanking' => true,
+                'boxOffice' => 7_650_000_000,
+            ],
+        ];
+
+        $catalog = SeriesCatalog::japan($ranking);
+        $this->assertSame([], SeriesCatalog::rankingAmountMismatches($catalog, $ranking));
+
+        $insideOut = collect($catalog['series'])->firstWhere('name', 'インサイド・ヘッド');
+        $this->assertIsArray($insideOut);
+        $insideOut2 = collect($insideOut['films'])->first(
+            fn (array $film) => str_contains((string) ($film['title'] ?? ''), 'インサイド・ヘッド2')
+        );
+        $insideOut2015 = collect($insideOut['films'])->first(
+            fn (array $film) => (string) ($film['title'] ?? '') === 'インサイド・ヘッド'
+        );
+        $this->assertSame(5_360_000_000, $insideOut2['boxOffice']);
+        $this->assertSame(4_040_000_000, $insideOut2015['boxOffice']);
+        $this->assertSame(9_400_000_000, $insideOut['totalYen']);
+        $this->assertSame('/movies/jp-tmdb-1022789/', $insideOut2['href']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $series
+     */
+    private function sumListedBoxOfficeYen(array $series): ?int
+    {
+        $sum = 0;
+        foreach ($series['films'] ?? [] as $film) {
+            if (! is_array($film) || ! empty($film['unreleased']) || empty($film['boxOffice'])) {
+                continue;
+            }
+            if (($film['metric'] ?? '') === 'distributor_rentals') {
+                continue;
+            }
+            $sum += (int) $film['boxOffice'];
+        }
+
+        return $sum > 0 ? $sum : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $series
+     */
+    private function countUnknownOrUnreleased(array $series): int
+    {
+        $count = 0;
+        foreach ($series['films'] ?? [] as $film) {
+            if (! is_array($film) || ! empty($film['unreleased']) || empty($film['boxOffice'])) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    private function yenText(mixed $yen): string
+    {
+        if (! is_numeric($yen) || (int) $yen <= 0) {
+            return '不明';
+        }
+
+        return number_format(((int) $yen) / 100000000, 1).'億円';
+    }
+
+    private function removeDirectory(string $dir): void
+    {
+        if (! is_dir($dir)) {
+            return;
+        }
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($iterator as $file) {
+            $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
+        }
+        rmdir($dir);
     }
 
     /**

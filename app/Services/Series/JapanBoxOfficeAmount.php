@@ -56,7 +56,7 @@ class JapanBoxOfficeAmount
     {
         $text = self::normalize($text);
 
-        return (bool) preg_match('/\$|USD|US\$|億ドル|百万ドル|million|billion/i', $text);
+        return (bool) preg_match('/\$|USD|US\$|ドル|million|billion/i', $text);
     }
 
     public static function isMissing(string $text): bool
@@ -90,6 +90,9 @@ class JapanBoxOfficeAmount
     public static function parseYen(string $text, ?string $unit = null): ?int
     {
         $text = self::normalize($text);
+        if (self::looksWorldwide($text)) {
+            return null;
+        }
         $text = str_replace(',', '', $text);
 
         if (preg_match('/(\d+(?:\.\d+)?)\s*億\s*(\d+(?:\.\d+)?)\s*万/u', $text, $matches)) {

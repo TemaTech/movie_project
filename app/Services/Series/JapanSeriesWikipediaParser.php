@@ -583,12 +583,16 @@ class JapanSeriesWikipediaParser
 
     private function isWorldTable(string $joined): bool
     {
-        if (preg_match('/億円|万円|\d(?:\.\d+)?億(?!ドル)/u', $joined)) {
+        $hasYen = (bool) preg_match('/億円|万円/u', $joined);
+        $hasDollar = (bool) preg_match('/ドル|USD|US\$|\$\d|Box Office Mojo|The Numbers/u', $joined);
+        if ($hasDollar && ! $hasYen) {
+            return true;
+        }
+        if ($hasYen) {
             return false;
         }
 
-        return (bool) preg_match('/北米|全世界|北アメリカ|インフレ|他地域|ドル|USD|Box Office Mojo|The Numbers/u', $joined)
-            || (bool) preg_match('/\$\d/', $joined);
+        return (bool) preg_match('/北米|全世界|北アメリカ|インフレ|他地域/u', $joined);
     }
 
     private function isNonFilmSection(string $heading, string $caption): bool

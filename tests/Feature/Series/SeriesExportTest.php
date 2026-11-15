@@ -855,7 +855,7 @@ class SeriesExportTest extends TestCase
                 $series['excludedUnknownCount'],
                 $name
             );
-            if (is_numeric($series['reportedTotalYen'] ?? null)) {
+            if ($name !== 'インサイド・ヘッド' && is_numeric($series['reportedTotalYen'] ?? null)) {
                 $this->assertNotSame(
                     (int) $series['reportedTotalYen'],
                     $series['totalYen'],
@@ -864,12 +864,26 @@ class SeriesExportTest extends TestCase
             }
         }
 
+        $insideOut = collect($catalog['series'])->firstWhere('name', 'インサイド・ヘッド');
+        $this->assertIsArray($insideOut);
+        $insideOut2015 = collect($insideOut['films'])->first(
+            fn (array $film) => (string) ($film['title'] ?? '') === 'インサイド・ヘッド'
+        );
+        $insideOut2 = collect($insideOut['films'])->first(
+            fn (array $film) => str_contains((string) ($film['title'] ?? ''), 'インサイド・ヘッド2')
+        );
+        $this->assertIsArray($insideOut2015);
+        $this->assertIsArray($insideOut2);
+
         $kingdom = collect($catalog['series'])->firstWhere('name', 'キングダム');
         $godzilla = collect($catalog['series'])->firstWhere('name', 'ゴジラ');
         $jurassic = collect($catalog['series'])->firstWhere('name', 'ジュラシック・パーク');
         $this->assertSame(31_420_000_000, $kingdom['totalYen']);
         $this->assertSame(15_900_000_000, $godzilla['totalYen']);
         $this->assertSame(51_400_000_000, $jurassic['totalYen']);
+        $this->assertSame(4_040_000_000, $insideOut2015['boxOffice']);
+        $this->assertSame(5_360_000_000, $insideOut2['boxOffice']);
+        $this->assertSame(9_400_000_000, $insideOut['totalYen']);
 
         $onePiece = collect($catalog['series'])->firstWhere('name', 'ONE PIECE');
         $this->assertGreaterThan(0, $onePiece['excludedUnknownCount']);
@@ -1007,6 +1021,74 @@ class SeriesExportTest extends TestCase
         foreach ($catalog['movieLinks'] as $link) {
             $this->assertContains($link['name'], $catalogNames);
         }
+    }
+
+    public function test_allocate_reported_remainder_fills_the_one_missing_japan_gross(): void
+    {
+        $films = SeriesCatalog::allocateReportedRemainder([
+            [
+                'title' => 'インサイド・ヘッド',
+                'boxOffice' => null,
+                'metric' => 'box_office',
+                'unreleased' => false,
+            ],
+            [
+                'title' => 'インサイド・ヘッド2',
+                'boxOffice' => 5_360_000_000,
+                'metric' => 'box_office',
+                'unreleased' => false,
+            ],
+        ], 9_400_000_000);
+
+        $this->assertSame(4_040_000_000, $films[0]['boxOffice']);
+        $this->assertSame('40.4億円', $films[0]['revenue']);
+        $this->assertSame(5_360_000_000, $films[1]['boxOffice']);
+    }
+
+    public function test_series_page_amounts_match_ranking_movies(): void
+    {
+        $ranking = [
+            [
+                'id' => 'jp-tmdb-1022789',
+                'title' => 'インサイド・ヘッド2',
+                'releaseYear' => 2024,
+                'rank' => 40,
+                'inRanking' => true,
+                'boxOffice' => 5_360_000_000,
+            ],
+            [
+                'id' => 'jp-tmdb-kingdom',
+                'title' => 'キングダム',
+                'releaseYear' => 2019,
+                'rank' => 20,
+                'inRanking' => true,
+                'boxOffice' => 5_730_000_000,
+            ],
+            [
+                'id' => 'jp-tmdb-godzilla',
+                'title' => 'ゴジラ-1.0',
+                'releaseYear' => 2023,
+                'rank' => 30,
+                'inRanking' => true,
+                'boxOffice' => 7_650_000_000,
+            ],
+        ];
+
+        $catalog = SeriesCatalog::japan($ranking);
+        $this->assertSame([], SeriesCatalog::rankingAmountMismatches($catalog, $ranking));
+
+        $insideOut = collect($catalog['series'])->firstWhere('name', 'インサイド・ヘッド');
+        $this->assertIsArray($insideOut);
+        $insideOut2 = collect($insideOut['films'])->first(
+            fn (array $film) => str_contains((string) ($film['title'] ?? ''), 'インサイド・ヘッド2')
+        );
+        $insideOut2015 = collect($insideOut['films'])->first(
+            fn (array $film) => (string) ($film['title'] ?? '') === 'インサイド・ヘッド'
+        );
+        $this->assertSame(5_360_000_000, $insideOut2['boxOffice']);
+        $this->assertSame(4_040_000_000, $insideOut2015['boxOffice']);
+        $this->assertSame(9_400_000_000, $insideOut['totalYen']);
+        $this->assertSame('/movies/jp-tmdb-1022789/', $insideOut2['href']);
     }
 
     /**

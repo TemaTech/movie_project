@@ -352,7 +352,7 @@ class ImportJapanSeries extends Command
             if (! $tmdbHit && ! SeriesFilmMatcher::isSameFilm($existing, $film)) {
                 continue;
             }
-            if (empty($existing['boxOfficeYen']) && ! empty($film['boxOfficeYen'])) {
+            if (! empty($film['boxOfficeYen']) && ($source === 'ranking_table' || empty($existing['boxOfficeYen']))) {
                 $existing['boxOfficeYen'] = $film['boxOfficeYen'];
                 $existing['metric'] = $film['metric'] ?? $existing['metric'];
                 $existing['unclear'] = false;

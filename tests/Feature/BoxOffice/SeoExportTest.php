@@ -109,6 +109,64 @@ class SeoExportTest extends TestCase
         $this->assertStringNotContainsString('世界映画興行収入ランキング', $now['appHtml']);
     }
 
+    public function test_now_pages_label_revival_days_as_re_release(): void
+    {
+        $payload = [
+            'board' => [[
+                'key' => 'tmdb-1',
+                'slug' => 'tmdb-1',
+                'title' => '通常作品',
+                'delta' => 1_000_000,
+                'deltaLabel' => '+100万ドル',
+                'revenueLabel' => '1.00億ドル',
+                'boxOffice' => 100_000_000,
+                'daysSinceRelease' => 12,
+            ], [
+                'key' => 'tmdb-2',
+                'slug' => 'tmdb-2',
+                'title' => '再上映作品',
+                'delta' => 2_000_000,
+                'deltaLabel' => '+200万ドル',
+                'revenueLabel' => '29.00億ドル',
+                'boxOffice' => 2_900_000_000,
+                'daysSinceRelease' => 52,
+                'currentReleaseDate' => '2026-09-25',
+            ], [
+                'key' => 'tmdb-3',
+                'slug' => 'tmdb-3',
+                'title' => '発表待ちの再上映',
+                'delta' => null,
+                'revenueLabel' => '28.00億ドル',
+                'boxOffice' => 2_800_000_000,
+                'daysSinceRelease' => 40,
+                'currentReleaseDate' => '2026-09-25',
+            ], [
+                'key' => 'tmdb-4',
+                'slug' => 'tmdb-4',
+                'title' => '発表待ちの通常作品',
+                'delta' => null,
+                'revenueLabel' => '10.0億円',
+                'boxOffice' => 1_000_000_000,
+                'daysSinceRelease' => 5,
+            ]],
+            'today' => [],
+            'milestones' => [],
+            'disclaimer' => '',
+        ];
+
+        foreach ([true, false] as $isGlobal) {
+            $html = $this->invoke('nowStaticHtml', $payload, $isGlobal);
+            $this->assertStringContainsString('公開12日目', $html);
+            $this->assertStringContainsString('再上映52日目', $html);
+            $this->assertStringContainsString('再上映40日目', $html);
+            $this->assertStringContainsString('公開5日目', $html);
+            $this->assertStringNotContainsString('公開52日目', $html);
+            $this->assertStringNotContainsString('公開40日目', $html);
+            $this->assertStringNotContainsString('再上映12日目', $html);
+            $this->assertStringNotContainsString('再上映5日目', $html);
+        }
+    }
+
     public function test_robots_allows_ranking_json_without_crawl_delay(): void
     {
         config(['app.url' => 'https://mubiran.com']);

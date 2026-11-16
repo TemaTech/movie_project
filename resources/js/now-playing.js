@@ -81,6 +81,16 @@ function posterDiv(movie, className) {
         : `<div class="${className} now-poster-empty"></div>`;
 }
 
+function daysSinceReleaseText(movie) {
+    if (movie.daysSinceReleaseLabel) {
+        return movie.daysSinceReleaseLabel;
+    }
+    if (movie.daysSinceRelease == null) {
+        return '';
+    }
+    return `${movie.currentReleaseDate ? '再上映' : '公開'}${movie.daysSinceRelease}日目`;
+}
+
 function periodGrowthLine(movie) {
     const items = movie.periodGrowth || [];
     if (!items.length) return '';
@@ -99,7 +109,7 @@ function heroSection(movie) {
         milestone ? `<div class="now-hero-stat now-hero-milestone"><span>次の節目</span><strong>${escapeHtml(milestone)}</strong></div>` : '',
     ].filter(Boolean).join('');
     const context = [
-        movie.daysSinceRelease != null ? `公開${movie.daysSinceRelease}日目` : '',
+        daysSinceReleaseText(movie),
         movie.rank ? `歴代${movie.rank}位` : '',
         movie.rankDeltaLabel ? escapeHtml(movie.rankDeltaLabel) : '',
     ].filter(Boolean).join('・');
@@ -127,7 +137,7 @@ function heroSection(movie) {
 function movingCard(movie) {
     const milestone = nextMilestoneText(movie);
     const context = [
-        movie.daysSinceRelease != null ? `公開${movie.daysSinceRelease}日目` : '',
+        daysSinceReleaseText(movie),
         movie.rank ? `歴代${movie.rank}位` : '',
         movie.rankDeltaLabel ? escapeHtml(movie.rankDeltaLabel) : '',
     ].filter(Boolean).join('・');
@@ -160,7 +170,7 @@ function waitingRow(movie) {
     const meta = [
         `累計 ${movie.revenueLabel || movie.revenue || ''}`,
         period || null,
-        movie.daysSinceRelease != null ? `公開${movie.daysSinceRelease}日目` : '',
+        daysSinceReleaseText(movie) || null,
         movie.lastObservedAt ? `${formatDate(movie.lastObservedAt)}記録` : '',
     ].filter(Boolean).join('・');
 

@@ -3654,11 +3654,28 @@ HTML;
     /**
      * @param  array<string, mixed>  $movie
      */
+    private function nowDaysSinceReleaseText(array $movie): string
+    {
+        $days = $movie['daysSinceRelease'] ?? null;
+        if ($days === null) {
+            return '';
+        }
+        $revivalDate = is_string($movie['currentReleaseDate'] ?? null) && $movie['currentReleaseDate'] !== ''
+            ? $movie['currentReleaseDate']
+            : null;
+
+        return Insights::daysSinceReleaseLabel((int) $days, $revivalDate) ?? '';
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
     private function nowContextText(array $movie): string
     {
         $parts = [];
-        if (($movie['daysSinceRelease'] ?? null) !== null) {
-            $parts[] = '公開'.(int) $movie['daysSinceRelease'].'日目';
+        $daysLabel = $this->nowDaysSinceReleaseText($movie);
+        if ($daysLabel !== '') {
+            $parts[] = $daysLabel;
         }
         if (! empty($movie['rank'])) {
             $parts[] = '歴代'.(int) $movie['rank'].'位';
@@ -3760,7 +3777,7 @@ HTML;
         $meta = array_filter([
             '累計 '.($movie['revenueLabel'] ?? $movie['revenue'] ?? ''),
             $period === [] ? null : implode(' · ', $period),
-            ($movie['daysSinceRelease'] ?? null) !== null ? '公開'.(int) $movie['daysSinceRelease'].'日目' : '',
+            $this->nowDaysSinceReleaseText($movie) ?: null,
             ! empty($movie['lastObservedAt']) ? $this->formatNowDate((string) $movie['lastObservedAt']).'記録' : '',
         ]);
 

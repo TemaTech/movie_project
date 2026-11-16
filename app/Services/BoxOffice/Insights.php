@@ -266,6 +266,7 @@ class Insights
             'lastChangeAt' => $lastChangeAt,
             'lastIncreaseAt' => $lastIncreaseAt,
             'daysSinceRelease' => $daysSinceRelease,
+            'daysSinceReleaseLabel' => self::daysSinceReleaseLabel($daysSinceRelease, $revivalDate),
             'releaseDate' => $releaseDate,
             'releaseDatePrecision' => $precision,
             'currentReleaseDate' => $revivalDate,
@@ -708,6 +709,21 @@ class Insights
         }
 
         return $last;
+    }
+
+    /**
+     * 公開中ページの経過日数ラベル。日数の起点は変えない。
+     * currentReleaseDate がある再上映は「再上映N日目」、それ以外は「公開N日目」。
+     */
+    public static function daysSinceReleaseLabel(?int $days, ?string $currentReleaseDate): ?string
+    {
+        if ($days === null) {
+            return null;
+        }
+
+        $prefix = is_string($currentReleaseDate) && $currentReleaseDate !== '' ? '再上映' : '公開';
+
+        return $prefix.$days.'日目';
     }
 
     private static function daysSinceRelease(?string $releaseDate, ?string $precision, DateTimeImmutable $at): ?int

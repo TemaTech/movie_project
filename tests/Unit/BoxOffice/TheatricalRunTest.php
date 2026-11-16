@@ -209,5 +209,35 @@ class TheatricalRunTest extends TestCase
         $this->assertSame('2019-04-24', $movie['releaseDate']);
         $this->assertSame('2026-09-25', $movie['currentReleaseDate']);
         $this->assertSame(4, $movie['daysSinceRelease']);
+        $this->assertSame('再上映4日目', $movie['daysSinceReleaseLabel']);
+    }
+
+    public function test_insights_keep_opening_day_label_without_a_revival(): void
+    {
+        $now = new DateTimeImmutable('2026-09-29T12:00:00+09:00');
+        $result = Insights::compute('global', [[
+            'key' => 'tmdb-1',
+            'title' => '新作',
+            'boxOffice' => 100_000_000,
+            'isActive' => true,
+            'rank' => 10,
+        ]], [
+            'tmdb-1' => [[
+                'key' => 'tmdb-1',
+                'observedAt' => '2026-09-29T09:00:00+09:00',
+                'boxOffice' => 100_000_000,
+                'isActive' => true,
+            ]],
+        ], [
+            'tmdb-1' => [
+                'releaseDate' => '2026-09-20',
+                'releaseDatePrecision' => 'day',
+            ],
+        ], $now);
+
+        $movie = $result['movies']['tmdb-1'];
+        $this->assertNull($movie['currentReleaseDate']);
+        $this->assertSame(9, $movie['daysSinceRelease']);
+        $this->assertSame('公開9日目', $movie['daysSinceReleaseLabel']);
     }
 }

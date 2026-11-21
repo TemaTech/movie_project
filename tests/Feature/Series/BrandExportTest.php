@@ -115,9 +115,10 @@ class BrandExportTest extends TestCase
         $pixar = $this->invoke('withBrandSibling', collect($catalog['series'])->firstWhere('slug', 'pixar'), $other);
 
         $html = $this->invoke('seriesDetailHtml', $pixar, $catalog);
-        $this->assertStringContainsString('<title>ピクサー映画 興行収入ランキング（日本） | MUBIRAN</title>', $html);
+        $this->assertStringContainsString('<title>ピクサー映画 歴代興行収入ランキング（全3作・合計311.7億円）| MUBIRAN</title>', $html);
         $this->assertStringContainsString('rel="canonical" href="https://mubiran.com/series/brand/pixar/"', $html);
-        $this->assertStringContainsString('3作品、合計311.7億円', $html);
+        $this->assertStringContainsString('1位『ファインディング・ニモ』110.0億円', $html);
+        $this->assertStringContainsString('<h1 class="page-title" id="page-title">ピクサー映画 興行収入ランキング（日本）</h1>', $html);
         $this->assertStringContainsString('<div><dt>作品数</dt><dd>3</dd></div>', $html);
         $this->assertStringContainsString('<div><dt>合計</dt><dd>311.7億円</dd></div>', $html);
         $this->assertStringContainsString('list-item', $html);
@@ -131,7 +132,7 @@ class BrandExportTest extends TestCase
         $this->assertStringNotContainsString('作を除く', $html);
 
         $index = $this->invoke('brandIndexHtml', $catalog, $other);
-        $this->assertStringContainsString('<title>日本の映画スタジオ・ユニバース興行収入 | MUBIRAN</title>', $index);
+        $this->assertStringContainsString('<title>映画スタジオ・ユニバース 興行収入ランキング（日本）| MUBIRAN</title>', $index);
         $this->assertStringContainsString('href="/series/brand/pixar/"', $index);
         $this->assertStringContainsString('ピクサー', $index);
         $this->assertStringContainsString('シリーズ一覧', $index);
@@ -154,6 +155,68 @@ class BrandExportTest extends TestCase
         ], $catalog);
         $this->assertStringContainsString('href="/series/brand/pixar/"', $seriesIndex);
         $this->assertStringContainsString('スタジオ・ユニバース別', $seriesIndex);
+        $this->assertStringContainsString('<title>映画シリーズ 興行収入ランキング（日本）| MUBIRAN</title>', $seriesIndex);
+    }
+
+    public function test_mcu_and_ghibli_brand_titles_do_not_repeat_eiga(): void
+    {
+        config(['app.url' => 'https://mubiran.com']);
+        $world = BrandCatalog::world($this->worldRankingFixture());
+        $mcu = collect($world['series'])->firstWhere('slug', 'mcu');
+        $this->assertIsArray($mcu);
+        $mcuHtml = $this->invoke('seriesDetailHtml', $mcu, $world);
+        $this->assertStringContainsString(
+            '<title>MCU映画 歴代興行収入ランキング（全3作・合計57.45億ドル）| MUBIRAN</title>',
+            $mcuHtml
+        );
+        $this->assertStringContainsString('1位『アベンジャーズ／エンドゲーム』29.43億ドル', $mcuHtml);
+        $this->assertStringContainsString('<h1 class="page-title" id="page-title">MCU映画 興行収入ランキング（世界）</h1>', $mcuHtml);
+        $this->assertStringNotContainsString('MCU映画映画', $mcuHtml);
+
+        $ghibli = [
+            'slug' => 'ghibli',
+            'name' => 'スタジオジブリ',
+            'titleName' => 'スタジオジブリ映画',
+            'heading' => 'スタジオジブリ映画 興行収入ランキング（日本）',
+            'path' => '/series/brand/ghibli/',
+            'kind' => 'brand',
+            'filmCount' => 3,
+            'totalYen' => 50_000_000_000,
+            'indexable' => true,
+            'films' => [[
+                'id' => 'jp-tmdb-129',
+                'title' => '千と千尋の神隠し',
+                'boxOffice' => 31_680_000_000,
+                'inRanking' => true,
+                'rank' => 3,
+            ], [
+                'id' => 'jp-tmdb-8392',
+                'title' => 'となりのトトロ',
+                'boxOffice' => 10_000_000_000,
+                'inRanking' => true,
+                'rank' => 50,
+            ], [
+                'id' => 'jp-tmdb-4935',
+                'title' => 'ハウルの動く城',
+                'boxOffice' => 8_320_000_000,
+                'inRanking' => true,
+                'rank' => 80,
+            ]],
+        ];
+        $ghibliHtml = $this->invoke('seriesDetailHtml', $ghibli, [
+            'region' => 'japan',
+            'indexPath' => '/series/brand/',
+        ]);
+        $this->assertStringContainsString(
+            '<title>スタジオジブリ映画 歴代興行収入ランキング（全3作・合計500.0億円）| MUBIRAN</title>',
+            $ghibliHtml
+        );
+        $this->assertStringContainsString('1位『千と千尋の神隠し』316.8億円', $ghibliHtml);
+        $this->assertStringContainsString('<h1 class="page-title" id="page-title">スタジオジブリ映画 興行収入ランキング（日本）</h1>', $ghibliHtml);
+        $this->assertStringNotContainsString('スタジオジブリ映画映画', $ghibliHtml);
+
+        $worldIndex = $this->invoke('brandIndexHtml', $world, BrandCatalog::japan($this->japanRankingFixture()));
+        $this->assertStringContainsString('<title>映画スタジオ・ユニバース 興行収入ランキング（世界）| MUBIRAN</title>', $worldIndex);
     }
 
     public function test_brand_pages_are_exported_and_listed_in_the_sitemap(): void

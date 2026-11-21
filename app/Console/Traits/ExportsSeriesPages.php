@@ -160,7 +160,7 @@ trait ExportsSeriesPages
         $isJapan = ($catalog['region'] ?? '') === 'japan';
         $series = $this->listedSeries($catalog);
         $heading = $isJapan ? '日本の映画シリーズ興行収入' : '世界の映画シリーズ興行収入';
-        $pageTitle = $heading.' | MUBIRAN';
+        $pageTitle = '映画シリーズ 興行収入ランキング（'.($isJapan ? '日本' : '世界').'）| MUBIRAN';
         $description = $isJapan
             ? '日本で公開された映画シリーズの累計興行収入。名探偵コナン、ポケットモンスターなど、シリーズごとの作品一覧と興収合計。'
             : '世界興行収入をもとにした映画シリーズ（フランチャイズ）の累計。TMDBのコレクション情報から作品をまとめています。';
@@ -231,16 +231,10 @@ trait ExportsSeriesPages
         $name = (string) ($series['name'] ?? '');
         $heading = (string) ($series['heading'] ?? ($name.'のシリーズ興行収入'));
         $amountLabel = $this->seriesAmountLabel($series, $isJapan);
-        $totalLabel = $this->seriesTotalWithNote($series, $isJapan);
-        $pageTitle = $isBrand
-            ? $heading.' | MUBIRAN'
-            : $heading.' '.$amountLabel.' | MUBIRAN';
         $filmCount = (int) ($series['filmCount'] ?? count($series['films'] ?? []));
-        $description = $isBrand
-            ? $heading.'。'.$filmCount.'作品、合計'.$totalLabel.'。'
-            : $name.'シリーズの'.($isJapan ? '日本' : '世界').'興行収入。'
-                .$filmCount.'作品、合計'.$totalLabel.'。';
         $movies ??= $this->seriesMoviesForUi($series, $isJapan);
+        $pageTitle = $this->seriesSeoTitle($series, $isJapan);
+        $description = $this->seriesSeoDescription($series, $catalog, $movies);
         $payload = $this->seriesClientPayload($series, $catalog, $movies);
         $indexHref = $isBrand
             ? (string) ($catalog['indexPath'] ?? ($isJapan ? '/series/brand/' : '/series/global/brand/'))
@@ -294,7 +288,7 @@ trait ExportsSeriesPages
         $ogImage = $baseUrl.'/images/android-chrome-512x512.png';
 
         $ePageTitle = $this->h($pageTitle);
-        $eDescription = $this->h(mb_substr($description, 0, 120));
+        $eDescription = $this->h($description);
         $eCanonical = $this->h($canonical);
         $eOgImage = $this->h($ogImage);
         $eHeading = $this->h($heading);
@@ -955,7 +949,7 @@ HTML;
         $isJapan = ($catalog['region'] ?? '') === 'japan';
         $brands = $this->listedSeries($catalog);
         $heading = $isJapan ? '日本の映画スタジオ・ユニバース興行収入' : '世界の映画スタジオ・ユニバース興行収入';
-        $pageTitle = $heading.' | MUBIRAN';
+        $pageTitle = '映画スタジオ・ユニバース 興行収入ランキング（'.($isJapan ? '日本' : '世界').'）| MUBIRAN';
         $description = $isJapan
             ? '日本の歴代興行収入ランキングに載っている作品を、ディズニー・アニメーション、ピクサー、スタジオジブリなどの制作スタジオやユニバース別に集計した興行収入。'
             : '世界の歴代興行収入ランキングに載っている作品を、MCU、ピクサー、DCなどの制作スタジオやユニバース別に集計した興行収入。';
@@ -1067,5 +1061,139 @@ HTML;
         $scope = $isJapan ? '日本の歴代興行収入ランキング' : '世界の歴代興行収入ランキング';
 
         return '<p class="series-attr">'.$this->h($scope).'に載っている作品だけを集計しています。どの作品がどのスタジオ・ユニバースかは、配給だけの関係を除いた対応表に基づきます。</p>';
+    }
+
+    /**
+     * 検索で使われる「{名前}映画」。末尾がすでに「映画」なら重ねない。
+     */
+    private function seriesSeoFilmLabel(string $name): string
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return '映画';
+        }
+        if (str_ends_with($name, '映画')) {
+            return $name;
+        }
+
+        return $name.'映画';
+    }
+
+    /**
+     * TMDB コレクション名から「コレクション」「Collection」などを外したシリーズ名。
+     */
+    private function seriesSeoBareName(string $name): string
+    {
+        $name = trim($name);
+        $stripped = preg_replace('/[\s　]*(コレクション|Collection|シリーズ|Series)$/iu', '', $name);
+
+        return trim(is_string($stripped) && $stripped !== '' ? $stripped : $name);
+    }
+
+    /**
+     * @param  array<string, mixed>  $series
+     */
+    private function seriesSeoTitle(array $series, bool $isJapan): string
+    {
+        $isBrand = ($series['kind'] ?? '') === 'brand';
+        $name = $isBrand
+            ? (string) ($series['titleName'] ?? $series['name'] ?? '')
+            : (string) ($series['name'] ?? '');
+        $count = (int) ($series['filmCount'] ?? count($series['films'] ?? []));
+        $amount = $this->seriesAmountLabel($series, $isJapan);
+
+        return $this->seriesSeoFilmLabel($name).' 歴代興行収入ランキング（全'.$count.'作・合計'.$amount.'）| MUBIRAN';
+    }
+
+    /**
+     * 1〜3位の作品名と興収、最終更新日を含む 120 字前後の文。
+     *
+     * @param  array<string, mixed>  $series
+     * @param  array<string, mixed>  $catalog
+     * @param  list<array<string, mixed>>  $movies
+     */
+    private function seriesSeoDescription(array $series, array $catalog, array $movies): string
+    {
+        $isJapan = ($catalog['region'] ?? '') === 'japan';
+        $isBrand = ($series['kind'] ?? $catalog['kind'] ?? '') === 'brand';
+        $name = $isBrand
+            ? (string) ($series['titleName'] ?? $series['name'] ?? '')
+            : (string) ($series['name'] ?? '');
+        $bare = $this->seriesSeoBareName((string) ($series['name'] ?? ''));
+        $lead = $this->seriesSeoFilmLabel($name).'の'.($isJapan ? '日本' : '世界').'歴代興行収入';
+        $ranked = [];
+        foreach ($movies as $movie) {
+            if (count($ranked) >= 3) {
+                break;
+            }
+            $title = (string) ($movie['title'] ?? '');
+            if ($title === '' || ! empty($movie['unreleased']) || ($movie['revenue'] ?? '') === '公開予定') {
+                continue;
+            }
+            $revenue = $isJapan
+                ? $this->yenLabel($movie['boxOffice'] ?? null)
+                : $this->usdLabel($movie['boxOffice'] ?? null);
+            if ($revenue === '不明') {
+                continue;
+            }
+            $ranked[] = [
+                'title' => $this->seriesSeoFilmDisplayTitle($title, $bare),
+                'revenue' => $revenue,
+            ];
+        }
+        $updated = $this->formatRankingDate(
+            $this->seriesLastmod($series, $this->seriesCatalogLastmod($catalog))
+        );
+        $suffix = $updated !== null ? $updated.'更新。' : '';
+
+        for ($n = count($ranked); $n >= 0; $n--) {
+            $text = $lead;
+            if ($n > 0) {
+                $bits = [];
+                foreach (array_slice($ranked, 0, $n) as $index => $row) {
+                    $bits[] = ($index + 1).'位『'.$row['title'].'』'.$row['revenue'];
+                }
+                $text .= '。'.implode('、', $bits);
+            }
+            $text .= '。'.$suffix;
+            if ($n <= 1 || mb_strlen($text) <= 125) {
+                return $text;
+            }
+        }
+
+        return $lead.'。'.$suffix;
+    }
+
+    private function seriesSeoFilmDisplayTitle(string $filmTitle, string $seriesName): string
+    {
+        $seriesName = trim($seriesName);
+        if ($seriesName === '' || $seriesName === $filmTitle) {
+            return $filmTitle;
+        }
+        foreach ([$seriesName.' ', $seriesName.'　', $seriesName] as $prefix) {
+            if (str_starts_with($filmTitle, $prefix) && mb_strlen($filmTitle) > mb_strlen($prefix)) {
+                $rest = preg_replace('/^[\s:：\/／\-]+|[\s:：\/／\-]+$/u', '', mb_substr($filmTitle, mb_strlen($prefix))) ?? '';
+
+                return $rest !== '' ? $rest : $filmTitle;
+            }
+        }
+
+        return $filmTitle;
+    }
+
+    /**
+     * 圏外作品の title 用。「（{シリーズ名} 映画）」。末尾の「映画」は重ねない。
+     */
+    private function seriesSeoParenthetical(string $name): string
+    {
+        $bare = $this->seriesSeoBareName($name);
+        if ($bare === '') {
+            return '';
+        }
+        if (str_ends_with($bare, '映画')) {
+            return '（'.$bare.'）';
+        }
+
+        return '（'.$bare.' 映画）';
     }
 }

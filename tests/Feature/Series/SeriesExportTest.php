@@ -72,7 +72,7 @@ class SeriesExportTest extends TestCase
         $other = ['region' => 'global', 'indexPath' => '/series/global/', 'series' => []];
 
         $index = $this->invoke('seriesIndexHtml', $catalog, $other);
-        $this->assertStringContainsString('<title>日本の映画シリーズ興行収入 | MUBIRAN</title>', $index);
+        $this->assertStringContainsString('<title>映画シリーズ 興行収入ランキング（日本）| MUBIRAN</title>', $index);
         $this->assertStringContainsString('rel="canonical" href="https://mubiran.com/series/"', $index);
         $this->assertStringContainsString('og:description', $index);
         $this->assertStringContainsString('ItemList', $index);
@@ -85,6 +85,16 @@ class SeriesExportTest extends TestCase
 
         $catalog['series'][0]['indexable'] = true;
         $detail = $this->invoke('seriesDetailHtml', $catalog['series'][0], $catalog);
+        $this->assertStringContainsString(
+            '<title>名探偵コナン映画 歴代興行収入ランキング（全29作・合計1,494.6億円）| MUBIRAN</title>',
+            $detail
+        );
+        $this->assertStringContainsString(
+            'content="名探偵コナン映画の日本歴代興行収入。1位『時計じかけの摩天楼』11.0億円。2026年11月14日更新。"',
+            $detail
+        );
+        $this->assertStringContainsString('property="og:title" content="名探偵コナン映画 歴代興行収入ランキング（全29作・合計1,494.6億円）| MUBIRAN"', $detail);
+        $this->assertStringContainsString('<h1 class="page-title" id="page-title">名探偵コナンのシリーズ興行収入</h1>', $detail);
         $this->assertStringContainsString('名探偵コナンのシリーズ興行収入', $detail);
         $this->assertStringContainsString('rel="canonical" href="https://mubiran.com/series/名探偵コナン/"', $detail);
         $this->assertStringContainsString('時計じかけの摩天楼', $detail);
@@ -101,6 +111,69 @@ class SeriesExportTest extends TestCase
         $this->assertStringContainsString('data-movie-id="jp-tmdb-1"', $detail);
         $this->assertStringNotContainsString('top-card', $detail);
         $this->assertStringNotContainsString('series-table', $detail);
+    }
+
+    public function test_world_series_index_title_matches_the_page_scope(): void
+    {
+        config(['app.url' => 'https://mubiran.com']);
+        $html = $this->invoke('seriesIndexHtml', [
+            'region' => 'global',
+            'indexPath' => '/series/global/',
+            'series' => [[
+                'slug' => 'harry-potter',
+                'name' => 'ハリー・ポッター コレクション',
+                'path' => '/series/global/harry-potter/',
+                'filmCount' => 8,
+                'totalUsd' => 7_700_000_000,
+                'films' => [['title' => '賢者の石', 'boxOffice' => 1]],
+            ]],
+        ], [
+            'region' => 'japan',
+            'indexPath' => '/series/',
+            'series' => [],
+        ]);
+
+        $this->assertStringContainsString('<title>映画シリーズ 興行収入ランキング（世界）| MUBIRAN</title>', $html);
+        $this->assertStringContainsString('<h1 class="content-page-title">世界の映画シリーズ興行収入</h1>', $html);
+    }
+
+    public function test_series_extra_movie_title_uses_series_name_instead_of_out_of_ranking(): void
+    {
+        config(['app.url' => 'https://mubiran.com']);
+        $html = $this->invoke('moviePageHtml', [
+            'id' => 'tmdb-675',
+            'title' => 'ハリー・ポッターと不死鳥の騎士団',
+            'revenue' => '9.38億ドル',
+            'boxOffice' => 938_212_738,
+            'rank' => null,
+            'inRanking' => false,
+            'collectionName' => 'ハリー・ポッター コレクション',
+            'posterUrl' => '',
+            'genres' => [],
+        ], false, sys_get_temp_dir(), []);
+
+        $this->assertStringContainsString(
+            '<title>ハリー・ポッターと不死鳥の騎士団 の興行収入 9.38億ドル | （ハリー・ポッター 映画） - MUBIRAN</title>',
+            $html
+        );
+        $this->assertStringNotContainsString('世界ランキング圏外', $html);
+        $this->assertStringContainsString('<dt>世界ランキング</dt><dd>圏外</dd>', $html);
+        $this->assertStringContainsString('<h1 class="movie-page-title">ハリー・ポッターと不死鳥の騎士団の興行収入</h1>', $html);
+
+        $japan = $this->invoke('moviePageHtml', [
+            'id' => 'jp-series-conan-1',
+            'title' => '名探偵コナン 時計じかけの摩天楼',
+            'revenue' => '11.0億円',
+            'boxOffice' => 1_100_000_000,
+            'rank' => null,
+            'inRanking' => false,
+            'seriesName' => '名探偵コナン',
+            'posterUrl' => '',
+            'genres' => [],
+        ], true, sys_get_temp_dir(), []);
+        $this->assertStringContainsString('（名探偵コナン 映画）', $japan);
+        $this->assertStringNotContainsString('日本ランキング圏外', $japan);
+        $this->assertStringContainsString('<dt>日本ランキング</dt><dd>圏外</dd>', $japan);
     }
 
     public function test_series_pages_are_listed_in_the_sitemap_with_data_dates(): void

@@ -353,6 +353,7 @@ class SeriesCatalog
                 'productionCountry' => $productionCountry,
                 'updatedAt' => $updatedAt,
                 'seriesSlug' => $series['slug'] ?? null,
+                'seriesName' => $series['name'] ?? null,
                 'indexable' => is_numeric($boxOffice) && (int) $boxOffice > 0 && ! self::filmIsUnreleased([
                     'releaseDate' => $releaseDate,
                     'releaseYear' => $year,

@@ -2559,6 +2559,45 @@ XML);
     }
 
     /**
+     * シリーズ展開の圏外作品は「日本/世界ランキング圏外」ではなくシリーズ名を title に使う。
+     * 本文の順位表示は変えない。
+     *
+     * @param  array<string, mixed>  $movie
+     */
+    private function movieSeoTitleQualifier(array $movie, bool $isJapan, string $rankLabel, string $rankValue): string
+    {
+        $inRanking = ($movie['inRanking'] ?? true) && is_numeric($movie['rank'] ?? null);
+        if ($inRanking) {
+            return $rankLabel.$rankValue;
+        }
+        $seriesName = $this->seriesNameForMovieSeo($movie);
+        if ($seriesName !== '') {
+            return $this->seriesSeoParenthetical($seriesName);
+        }
+
+        return $rankLabel.$rankValue;
+    }
+
+    /**
+     * @param  array<string, mixed>  $movie
+     */
+    private function seriesNameForMovieSeo(array $movie): string
+    {
+        $id = (string) ($movie['id'] ?? '');
+        $link = $id !== '' ? ($this->seriesMovieLinks[$id] ?? null) : null;
+        if (is_array($link) && ($link['name'] ?? '') !== '') {
+            return (string) $link['name'];
+        }
+        foreach (['seriesName', 'collectionName'] as $key) {
+            if (is_string($movie[$key] ?? null) && $movie[$key] !== '') {
+                return $movie[$key];
+            }
+        }
+
+        return '';
+    }
+
+    /**
      * sitemap / JSON-LD 共通の W3C 日時。解釈できない値は使わない。
      */
     private function atomTimestamp(mixed $raw): ?string
@@ -2882,7 +2921,8 @@ XML);
         );
         $rankLabel = $isJapan ? '日本ランキング' : '世界ランキング';
         $rankValue = $this->formatRankValue($movie['rank'] ?? null);
-        $pageTitle = "{$title} の興行収入 {$movie['revenue']} | {$rankLabel}{$rankValue} - MUBIRAN";
+        $titleQualifier = $this->movieSeoTitleQualifier($movie, $isJapan, $rankLabel, $rankValue);
+        $pageTitle = "{$title} の興行収入 {$movie['revenue']} | {$titleQualifier} - MUBIRAN";
         $robots = SeriesCatalog::movieIsIndexable($movie) ? 'index, follow' : 'noindex, follow';
         $description = $this->movieMetaDescription($movie, $isJapan, $title, $releaseDate, $overview, $knownIds);
 

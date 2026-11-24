@@ -8,3 +8,8 @@
 {"key":"jp-tmdb-1924","observedAt":"2026-11-09T23:50:37+09:00","boxOffice":5600000000,"isActive":false}
 {"key":"jp-tmdb-1586876","observedAt":"2026-11-16T23:29:38+09:00","boxOffice":18960000000,"isActive":true}
 {"key":"jp-tmdb-936075","observedAt":"2026-11-16T23:29:38+09:00","boxOffice":8840000000,"isActive":true}
+{"key":"jp-tmdb-1586876","observedAt":"2026-11-25T01:47:55+09:00","boxOffice":19070000000,"isActive":true}
+{"key":"jp-tmdb-936075","observedAt":"2026-11-25T01:47:55+09:00","boxOffice":8850000000,"isActive":true}
+{"key":"jp-tmdb-1381071","observedAt":"2026-11-25T01:47:55+09:00","boxOffice":5300000000,"isActive":true}
+{"key":"jp-tmdb-1892","observedAt":"2026-11-25T01:47:55+09:00","boxOffice":5300000000,"isActive":false,"correction":true}
+{"key":"jp-tmdb-75629","observedAt":"2026-11-25T01:47:55+09:00","boxOffice":5300000000,"isActive":false,"correction":true}

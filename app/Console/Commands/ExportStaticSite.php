@@ -16,7 +16,9 @@ use App\Services\BoxOffice\TheatricalRun;
 use App\Services\News\BoxOfficeNewsMatcher;
 use App\Services\News\YahooBoxOfficeNews;
 use App\Services\Series\BrandCatalog;
+use App\Services\Series\RelatedMovies;
 use App\Services\Series\SeriesCatalog;
+use App\Services\Site\InternalLinkChecker;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
@@ -44,6 +46,21 @@ class ExportStaticSite extends Command
 
     /** @var array<string, array{href: string, name: string}> */
     private array $brandMovieLinks = [];
+
+    /**
+     * @var array{
+     *     series: array<string, list<array<string, mixed>>>,
+     *     brand: array<string, list<array<string, mixed>>>,
+     *     rankingGlobal: list<array<string, mixed>>,
+     *     rankingJapan: list<array<string, mixed>>
+     * }
+     */
+    private array $relatedIndexes = [
+        'series' => [],
+        'brand' => [],
+        'rankingGlobal' => [],
+        'rankingJapan' => [],
+    ];
 
     /** JS の PER_PAGE（resources/js/static-site.js）。画面のページ分割に使う。静的HTMLは全件を載せる。 */
     private const RANKING_PAGE_SIZE = 100;
@@ -166,6 +183,23 @@ class ExportStaticSite extends Command
                 ];
             }
         }
+        $exportableIds = [];
+        foreach ($knownIds as $id => $_) {
+            $exportableIds[(string) $id] = true;
+        }
+        foreach ($globalExtras as $extra) {
+            $id = (string) ($extra['id'] ?? '');
+            if ($id !== '') {
+                $exportableIds[$id] = true;
+            }
+        }
+        $this->relatedIndexes = RelatedMovies::buildIndexes(
+            array_merge($japanSeries['series'] ?? [], $worldSeries['series'] ?? []),
+            array_merge($japanBrands['series'] ?? [], $worldBrands['series'] ?? []),
+            $global,
+            $japan,
+            $exportableIds,
+        );
         $this->exportMoviePages($output, collect($global), collect($japan), $knownIds);
         foreach ($boardOnly as $movie) {
             $this->writeMoviePage($output, $movie, ($movie['region'] ?? '') === 'japan', $knownIds);
@@ -206,6 +240,7 @@ class ExportStaticSite extends Command
         $this->line('Global: '.count($global).' movies / Japan: '.count($japan).' movies');
         $this->line('Series: Japan '.count($japanSeries['series']).' / World '.count($worldSeries['series']));
         $this->line("Movie pages: {$moviePageCount}");
+        $this->reportInternalLinks($output);
 
         return self::SUCCESS;
     }
@@ -3017,6 +3052,13 @@ XML);
             $seriesHtml .= '<p class="movie-series-link">ブランド: <a href="'.$this->h((string) $brandLink['href']).'">'.$this->h((string) $brandLink['name']).'</a></p>';
             $backParts[] = '<a href="'.$this->h((string) $brandLink['href']).'">ブランドページ</a>';
         }
+        $relatedHtml = $this->relatedMoviesHtml(RelatedMovies::pick($movie, [
+            'series' => $this->relatedIndexes['series'],
+            'brand' => $this->relatedIndexes['brand'],
+            'ranking' => $isJapan
+                ? ($this->relatedIndexes['rankingJapan'] ?? [])
+                : ($this->relatedIndexes['rankingGlobal'] ?? []),
+        ]));
         $backHtml = '<p class="movie-back-link">'.implode(' · ', $backParts).'</p>';
         $relatedLink = $siblingUrl
             ? '<link rel="related" href="'.$this->h($siblingUrl).'">'."\n    "
@@ -3086,6 +3128,7 @@ XML);
         </div>
         {$historyHtml}
         {$seriesHtml}
+        {$relatedHtml}
       </article>
       {$backHtml}
       {$siblingAnchor}
@@ -3098,6 +3141,43 @@ XML);
   </body>
 </html>
 HTML;
+    }
+
+    /**
+     * @param  list<array{id: string, title: string, href: string, revenue: ?string}>  $related
+     */
+    private function relatedMoviesHtml(array $related): string
+    {
+        if ($related === []) {
+            return '';
+        }
+
+        $items = [];
+        foreach ($related as $item) {
+            $title = $this->h((string) $item['title']);
+            $href = $this->h((string) $item['href']);
+            $revenue = trim((string) ($item['revenue'] ?? ''));
+            $meta = $revenue !== ''
+                ? ' <span class="movie-related-revenue">'.$this->h($revenue).'</span>'
+                : '';
+            $items[] = '<li><a href="'.$href.'">'.$title.'</a>'.$meta.'</li>';
+        }
+
+        return '<section class="movie-section movie-related"><h2>関連作品</h2><ul class="movie-related-list">'.implode('', $items).'</ul></section>';
+    }
+
+    private function reportInternalLinks(string $output): void
+    {
+        $result = InternalLinkChecker::scan($output);
+        $this->line('Internal links: '.$result['unique'].' unique across '.$result['scanned'].' HTML files');
+        if ($result['missing'] === []) {
+            return;
+        }
+
+        $this->warn(count($result['missing']).' broken internal link(s) (warning only):');
+        foreach ($result['missing'] as $row) {
+            $this->line('  '.$row['href'].'  (from '.$row['from'].')');
+        }
     }
 
     private function exportTrustPages(string $output): void

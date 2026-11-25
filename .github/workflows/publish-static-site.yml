@@ -201,6 +201,9 @@ jobs:
       - name: Export static site
         run: php artisan site:export-static
 
+      - name: Check internal links
+        run: php artisan site:check-internal-links --output=dist
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:

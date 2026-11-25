@@ -427,6 +427,11 @@ body.content-page { padding-bottom: 40px; }
 
 .movie-series-link { margin: 16px 0 0; font-size: .9rem; color: var(--text-secondary); }
 .movie-series-link a { color: var(--accent-blue); }
+.movie-related { margin-top: 20px; }
+.movie-related-list { padding-left: 1.2rem; margin: 0; color: var(--text-secondary); line-height: 1.7; }
+.movie-related-list li + li { margin-top: 2px; }
+.movie-related-list a { color: var(--accent-blue); }
+.movie-related-revenue { font-size: .85rem; }
 
 .series-detail-page .page-title {
     margin: 24px 0 20px;

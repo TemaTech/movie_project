@@ -8,6 +8,7 @@ if ! php -r 'exit(
     || (version_compare(PHP_VERSION, "8.3.36", ">=") && version_compare(PHP_VERSION, "8.4.0", "<"))
     || (version_compare(PHP_VERSION, "8.4.27", ">=") && version_compare(PHP_VERSION, "8.5.0", "<"))
     || (version_compare(PHP_VERSION, "8.5.12", ">=") && version_compare(PHP_VERSION, "8.6.0", "<"))
+    || version_compare(PHP_VERSION, "8.6.0", ">=")
     ? 0 : 1);'; then
     echo "Refusing to start: PHP $(php -r 'echo PHP_VERSION;') is not a patched release for CVE-2026-109618 and CVE-2026-109619." >&2
     exit 1

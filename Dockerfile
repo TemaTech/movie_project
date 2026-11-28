@@ -7,8 +7,8 @@ RUN export NODE_OPTIONS=--openssl-legacy-provider && \
     npm install && \
     npm run build
 
-# CVE-2026-109618 / CVE-2026-109619 の修正版。8.2系のまま上げる。
-FROM php:8.2.35-fpm
+# 最新の8.6系。8.6.0 は CVE-2026-109618 / CVE-2026-109619 の修正を含む（php-src NEWS）。
+FROM php:8.6.0-fpm
 
 # プロダクション用の最適化
 ENV TZ=Asia/Tokyo
@@ -29,11 +29,12 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     libzip-dev \
+    libonig-dev \
     procps \
     openssl \
     tzdata \
     cron \
-    && docker-php-ext-install pdo pdo_mysql zip opcache
+    && docker-php-ext-install pdo_mysql zip mbstring  # PDO と OPcache は標準で組み込み。mbstring は 8.6 のイメージから別途必要
 
 # SSL証明書の設定
 RUN mkdir -p /etc/nginx/ssl

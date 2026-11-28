@@ -9,6 +9,10 @@ html.js .now-static { display: none; }
 .ranking-static-revenue { margin-left: auto; color: var(--accent-gold); white-space: nowrap; }
 .ranking-static-switch { margin-top: 24px; }
 .ranking-static-switch a { color: var(--accent-blue); }
+.popular-series { margin-top: 32px; }
+.popular-series-title { font-size: 1rem; font-weight: 500; color: var(--text-secondary); margin: 0 0 8px; }
+.popular-series-links { color: var(--text-secondary); line-height: 1.9; margin: 0; }
+.popular-series-links a { color: var(--accent-blue); }
 .static-updated, .static-empty, .static-error { color: var(--text-secondary); text-align: center; }
 .static-empty { margin: 16px 0 28px; }
 .static-updated { display: block; }

@@ -527,6 +527,28 @@ function headerHtml() {
     </header>`;
 }
 
+// 書き出し時に選んだ人気シリーズ・ブランド（ExportStaticSite::popularSeriesJsonScript）
+const popularSeriesData = (() => {
+    try {
+        return JSON.parse(document.getElementById('popular-series')?.textContent || 'null') || {};
+    } catch {
+        return {};
+    }
+})();
+
+// ExportStaticSite::popularSeriesHtml と同じマークアップ
+function popularSeriesHtml(isJapan) {
+    const links = (popularSeriesData[isJapan ? 'japan' : 'global'] || [])
+        .filter((link) => link && typeof link.href === 'string' && link.href.startsWith('/series/') && link.name);
+    if (!links.length) return '';
+    const items = links.map((link) => `<a href="${escapeHtml(link.href)}">${escapeHtml(link.name)}</a>`).join(' · ');
+    const allHref = isJapan ? '/series/' : '/series/global/';
+    return `<nav class="popular-series" aria-label="人気のシリーズ・ブランド">
+        <h2 class="popular-series-title">人気のシリーズ・ブランド</h2>
+        <p class="popular-series-links">${items} （<a href="${allHref}">すべてのシリーズ</a>）</p>
+    </nav>`;
+}
+
 function footerHtml() {
     const year = new Date().getFullYear();
     const usdJpy = Number.isFinite(Number(siteData?.usdJpy)) && Number(siteData.usdJpy) > 0
@@ -650,6 +672,7 @@ function render(data) {
             : '<p class="static-empty text-center text-white">データがありません。</p>'}
         ${lastUpdated ? `<div class="text-center mt-4 mb-5"><small class="static-updated">最終更新: ${escapeHtml(lastUpdated)}</small></div>` : ''}
         <div class="d-flex justify-content-center mt-4">${renderPagination(totalItems)}</div>
+        ${popularSeriesHtml(isJapan)}
     </main>
     ${footerHtml()}
     ${renderFilterModal(allGenres, state)}`;

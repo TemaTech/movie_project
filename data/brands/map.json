@@ -155,6 +155,9 @@
       "slug": "mcu",
       "name": "MCU",
       "titleName": "MCU映画",
+      "allFilmsRegions": [
+        "global"
+      ],
       "tmdbIds": [
         1726,
         1724,
@@ -192,7 +195,8 @@
         533535,
         969681,
         822119,
-        986669
+        986056,
+        617126
       ],
       "collectionIds": [],
       "titleAliases": [],

@@ -15,11 +15,13 @@ class BrandCatalog
 
     /**
      * @param  list<array<string, mixed>>  $rankingMovies
+     * @param  list<array<string, mixed>>  $extraMovies  歴代ランキング外の作品（シリーズ・ブランド追加分）。
+     *                                                   allFilmsRegions に global があるブランドだけが使う。
      * @return array<string, mixed>
      */
-    public static function world(array $rankingMovies): array
+    public static function world(array $rankingMovies, array $extraMovies = []): array
     {
-        return self::build($rankingMovies, 'global');
+        return self::build(array_merge($rankingMovies, $extraMovies), 'global');
     }
 
     /**
@@ -37,6 +39,44 @@ class BrandCatalog
             $decoded['brands'],
             fn (mixed $row): bool => is_array($row) && ($row['slug'] ?? '') !== ''
         ));
+    }
+
+    /**
+     * 歴代ランキングに入っていない作品も含めて、劇場公開作品をすべて載せるブランドか。
+     * map.json の allFilmsRegions に地域（global / japan）を書いたブランドだけが対象。
+     *
+     * @param  array<string, mixed>  $brand
+     */
+    public static function listsAllFilms(array $brand, string $region): bool
+    {
+        $regions = $brand['allFilmsRegions'] ?? [];
+
+        return is_array($regions) && in_array($region, $regions, true);
+    }
+
+    /**
+     * 全作品を載せるブランドの tmdbIds（除外指定を除く）。取得側が歴代ランキング外の作品を足すのに使う。
+     *
+     * @param  list<array<string, mixed>>|null  $definitions  省略時は map.json
+     * @return array<int, string> tmdbId => ブランドの slug
+     */
+    public static function allFilmsTmdbIds(string $region, ?array $definitions = null): array
+    {
+        $ids = [];
+        foreach ($definitions ?? self::definitions() as $brand) {
+            if (! is_array($brand) || ! self::listsAllFilms($brand, $region)) {
+                continue;
+            }
+            $slug = (string) ($brand['slug'] ?? '');
+            $excluded = self::intSet($brand['excludeTmdbIds'] ?? []);
+            foreach (array_keys(self::intSet($brand['tmdbIds'] ?? [])) as $id) {
+                if ($slug !== '' && ! isset($excluded[$id]) && ! isset($ids[$id])) {
+                    $ids[$id] = $slug;
+                }
+            }
+        }
+
+        return $ids;
     }
 
     public static function minFilms(): int
@@ -97,10 +137,10 @@ class BrandCatalog
     }
 
     /**
-     * @param  list<array<string, mixed>>  $rankingMovies
+     * @param  list<array<string, mixed>>  $movies
      * @return array<string, mixed>
      */
-    private static function build(array $rankingMovies, string $region): array
+    private static function build(array $movies, string $region): array
     {
         $isJapan = $region === 'japan';
         $indexPath = $isJapan ? '/series/brand/' : '/series/global/brand/';
@@ -112,18 +152,9 @@ class BrandCatalog
             ];
         }
 
-        foreach ($rankingMovies as $movie) {
-            if (! is_array($movie) || empty($movie['inRanking'] ?? true)) {
+        foreach ($movies as $movie) {
+            if (! is_array($movie)) {
                 continue;
-            }
-            if (! SeriesCatalog::filmHasDisplayableAmount($movie)) {
-                continue;
-            }
-            if (! $isJapan) {
-                $box = (int) ($movie['boxOffice'] ?? 0);
-                if ($box === 1_000_000_000) {
-                    continue;
-                }
             }
             $brand = self::match($movie);
             if ($brand === null) {
@@ -131,6 +162,10 @@ class BrandCatalog
             }
             $slug = (string) $brand['slug'];
             if (! isset($grouped[$slug])) {
+                continue;
+            }
+            $allFilms = self::listsAllFilms($brand, $region);
+            if (! self::belongsOnPage($movie, $brand, $allFilms, $isJapan)) {
                 continue;
             }
             $grouped[$slug]['films'][] = self::filmRow($movie, $isJapan, $slug);
@@ -147,9 +182,15 @@ class BrandCatalog
             $definition = $bucket['definition'];
             $name = (string) ($definition['name'] ?? $slug);
             $titleName = (string) ($definition['titleName'] ?? $name);
+            $allFilms = self::listsAllFilms($definition, $region);
             $total = 0;
+            $known = 0;
             foreach ($films as $film) {
-                $total += (int) ($film['boxOffice'] ?? 0);
+                $amount = (int) ($film['boxOffice'] ?? 0);
+                if ($amount > 0) {
+                    $total += $amount;
+                    $known++;
+                }
             }
             $regionLabel = $isJapan ? '日本' : '世界';
             $heading = $titleName.' 興行収入ランキング（'.$regionLabel.'）';
@@ -163,8 +204,9 @@ class BrandCatalog
                 'region' => $region,
                 'kind' => 'brand',
                 'filmCount' => count($films),
-                'knownCount' => count($films),
-                'excludedUnknownCount' => 0,
+                'knownCount' => $known,
+                'excludedUnknownCount' => count($films) - $known,
+                'allFilms' => $allFilms,
                 'totalYen' => $isJapan ? $total : null,
                 'totalUsd' => $isJapan ? null : $total,
                 'reportedTotalYen' => null,
@@ -208,6 +250,34 @@ class BrandCatalog
     }
 
     /**
+     * 通常のブランドは歴代ランキング内で興収が分かる作品だけ。
+     * 全作品を載せるブランドは、ランキング外でも tmdbIds に明記した公開済み作品なら興収不明でも載せる。
+     *
+     * @param  array<string, mixed>  $movie
+     * @param  array<string, mixed>  $brand
+     */
+    private static function belongsOnPage(array $movie, array $brand, bool $allFilms, bool $isJapan): bool
+    {
+        if (SeriesCatalog::filmIsUnreleased($movie)) {
+            return false;
+        }
+        $inRanking = ! empty($movie['inRanking'] ?? true);
+        if ($allFilms) {
+            if ($inRanking) {
+                return true;
+            }
+            $tmdbId = self::tmdbId($movie);
+
+            return $tmdbId !== null && isset(self::intSet($brand['tmdbIds'] ?? [])[$tmdbId]);
+        }
+        if (! $inRanking || ! SeriesCatalog::filmHasDisplayableAmount($movie)) {
+            return false;
+        }
+
+        return $isJapan || (int) ($movie['boxOffice'] ?? 0) !== 1_000_000_000;
+    }
+
+    /**
      * @param  array<string, mixed>  $movie
      * @return array<string, mixed>
      */
@@ -215,6 +285,10 @@ class BrandCatalog
     {
         $id = (string) ($movie['id'] ?? '');
         $boxOffice = (int) ($movie['boxOffice'] ?? 0);
+        $known = $boxOffice > 0 && ($isJapan || $boxOffice !== 1_000_000_000);
+        if (! $known) {
+            $boxOffice = 0;
+        }
         $rank = is_numeric($movie['rank'] ?? null) ? (int) $movie['rank'] : null;
         $inRanking = ($movie['inRanking'] ?? true) && $rank !== null && $rank > 0 && $rank <= 200;
 
@@ -227,9 +301,9 @@ class BrandCatalog
             'releaseYear' => $movie['releaseYear'] ?? null,
             'releaseDate' => $movie['releaseDate'] ?? null,
             'boxOffice' => $boxOffice,
-            'revenue' => $movie['revenue'] ?? null,
-            'revenueBillion' => $movie['revenueBillion'] ?? null,
-            'revenueYen' => $movie['revenueYen'] ?? null,
+            'revenue' => $known ? ($movie['revenue'] ?? null) : '不明',
+            'revenueBillion' => $known ? ($movie['revenueBillion'] ?? null) : null,
+            'revenueYen' => $known ? ($movie['revenueYen'] ?? null) : null,
             'rank' => $inRanking ? $rank : null,
             'metric' => 'box_office',
             'kind' => 'theatrical',

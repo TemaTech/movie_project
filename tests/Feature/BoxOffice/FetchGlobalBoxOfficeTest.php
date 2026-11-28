@@ -171,6 +171,83 @@ class FetchGlobalBoxOfficeTest extends TestCase
         $this->assertContains('tmdb-99861', array_column($mcu['films'], 'id'));
     }
 
+    public function test_all_films_brand_adds_released_films_missing_from_ranking_and_series(): void
+    {
+        $cacheDir = storage_path('app/tmdb-series/movies');
+        $ids = [990001, 990002, 990003, 990004, 990005];
+        $this->forgetSeriesCache($ids);
+        $calls = [];
+        Http::fake(function (\Illuminate\Http\Client\Request $request) use (&$calls) {
+            $url = $request->url();
+            if (! preg_match('~/movie/(\d+)\?~', $url, $matches)) {
+                return Http::response('', 404);
+            }
+            $id = (int) $matches[1];
+            $calls[] = $id;
+            $payload = match ($id) {
+                990002 => ['belongs_to_collection' => ['id' => 5, 'name' => '別のコレクション']]
+                    + $this->tmdbPayload(990002, 'ランキング外の作品', 382_000_000, 3_000, '2025-04-30'),
+                990003 => $this->tmdbPayload(990003, '公開前の作品', 0, 0, '2099-12-18'),
+                990005 => $this->tmdbPayload(990005, '興収不明の作品', 0, 800, '2021-11-03'),
+                default => null,
+            };
+
+            return $payload === null ? Http::response('', 404) : Http::response($payload);
+        });
+
+        $definitions = [[
+            'slug' => 'test-universe',
+            'name' => 'テスト',
+            'allFilmsRegions' => ['global'],
+            'tmdbIds' => $ids,
+            'excludeTmdbIds' => [990004],
+        ], [
+            'slug' => 'ranking-only',
+            'name' => '歴代だけ',
+            'tmdbIds' => [990006],
+        ]];
+        $ranking = [$this->rankingRow(990001, '歴代に入っている作品', 900_000_000)];
+        $seriesExtras = [];
+
+        try {
+            $command = $this->command();
+            $extras = $this->invoke($command, 'appendBrandExtras', $ranking, $seriesExtras, $definitions);
+            $cachedUnreleased = is_file($cacheDir.'/990003.json');
+            $cachedReleased = is_file($cacheDir.'/990002.json');
+        } finally {
+            $this->forgetSeriesCache($ids);
+        }
+
+        $this->assertSame([990002, 990005], array_column($extras, 'tmdb_id'));
+        $added = $extras[0];
+        $this->assertSame('tmdb-990002', $added['movie_id']);
+        $this->assertSame(0, $added['in_ranking']);
+        $this->assertNull($added['rank']);
+        $this->assertSame(382_000_000, $added['box_office']);
+        $this->assertSame('2025-04-30', $added['release_date']);
+        $this->assertNull($added['tmdb_collection_id'], 'ブランドだけで足した作品はシリーズページを作らない');
+        $this->assertNull($added['tmdb_collection_name']);
+        $this->assertSame(0, $extras[1]['box_office'], '興収が無い作品も 0（不明）で残す');
+        $this->assertTrue($cachedReleased);
+        $this->assertFalse($cachedUnreleased, '公開前の詳細はキャッシュに残さない');
+        $this->assertNotContains(990001, $calls, '歴代に入っている作品は取り直さない');
+        $this->assertNotContains(990004, $calls, '除外した作品は取らない');
+        $this->assertNotContains(990006, $calls, '全作品指定のないブランドは取らない');
+    }
+
+    /**
+     * @param  list<int>  $ids
+     */
+    private function forgetSeriesCache(array $ids): void
+    {
+        foreach ($ids as $id) {
+            $path = storage_path('app/tmdb-series/movies/'.$id.'.json');
+            if (is_file($path)) {
+                unlink($path);
+            }
+        }
+    }
+
     /**
      * @param  array<string, mixed>  $details
      */

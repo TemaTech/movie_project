@@ -161,7 +161,7 @@ class ExportStaticSite extends Command
         $japanSeries = SeriesCatalog::japan($japan);
         $worldSeries = SeriesCatalog::world($global, $globalExtras);
         $japanBrands = BrandCatalog::japan($japan);
-        $worldBrands = BrandCatalog::world($global);
+        $worldBrands = BrandCatalog::world($global, $globalExtras);
         $this->hydrateSeriesMedia($japanSeries, $output.'/data/details');
         $this->hydrateSeriesMedia($worldSeries, $output.'/data/details');
         $storage = storage_path('app/public');

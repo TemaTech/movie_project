@@ -295,6 +295,96 @@ class BrandExportTest extends TestCase
         $this->assertSame([], $catalog['series']);
     }
 
+    public function test_mcu_lists_every_released_film_including_non_ranking_and_unknown(): void
+    {
+        $catalog = BrandCatalog::world($this->worldRankingFixture(), $this->worldExtrasFixture());
+        $mcu = collect($catalog['series'])->firstWhere('slug', 'mcu');
+        $this->assertIsArray($mcu);
+        $this->assertTrue($mcu['allFilms']);
+        $this->assertSame(5, $mcu['filmCount']);
+        $this->assertSame(4, $mcu['knownCount']);
+        $this->assertSame(1, $mcu['excludedUnknownCount']);
+        $this->assertSame(2_942_649_778 + 1_921_426_073 + 880_978_185 + 585_174_222, $mcu['totalUsd']);
+        $this->assertSame(
+            ['tmdb-299534', 'tmdb-634649', 'tmdb-315635', 'tmdb-1726', 'tmdb-524434'],
+            array_column($mcu['films'], 'id')
+        );
+
+        $ironMan = collect($mcu['films'])->firstWhere('id', 'tmdb-1726');
+        $this->assertNull($ironMan['rank']);
+        $this->assertFalse($ironMan['inRanking']);
+        $eternals = collect($mcu['films'])->firstWhere('id', 'tmdb-524434');
+        $this->assertSame(0, $eternals['boxOffice']);
+        $this->assertSame('不明', $eternals['revenue']);
+        $this->assertNull($eternals['revenueYen']);
+
+        $ids = array_column($mcu['films'], 'id');
+        $this->assertNotContains('tmdb-617126', $ids, '公開前の作品は載せない');
+        $this->assertNotContains('tmdb-580489', $ids, 'ソニーの作品は載せない');
+        $this->assertSame('/series/global/brand/mcu/', $catalog['movieLinks']['tmdb-1726']['href']);
+
+        $pixar = collect($catalog['series'])->firstWhere('slug', 'pixar');
+        $this->assertFalse($pixar['allFilms']);
+        $this->assertNotContains('tmdb-2062', array_column($pixar['films'], 'id'), '全作品指定のないブランドはランキング外を足さない');
+        $this->assertSame(0, $pixar['excludedUnknownCount']);
+    }
+
+    public function test_all_films_brand_page_counts_every_film_and_marks_unknown_revenue(): void
+    {
+        config(['app.url' => 'https://mubiran.com']);
+        $world = BrandCatalog::world($this->worldRankingFixture(), $this->worldExtrasFixture());
+        $mcu = collect($world['series'])->firstWhere('slug', 'mcu');
+        $movies = $this->invoke('seriesMoviesForUi', $mcu, false);
+        $this->assertCount(5, $movies);
+        $this->assertSame([1, 2, 3, 4, null], array_column($movies, 'rank'));
+        $this->assertSame('不明', $movies[4]['revenue']);
+        $this->assertNull($movies[3]['rankingPosition']);
+
+        $html = $this->invoke('seriesDetailHtml', $mcu, $world);
+        $this->assertStringContainsString(
+            '<title>MCU映画 歴代興行収入ランキング（全5作・合計63.30億ドル）| MUBIRAN</title>',
+            $html
+        );
+        $this->assertStringContainsString('<h1 class="page-title" id="page-title">MCU映画 興行収入ランキング（世界）</h1>', $html);
+        $this->assertStringContainsString('rel="canonical" href="https://mubiran.com/series/global/brand/mcu/"', $html);
+        $this->assertStringContainsString('<div><dt>作品数</dt><dd>5</dd></div>', $html);
+        $this->assertStringContainsString('<div><dt>合計</dt><dd>63.30億ドル（不明1作を除く）</dd></div>', $html);
+        $this->assertStringContainsString('data-movie-id="tmdb-524434"', $html);
+        $this->assertStringContainsString('data-movie-id="tmdb-1726"', $html);
+        $this->assertStringContainsString('<span class="revenue-main">不明</span>', $html);
+        $this->assertStringContainsString('MCUの劇場公開作品をすべて載せています', $html);
+        $this->assertStringContainsString('5作品、合計63.30億ドル（不明1作を除く）', $html);
+
+        $index = $this->invoke('brandIndexHtml', $world, BrandCatalog::japan($this->japanRankingFixture()));
+        $this->assertStringContainsString('MCUはランキング外も含めて劇場公開作品をすべて載せています。', $index);
+        $this->assertStringContainsString('<td class="series-num">5</td>', $index);
+    }
+
+    public function test_mcu_brand_map_lists_every_theatrical_film_for_the_world_page(): void
+    {
+        $mcu = collect(BrandCatalog::definitions())->firstWhere('slug', 'mcu');
+        $this->assertIsArray($mcu);
+        $this->assertTrue(BrandCatalog::listsAllFilms($mcu, 'global'));
+        $this->assertFalse(BrandCatalog::listsAllFilms($mcu, 'japan'));
+
+        $ids = array_map('intval', $mcu['tmdbIds']);
+        $this->assertCount(38, array_unique($ids));
+        foreach ([1726, 1724, 497698, 566525, 524434, 640146, 609681, 822119, 986056, 617126, 969681] as $id) {
+            $this->assertContains($id, $ids);
+        }
+        $this->assertNotContains(986669, $ids);
+        $this->assertSame([], array_intersect($ids, array_map('intval', $mcu['excludeTmdbIds'])));
+
+        $targets = BrandCatalog::allFilmsTmdbIds('global');
+        $this->assertSame('mcu', $targets[617126] ?? null);
+        $this->assertSame([], BrandCatalog::allFilmsTmdbIds('japan'));
+        foreach (BrandCatalog::definitions() as $brand) {
+            if (($brand['slug'] ?? '') !== 'mcu') {
+                $this->assertFalse(BrandCatalog::listsAllFilms($brand, 'global'), (string) $brand['slug']);
+            }
+        }
+    }
+
     public function test_ranking_movies_with_collection_ids_match_at_most_one_brand(): void
     {
         $movies = $this->productionRankingMoviesWithCollectionIds();
@@ -389,6 +479,46 @@ class BrandExportTest extends TestCase
             $this->movie('tmdb-10193', 10193, 'トイ・ストーリー3', 1_067_316_101, 47, 'Toy Story 3'),
             $this->movie('tmdb-12', 12, 'ファインディング・ニモ', 940_335_536, 77, 'Finding Nemo'),
             $this->movie('tmdb-585', 585, 'モンスターズ・インク', 650_000_000, 184, 'Monsters, Inc.'),
+        ];
+    }
+
+    /**
+     * 歴代ランキング外（global_movies.in_ranking = false）の作品。
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function worldExtrasFixture(): array
+    {
+        return [
+            $this->extra('tmdb-1726', 1726, 'アイアンマン', 585_174_222, '2008-04-30', 'Iron Man'),
+            $this->extra('tmdb-524434', 524434, 'エターナルズ', 0, '2021-11-03', 'Eternals'),
+            $this->extra('tmdb-617126', 617126, 'ファンタスティック4：ファースト・ステップ', 0, '2099-07-25', 'The Fantastic Four: First Steps'),
+            $this->extra('tmdb-580489', 580489, 'ヴェノム：レット・ゼア・ビー・カーネイジ', 506_863_592, '2021-09-30', 'Venom: Let There Be Carnage'),
+            $this->extra('tmdb-2062', 2062, 'レミーのおいしいレストラン', 623_722_818, '2007-06-22', 'Ratatouille'),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function extra(string $id, int $tmdbId, string $title, int $boxOffice, string $releaseDate, string $original): array
+    {
+        return [
+            'id' => $id,
+            'slug' => $id,
+            'tmdbId' => $tmdbId,
+            'title' => $title,
+            'originalTitle' => $original,
+            'rank' => null,
+            'inRanking' => false,
+            'collectionId' => null,
+            'releaseDate' => $releaseDate,
+            'releaseYear' => (int) substr($releaseDate, 0, 4),
+            'boxOffice' => $boxOffice,
+            'revenue' => $boxOffice > 0 ? number_format($boxOffice / 100000000, 2).'億ドル' : '不明',
+            'revenueYen' => $boxOffice > 0 ? '1.0億円' : '0.0億円',
+            'posterUrl' => '',
+            'genres' => [],
         ];
     }
 

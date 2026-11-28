@@ -8,6 +8,7 @@ use App\Services\BoxOffice\GlobalRankingAssembler;
 use App\Services\BoxOffice\HistoryRecorder;
 use App\Services\BoxOffice\MovieIdentity;
 use App\Services\BoxOffice\TheatricalRun;
+use App\Services\Series\BrandCatalog;
 use App\Services\Tmdb\TmdbClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -103,10 +104,11 @@ class FetchGlobalBoxOffice extends Command
             $movies = $this->appendPreviousRankingMovies($movies, $existingAnalyses);
 
             $callsBeforeSeries = $this->tmdb->httpCalls();
-            $extras = $this->expandCollectionMovies($movies);
+            $extras = $this->withBrandExtras($movies, $this->expandCollectionMovies($movies));
             $movies = $this->promoteHighGrossingExtras($movies, $extras, $existingAnalyses);
             $movies = GlobalRankingAssembler::finalize($movies, self::TARGET_MOVIES);
-            $extras = $this->expandCollectionMovies($movies);
+            // 2回目はコレクション・作品詳細ともキャッシュから読むので、TMDb への追加呼び出しはほぼ無い。
+            $extras = $this->withBrandExtras($movies, $this->expandCollectionMovies($movies));
 
             if (count($movies) < HistoryRecorder::MINIMUM_MOVIES) {
                 $this->error(sprintf(
@@ -121,7 +123,7 @@ class FetchGlobalBoxOffice extends Command
             $this->persistMovies($movies);
             $this->persistSeriesExtras($extras);
             $this->info(sprintf(
-                '処理完了: ランキング%d件 / シリーズ追加%d件 / TMDb HTTP %d回（うちシリーズ展開 +%d）',
+                '処理完了: ランキング%d件 / シリーズ・ブランド追加%d件 / TMDb HTTP %d回（うちシリーズ・ブランド展開 +%d）',
                 count($movies),
                 count($extras),
                 $this->tmdb->httpCalls(),
@@ -507,10 +509,92 @@ class FetchGlobalBoxOffice extends Command
     }
 
     /**
+     * 全作品を載せるブランド（map.json の allFilmsRegions に global）の作品のうち、
+     * 歴代ランキングにもシリーズ追加にも無いものを、シリーズ追加と同じ形で足す。
+     * 作品詳細はシリーズ追加と同じ storage/app/tmdb-series/movies/ にキャッシュする。
+     *
+     * @param  list<array<string, mixed>>  $rankingMovies
+     * @param  list<array<string, mixed>>  $extras
+     * @return list<array<string, mixed>>
+     */
+    private function withBrandExtras(array $rankingMovies, array $extras): array
+    {
+        if (! Schema::hasColumn('global_movies', 'in_ranking')) {
+            return $extras;
+        }
+
+        return $this->appendBrandExtras($rankingMovies, $extras);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rankingMovies
+     * @param  list<array<string, mixed>>  $extras
+     * @param  list<array<string, mixed>>|null  $definitions  省略時は data/brands/map.json
+     * @return list<array<string, mixed>>
+     */
+    private function appendBrandExtras(array $rankingMovies, array $extras, ?array $definitions = null): array
+    {
+        $targets = BrandCatalog::allFilmsTmdbIds('global', $definitions);
+        if ($targets === []) {
+            return $extras;
+        }
+
+        $seen = $this->movieIds($rankingMovies) + $this->movieIds($extras);
+        $added = 0;
+        $skipped = 0;
+        foreach ($targets as $tmdbId => $slug) {
+            if (isset($seen[$tmdbId])) {
+                continue;
+            }
+            $seen[$tmdbId] = true;
+            $record = $this->buildBrandExtraRecord($tmdbId, $slug);
+            if ($record === null) {
+                $skipped++;
+
+                continue;
+            }
+            $extras[] = $record;
+            $added++;
+        }
+
+        $this->info(sprintf('ブランド全作品: ランキング外 %d件を追加 / 未公開・取得失敗 %d件', $added, $skipped));
+
+        return $extras;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function buildBrandExtraRecord(int $tmdbId, string $brandSlug): ?array
+    {
+        $details = $this->loadSeriesMovieDetails($tmdbId);
+        if ($details === null) {
+            $this->warn(sprintf('ブランド %s の作品 %d の詳細を取得できませんでした', $brandSlug, $tmdbId));
+
+            return null;
+        }
+
+        $releaseDate = is_string($details['release_date'] ?? null) ? $details['release_date'] : '';
+        if ($releaseDate === '' || $releaseDate > now('Asia/Tokyo')->toDateString()) {
+            // 公開前の詳細をキャッシュに残すと、公開後も未公開のまま読まれるので消しておく。
+            File::delete(storage_path('app/tmdb-series/movies/'.$tmdbId.'.json'));
+
+            return null;
+        }
+
+        return $this->buildSeriesExtraRecord([
+            'id' => $tmdbId,
+            'title' => $details['title'] ?? null,
+            'original_title' => $details['original_title'] ?? null,
+            'release_date' => $releaseDate,
+        ], null, null);
+    }
+
+    /**
      * @param  array<string, mixed>  $part
      * @return array<string, mixed>|null
      */
-    private function buildSeriesExtraRecord(array $part, string $collectionName, int $collectionId): ?array
+    private function buildSeriesExtraRecord(array $part, ?string $collectionName, ?int $collectionId): ?array
     {
         $tmdbId = (int) ($part['id'] ?? 0);
         if ($tmdbId === 0) {
@@ -545,9 +629,12 @@ class FetchGlobalBoxOffice extends Command
             $localPosterPath = $this->downloadAndSaveImage($details['poster_path'], $key);
         }
 
-        $collectionTitle = is_array($details['belongs_to_collection'] ?? null)
-            ? ($details['belongs_to_collection']['name'] ?? $collectionName)
-            : $collectionName;
+        // ブランドだけで足した作品はコレクションを付けない（世界のシリーズページを増やさない）。
+        $collectionTitle = $collectionId === null
+            ? null
+            : (is_array($details['belongs_to_collection'] ?? null)
+                ? ($details['belongs_to_collection']['name'] ?? $collectionName)
+                : $collectionName);
 
         return [
             'movie_id' => $key,

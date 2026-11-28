@@ -250,10 +250,11 @@ trait ExportsSeriesPages
             ? '/data/series/'.($isJapan ? 'japan' : 'global').'/brand/'.rawurlencode((string) ($series['slug'] ?? '')).'.json'
             : '/data/series/'.($isJapan ? 'japan' : 'global').'/'.rawurlencode((string) ($series['slug'] ?? '')).'.json';
         $totalDt = $isBrand ? '合計' : 'シリーズ合計';
+        $totalDd = $isBrand ? $this->seriesTotalWithNote($series, $isJapan) : $amountLabel;
 
         $stats = '<dl class="series-stats">'
             .'<div><dt>作品数</dt><dd>'.$filmCount.'</dd></div>'
-            .'<div><dt>'.$totalDt.'</dt><dd>'.$this->h($amountLabel).'</dd></div>';
+            .'<div><dt>'.$totalDt.'</dt><dd>'.$this->h($totalDd).'</dd></div>';
         if ($isJapan && ! empty($series['hasRentals'])) {
             $stats .= '<div><dt>配給収入の作品</dt><dd>'.$this->h($this->yenLabel($series['sumRentalsYen'] ?? null)).'</dd></div>';
         }
@@ -272,7 +273,7 @@ trait ExportsSeriesPages
             : '<section class="ranking-list" id="series-ranking-list">'.$rows.'</section>';
 
         $attribution = $isBrand
-            ? $this->brandAttribution($isJapan)
+            ? $this->brandAttribution($isJapan, $series)
             : ($isJapan ? $this->japanSeriesAttribution($catalog) : $this->worldSeriesAttribution());
         $dateModified = $this->seriesLastmod($series, $this->seriesCatalogLastmod($catalog));
         $jsonLd = $this->seriesDetailJsonLd($series, $catalog, $movies, $dateModified);
@@ -441,9 +442,17 @@ HTML;
      */
     private function seriesMoviesForUi(array $series, bool $isJapan): array
     {
+        // 全作品を載せるブランドは、公開済みなら興収不明の作品も「不明」として残す。
+        $keepUnknown = ! empty($series['allFilms']);
         $films = [];
         foreach ($series['films'] ?? [] as $film) {
-            if (is_array($film) && SeriesCatalog::filmHasDisplayableAmount($film)) {
+            if (! is_array($film)) {
+                continue;
+            }
+            if (
+                SeriesCatalog::filmHasDisplayableAmount($film)
+                || ($keepUnknown && ! SeriesCatalog::filmIsUnreleased($film))
+            ) {
                 $films[] = $film;
             }
         }
@@ -977,15 +986,19 @@ HTML;
                 .'<td class="series-num">'.$total.'</td></tr>'."\n";
         }
 
-        $body = '<p class="series-lead">'.$this->h($isJapan
+        $allFilmsNames = $this->allFilmsBrandNames($brands);
+        $lead = $isJapan
             ? '日本の歴代ランキングに載っている作品だけを、制作スタジオやユニバースごとに集計しています。配給だけの作品は入れていません。'
-            : '世界の歴代ランキングに載っている作品だけを、制作スタジオやユニバースごとに集計しています。配給だけの作品は入れていません。'
-        ).'</p>'
+            : '世界の歴代ランキングに載っている作品だけを、制作スタジオやユニバースごとに集計しています。配給だけの作品は入れていません。';
+        if ($allFilmsNames !== []) {
+            $lead .= implode('・', $allFilmsNames).'はランキング外も含めて劇場公開作品をすべて載せています。';
+        }
+        $body = '<p class="series-lead">'.$this->h($lead).'</p>'
             .'<p class="ranking-static-switch"><a href="'.$this->h($otherHref).'">'.$this->h($otherLabel).'</a>'
             .' · <a href="'.$this->h($parentHref).'">シリーズ一覧</a></p>'
             .'<table class="series-table"><thead><tr><th>順位</th><th>ブランド</th><th>作品数</th><th>合計</th></tr></thead><tbody>'
             .$rows.'</tbody></table>'
-            .$this->brandAttribution($isJapan);
+            .$this->brandAttribution($isJapan, null, $allFilmsNames);
 
         $jsonLd = $this->seriesIndexJsonLd($catalog, $heading, $this->seriesCatalogLastmod($catalog));
         $crumb = $isJapan ? '日本のシリーズ' : '世界のシリーズ';
@@ -1056,11 +1069,48 @@ HTML;
         return $brand;
     }
 
-    private function brandAttribution(bool $isJapan): string
+    /**
+     * @param  array<string, mixed>|null  $series  ブランド個別ページなら、そのブランド
+     * @param  list<string>  $allFilmsNames  一覧ページで、全作品を載せているブランド名
+     */
+    private function brandAttribution(bool $isJapan, ?array $series = null, array $allFilmsNames = []): string
     {
         $scope = $isJapan ? '日本の歴代興行収入ランキング' : '世界の歴代興行収入ランキング';
+        $mapping = 'どの作品がどのスタジオ・ユニバースかは、配給だけの関係を除いた対応表に基づきます。';
 
-        return '<p class="series-attr">'.$this->h($scope).'に載っている作品だけを集計しています。どの作品がどのスタジオ・ユニバースかは、配給だけの関係を除いた対応表に基づきます。</p>';
+        if (is_array($series) && ! empty($series['allFilms'])) {
+            $source = $isJapan ? '' : '興行収入は TMDB の作品の revenue です。';
+
+            return '<p class="series-attr">'.$this->h(
+                '歴代ランキング外の作品も含めて、'.(string) ($series['name'] ?? '').'の劇場公開作品をすべて載せています。'
+                .'興行収入が分からない作品は「不明」と表示し、順位と合計には含めていません。'
+                .$source.$mapping
+            ).'</p>';
+        }
+
+        $text = $scope.'に載っている作品だけを集計しています。';
+        if ($allFilmsNames !== []) {
+            $text = $scope.'に載っている作品を集計しています（'.implode('・', $allFilmsNames).'はランキング外の劇場公開作品も含む）。';
+        }
+
+        return '<p class="series-attr">'.$this->h($text.$mapping).'</p>';
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $brands
+     * @return list<string>
+     */
+    private function allFilmsBrandNames(array $brands): array
+    {
+        $names = [];
+        foreach ($brands as $brand) {
+            $name = (string) ($brand['name'] ?? '');
+            if (! empty($brand['allFilms']) && $name !== '') {
+                $names[] = $name;
+            }
+        }
+
+        return $names;
     }
 
     /**

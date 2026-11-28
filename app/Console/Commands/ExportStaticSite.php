@@ -16,6 +16,7 @@ use App\Services\BoxOffice\TheatricalRun;
 use App\Services\News\BoxOfficeNewsMatcher;
 use App\Services\News\YahooBoxOfficeNews;
 use App\Services\Series\BrandCatalog;
+use App\Services\Series\PopularSeriesLinks;
 use App\Services\Series\RelatedMovies;
 use App\Services\Series\SeriesCatalog;
 use App\Services\Site\InternalLinkChecker;
@@ -46,6 +47,13 @@ class ExportStaticSite extends Command
 
     /** @var array<string, array{href: string, name: string}> */
     private array $brandMovieLinks = [];
+
+    /**
+     * トップ（global）と /japan/（japan）に並べる人気シリーズ・ブランドへのリンク。
+     *
+     * @var array{global: list<array{name: string, href: string, kind: string}>, japan: list<array{name: string, href: string, kind: string}>}
+     */
+    private array $popularSeriesLinks = ['global' => [], 'japan' => []];
 
     /**
      * @var array{
@@ -171,6 +179,10 @@ class ExportStaticSite extends Command
         $seriesMovieLinks = array_merge($worldSeries['movieLinks'], $japanSeries['movieLinks']);
         $this->seriesMovieLinks = $seriesMovieLinks;
         $this->brandMovieLinks = array_merge($worldBrands['movieLinks'], $japanBrands['movieLinks']);
+        $this->popularSeriesLinks = [
+            'global' => PopularSeriesLinks::pick($worldSeries, $worldBrands),
+            'japan' => PopularSeriesLinks::pick($japanSeries, $japanBrands),
+        ];
 
         $boardOnly = $this->boardOnlyMovies($globalInsights, $japanInsights, $global, $japan);
         $knownIds = $this->knownMovieIds($global, $japan, $boardOnly);
@@ -3583,7 +3595,50 @@ HTML;
             .'<ol class="ranking-static-list">'."\n".$items.'</ol>'
             .'<p class="ranking-static-switch"><a href="'.$this->h($otherHref).'">'.$this->h($otherLabel).'</a>'
             .' · <a href="/series/">シリーズ興行収入</a></p>'
+            .$this->popularSeriesHtml($isJapan)
             .'</main>';
+    }
+
+    /**
+     * 人気シリーズ・ブランドへのリンク欄。JS 描画側（static-site.js の popularSeriesHtml）と同じマークアップ。
+     */
+    private function popularSeriesHtml(bool $isJapan): string
+    {
+        $links = $this->popularSeriesLinks[$isJapan ? 'japan' : 'global'] ?? [];
+        if ($links === []) {
+            return '';
+        }
+        $items = [];
+        foreach ($links as $link) {
+            $items[] = '<a href="'.$this->h($link['href']).'">'.$this->h($link['name']).'</a>';
+        }
+        $allHref = $isJapan ? '/series/' : '/series/global/';
+
+        return '<nav class="popular-series" aria-label="人気のシリーズ・ブランド">'
+            .'<h2 class="popular-series-title">人気のシリーズ・ブランド</h2>'
+            .'<p class="popular-series-links">'.implode(' · ', $items)
+            .' （<a href="'.$this->h($allHref).'">すべてのシリーズ</a>）</p>'
+            .'</nav>';
+    }
+
+    /**
+     * JS がランキング画面を描き直すときに同じ欄を出せるよう、両地域分を JSON で埋め込む。
+     */
+    private function popularSeriesJsonScript(): string
+    {
+        if (($this->popularSeriesLinks['global'] ?? []) === [] && ($this->popularSeriesLinks['japan'] ?? []) === []) {
+            return '';
+        }
+        $strip = fn (array $links): array => array_map(
+            fn (array $link): array => ['name' => $link['name'], 'href' => $link['href']],
+            $links
+        );
+        $json = json_encode([
+            'global' => $strip($this->popularSeriesLinks['global'] ?? []),
+            'japan' => $strip($this->popularSeriesLinks['japan'] ?? []),
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP);
+
+        return '<script type="application/json" id="popular-series">'.$json.'</script>';
     }
 
     /**
@@ -4094,6 +4149,7 @@ HTML;
         $jsonLd = $meta['jsonLd'];
         $appHtml = $meta['appHtml'];
         $boot = $this->rankingFallbackGuard();
+        $popularSeries = $this->popularSeriesJsonScript();
 
         return <<<HTML
 <!doctype html>
@@ -4134,6 +4190,7 @@ HTML;
   </head>
   <body>
     <div id="app" aria-live="polite">{$appHtml}</div>
+    {$popularSeries}
     <script>
       document.addEventListener('click', function (event) {
         var node = event.target;
